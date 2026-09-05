@@ -33,27 +33,27 @@ Neither model is a source of truth. Completion requires evidence.
 
 - [x] Create private GitHub repository
 - [x] Establish repository as source of truth
-- [ ] Add project-control documentation
-- [ ] Add Python project scaffold
-- [ ] Add pytest, ruff, mypy
-- [ ] Add pre-commit
-- [ ] Add GitHub Actions CI
-- [ ] Confirm all checks pass
+- [x] Add project-control documentation
+- [x] Add Python project scaffold
+- [x] Add pytest, ruff, mypy
+- [x] Add pre-commit
+- [x] Add GitHub Actions CI
+- [x] Confirm all checks pass
 
 Gate: pytest, ruff, mypy, and CI must pass before Day 1 implementation.
 
 ## Day 1 — Market data and arbitrage mathematics
 
 ### M1.1 Domain models
-- [ ] Venue
-- [ ] Market
-- [ ] Contract
-- [ ] OrderBook
-- [ ] PriceLevel
-- [ ] MarketPair
-- [ ] Opportunity
-- [ ] Use Decimal for money/prices
-- [ ] Deterministic validation tests
+- [x] Venue
+- [x] Market
+- [x] Contract
+- [x] OrderBook
+- [x] PriceLevel
+- [x] MarketPair
+- [x] Opportunity
+- [x] Use Decimal for money/prices
+- [x] Deterministic validation tests
 
 ### M1.2 Kalshi market-data adapter
 - [ ] Verify official endpoints
