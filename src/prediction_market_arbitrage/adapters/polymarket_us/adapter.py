@@ -60,8 +60,10 @@ class PolymarketMarketDataAdapter:
         return parse_market(self._client.get_market_by_slug(slug))
 
     def get_order_book(self, slug: str) -> OrderBook:
-        """Fetch a market + its book and return the normalized long-side :class:`OrderBook`.
+        """Fetch a market + its book and return the normalized :class:`OrderBook`.
 
+        The book is attributed to the market's long contract — an UNVERIFIED
+        interpretation (A-013), not for live-execution use until resolved.
         Timestamp comes from the book's ``transactTime``; the adapter's ``clock()``
         reading is the fallback only if that field is absent.
         """

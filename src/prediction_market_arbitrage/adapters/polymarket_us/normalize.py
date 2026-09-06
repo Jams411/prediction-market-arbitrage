@@ -6,17 +6,26 @@ No I/O here. Every price/qty string is converted through
 and ``feeCoefficient``, which this adapter never reads). Timestamps are parsed as
 timezone-aware ``datetime``.
 
-Market / book mapping (evidence trail in ``docs/API_SOURCES.md``)
----------------------------------------------------------------
+Market / book mapping (evidence trail in ``docs/API_SOURCES.md``; assumption
+status in ``docs/ASSUMPTIONS.md``)
+---------------------------------------------------------------------------
 
-A Polymarket US market is a **single binary market**. Its ``marketSides`` array
-holds exactly two entries: one with ``long: true`` (the tradeable "long" side,
-e.g. ``description: "Yes"`` or a team name) and one with ``long: false`` (its
-complement). One market slug has **one** order book, quoted in the long side's
-price space, with *explicit* ``bids`` and ``offers`` (unlike Kalshi, which is
-bid-only — so there is no ``1 - x`` implied-ask step here).
+Every Polymarket US market observed so far is a single binary market whose
+``marketSides`` array holds two entries: one ``long: true`` and one
+``long: false`` (``description`` e.g. ``"Yes"`` / ``"No"`` or a team name). This
+adapter **requires** that shape and rejects anything else at runtime
+(``PolymarketPayloadError``). That markets are *always* binary is **A-012
+(OBSERVED, not VERIFIED)**.
 
-    Polymarket US                               ->  domain
+The API returns one order book per slug, with *explicit* ``bids`` and ``offers``
+(unlike Kalshi, which is bid-only — so there is no ``1 - x`` implied-ask step
+here). This adapter currently attributes that single book to the ``:LONG``
+contract, based on observed BBO / book / ``stats.lastPriceSample.longPx`` price
+alignment. Which side the book is actually quoted in is **A-013: an UNVERIFIED
+interpretation** — no primary doc or SDK statement confirms it. This mapping
+must not be relied on for live execution until primary evidence resolves A-013.
+
+    Polymarket US                               ->  domain (current mapping)
     market (/v1/market/slug/{slug})             ->  Market(id=slug, title=question,
                                                           close_time=endDate)
     marketSides[ long == true  ]                ->  Contract(id=f"{slug}:LONG",
@@ -28,10 +37,15 @@ bid-only — so there is no ``1 - x`` implied-ask step here).
     book level {px:{value}, qty}                ->  PriceLevel(price=px.value, quantity=qty)
     book .transactTime                          ->  OrderBook.timestamp
 
-Only the long-side book is returned by the API, so only the long-side
+Both contracts are materialized because ``marketSides`` lists both sides; only
+one book exists in the API response, so only one
 :class:`~prediction_market_arbitrage.domain.OrderBook` is produced. The short
-:class:`~prediction_market_arbitrage.domain.Contract` is still materialized
-(both sides are real, per ``marketSides``) for later market-pairing work.
+:class:`~prediction_market_arbitrage.domain.Contract` is kept for later
+market-pairing work.
+
+Other points recorded as UNVERIFIED in ``docs/ASSUMPTIONS.md`` and **not**
+asserted as fact here: using ``question`` as ``Market.title`` for every market
+type (A-016), and preserving only ``slug`` as the traceable identifier (A-015).
 
 Observed book ordering is bids high->low and offers low->high (matches the
 ``bbo`` endpoint), which is already the domain's required order — but this module
@@ -66,9 +80,10 @@ _OVERLONG_FRACTION = re.compile(r"(\.\d{6})\d+")
 
 @dataclass(frozen=True, slots=True)
 class PolymarketMarket:
-    """A normalized market plus its two side contracts.
+    """A normalized market plus both side contracts.
 
-    ``long_contract`` is the side the order book is quoted in.
+    The order book is attributed to ``long_contract``. That the single API book
+    is actually the long side's book is an UNVERIFIED interpretation (A-013).
     """
 
     market: Market
@@ -180,11 +195,13 @@ def parse_order_book(
     *,
     observed_at: datetime,
 ) -> OrderBook:
-    """Normalize a ``book`` ``marketData`` object into one long-side :class:`OrderBook`.
+    """Normalize a ``book`` ``marketData`` object into a single :class:`OrderBook`.
 
-    ``transactTime`` from the payload is used as the book timestamp when present;
-    ``observed_at`` (the caller's timezone-aware capture time) is the documented
-    fallback when the field is absent.
+    The book is attributed to ``pm_market.long_contract`` — an UNVERIFIED
+    interpretation (A-013), not for live-execution use until primary evidence
+    resolves it. ``transactTime`` from the payload is the book timestamp when
+    present; ``observed_at`` (the caller's timezone-aware capture time) is the
+    documented fallback when the field is absent.
     """
     slug = pm_market.market.id
     book_slug = market_data.get("marketSlug")
