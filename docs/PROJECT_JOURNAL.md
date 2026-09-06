@@ -242,6 +242,69 @@ Use this file as the concise chronological record of milestone progress, evidenc
   --all-files` all pass. Not committed — awaiting review. `docs/ROADMAP.md`
   M1.5 checkboxes left as-is (M1.2–M1.4 boxes likewise unchecked on `main`).
 
+## 2026-09-06 — M1.6 Evidence-backed venue fee models
+
+- Branch: work moved onto `feat/venue-fee-models`, cut from `origin/main` after
+  M1.5 merged there (was carried as an uncommitted diff on
+  `feat/arbitrage-engine`).
+- Added to `src/prediction_market_arbitrage/arbitrage/fees.py` (alongside the
+  M1.5 baseline), all **taker** path:
+  - `KalshiTradingFeeModel` — `round_up_to_next_cent(M · 0.07 · C · P · (1−P))`,
+    the current "Fee Schedule for July 2026 — 7.7.26 Update". `M` = per-contract
+    multiplier, `multiplier=` arg, default `Decimal("1")`. No settlement fee.
+  - `PolymarketUsTradingFeeModel` — `bankers_round_cent(0.06 · C · p · (1−p))`
+    (round half to even), the exchange-wide taker fee effective July 1, 2026.
+  - `VenueFeeModel` — routes each leg's fills to its venue's model; unknown
+    venue → `ArbitrageError` (fail closed). `VenueFeeModel.real_taker()` bundles
+    both. All three exported from `arbitrage/__init__.py`.
+- **Correction from first draft:**
+  - Kalshi moved to the 7.7.26 multiplier schedule: added `M` (default 1),
+    **removed** the stale standalone `0.035` S&P 500 / Nasdaq-100 coefficient
+    and the `general_coefficient` override — those series now carry a per-series
+    `M` in Kalshi's "non-standard fees" table. `M` is a caller-supplied,
+    evidence-backed input; no series value is transcribed or hardcoded, so the
+    implementation and tests need none.
+  - Polymarket US taker coefficient **kept at `0.06`**. A prompt asked to change
+    it to `0.05`; re-verifying `docs.polymarket.us/fees` (effective July 1,
+    2026) shows a single exchange-wide taker `Θ = 0.06` and a self-consistent
+    price table — `0.05` is contradicted by the primary source (it appears only
+    on third-party sites, as one category in a claimed split). Not adopted;
+    recorded as unresolved in A-025.
+- **Evidence:** `docs/evidence/kalshi-fee-schedule-2026-07-07.txt` — the current
+  "7.7.26 Update" PDF (12 pages) opens in a normal browser (confirmed
+  2026-09-06); formula text quoted from the PDF via search indexing + Help
+  Center, general `M=1` table reproduced, per-series `M` table noted as present
+  but not transcribed. `docs/evidence/polymarket-us-fee-schedule.txt` —
+  re-verified server-rendered page, `0.05` conflict documented.
+- **Scope held tight:** taker only; per-fill-slice rounding (A-026, still
+  explicitly unresolved); no series auto-detection; engine keeps its injected
+  `FeeModel` protocol + fee-value validation, gains no venue knowledge
+  (`EngineConfig.fee_model` still defaults to `ZeroFeeModel`).
+- **Not modelled (documented, not guessed):** Kalshi maker (`M · 0.0175`);
+  Polymarket US maker **rebate** (`−0.0125`) and volume-tier taker rebate;
+  multi-level-sweep rounding; Kalshi's full per-series `M` table; Polymarket US
+  category / reported-CFTC-filing coefficient questions.
+- Records: D-013 (decision, updated); A-024 (Kalshi 7.7.26 formula — VERIFIED;
+  per-series `M` table present in source, not transcribed), A-025 (Polymarket
+  US `0.06` re-verified; `0.05` unresolved), A-026 (per-slice rounding —
+  unresolved); A-022 SUPERSEDED; `docs/ARBITRAGE_METHODOLOGY.md` §4 / §7 / §8
+  updated.
+- Evidence-correction pass (2026-09-06): confirmed the Kalshi "7.7.26 Update"
+  PDF opens in a normal browser (12 pages); removed the earlier
+  "bot-gated / table unavailable" framing from the evidence file and A-024. No
+  code or test change — the implementation hardcodes no multiplier.
+- Tests: `tests/test_arbitrage_fees.py`, deterministic + offline, +47. Published
+  fee-table vectors for both venues (Kalshi `M=1` general table), Kalshi
+  `M`-scaling via independently-calculated cases (`M` = 0.5 / 1.5 / 2 / 0),
+  per-slice rounding, price-at-bounds → $0, banker's half-to-even, wrong-venue
+  and float / negative rejections, `VenueFeeModel` routing + fail closed, and
+  two engine-integration cases with exact known net edge.
+- No real market-pair approvals created; `market_pairs.toml` still ships empty.
+  Real-money remains disabled — no fee formula OBSERVED against a real fill;
+  fee reconciliation stays a real-money-gate item.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files`. Not committed — awaiting review.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

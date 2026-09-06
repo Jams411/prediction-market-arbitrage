@@ -15,7 +15,14 @@ from .engine import (
     OpportunityEvaluation,
 )
 from .errors import ArbitrageError
-from .fees import FeeModel, FixedPerUnitFeeModel, ZeroFeeModel
+from .fees import (
+    FeeModel,
+    FixedPerUnitFeeModel,
+    KalshiTradingFeeModel,
+    PolymarketUsTradingFeeModel,
+    VenueFeeModel,
+    ZeroFeeModel,
+)
 
 __all__ = [
     "ArbitrageEngine",
@@ -23,8 +30,11 @@ __all__ = [
     "EngineConfig",
     "FeeModel",
     "FixedPerUnitFeeModel",
+    "KalshiTradingFeeModel",
     "LegEvaluation",
     "LegFill",
     "OpportunityEvaluation",
+    "PolymarketUsTradingFeeModel",
+    "VenueFeeModel",
     "ZeroFeeModel",
 ]
