@@ -133,6 +133,58 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run --all-files`
   all pass. Not committed — awaiting review.
 
+## 2026-09-06 — M1.4 Manual verified market-pair registry
+
+- Added `src/prediction_market_arbitrage/registry/`: `models.py` (`PairStatus`,
+  `OutcomeRelation`, `VenueLeg`, `MarketPairRecord`, `RegistryError`),
+  `loader.py` (`load_registry` / `load_registry_text`, `MarketPairRegistry`),
+  and `data/market_pairs.toml` (the curated file).
+- Format: **TOML** via stdlib `tomllib` — no new dependency (YAML would need
+  `pyyaml`); supports the comments a manual risk file needs; array-of-tables
+  diffs cleanly. See D-011.
+- **Domain `MarketPair` left unchanged.** It is a sufficient domain *value*
+  (id + two `Contract`s + note); review-workflow metadata (reviewer, status,
+  sources, checklist, …) lives in the registry layer's `MarketPairRecord`, not
+  in the frozen domain model. Rationale in D-011.
+- Each record: `pair_id`, normalized `proposition`, both venue legs
+  (`venue` + `market_id` + `outcome` + primary-source URLs), explicit
+  `relation` (`IDENTICAL` / `COMPLEMENTARY`), an 11-item human review
+  `checklist`, `reviewer`, `verified_at`, `settlement_notes`,
+  `known_differences` (+ `known_differences_reviewed`), `status`, and
+  `live_use_eligible` + `blocking_reason`.
+- **Fails closed.** Malformed record, unknown status, duplicate `pair_id`,
+  unknown field, non-bool checklist value, or a conflicting venue mapping →
+  `RegistryError`, nothing loads. `eligible()` returns **only** `VERIFIED`
+  pairs; a `VERIFIED` record additionally requires reviewer + tz-aware
+  timestamp + settlement notes + sources on **both** legs + every checklist
+  item `true` + (`known_differences` non-empty **or**
+  `known_differences_reviewed = true`). `live_use_eligible = true` is rejected
+  in M1.4.
+- **No pairs shipped.** The canonical `market_pairs.toml` contains **zero**
+  records and no real venue identifiers — `load_registry().all()` and
+  `.eligible()` both return `()`. Worked format examples (DRAFT / VERIFIED /
+  etc.) live only in `docs/MARKET_PAIRING.md` and
+  `tests/test_market_pair_registry.py`, using synthetic ids
+  (`kalshi-test-market`, `polymarket-test-market`).
+  (A safety cleanup after the first draft removed example records that had used
+  real, intentionally-unrelated Kalshi/Polymarket US market ids.)
+- Anti-hallucination recorded in `docs/MARKET_PAIRING.md` + D-011: title
+  similarity is not evidence; fuzzy/embedding similarity optimizes for the
+  failure mode; LLM matching is deferred (may later *propose*, never
+  *approve*); hardcoded pair logic in the engine is rejected. A `VERIFIED`
+  pair is **not** a live-trading approval — A-013/A-015/A-016 and
+  A-001/A-002/A-003 remain unresolved live-use blockers.
+- New doc `docs/MARKET_PAIRING.md` (why matching is dangerous, worked
+  false-pair examples, the checklist, why automation is deferred, status →
+  eligibility). Assumptions A-018 (relation expressiveness) and A-019
+  (fail-closed file is a sufficient gate) added. Decision D-011 added.
+- Tests: `tests/test_market_pair_registry.py`, deterministic + offline, +36
+  (139 → 175 total).
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting review. `docs/ROADMAP.md`
+  M1.4 checkboxes left as-is (M1.2/M1.3 boxes are likewise still unchecked on
+  `main`; box-marking is a review step).
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

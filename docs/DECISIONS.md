@@ -243,6 +243,79 @@ reason.
 
 **Evidence:** M2 branch-correction incident recorded in `docs/PROJECT_JOURNAL.md`.
 
+### D-011 — Market pairs live in a curated file behind a fail-closed loader, not in the domain model or the engine
+
+**Date:** 2026-09-06
+
+**Decision:** Cross-venue contract equivalence (M1.4) is expressed as
+human-reviewed records in a version-controlled TOML file
+(`src/prediction_market_arbitrage/registry/data/market_pairs.toml`), loaded and
+validated by `prediction_market_arbitrage.registry`. Each record carries a
+`pair_id`, both venue legs (`venue` + `market_id` + `outcome` + primary-source
+URLs), a normalized `proposition`, an explicit `relation`
+(`IDENTICAL` / `COMPLEMENTARY`), an 11-item review `checklist`, `reviewer`,
+`verified_at`, `settlement_notes`, `known_differences` (+ a
+`known_differences_reviewed` affirmation), `status`
+(`DRAFT` / `REVIEW_REQUIRED` / `VERIFIED` / `REJECTED` / `SUSPENDED`), and
+`live_use_eligible` + `blocking_reason`.
+
+The loader **fails closed**: any malformed record, unknown status, duplicate
+`pair_id`, or conflicting venue mapping raises `RegistryError` and no registry is
+returned. `MarketPairRegistry.eligible()` returns **only** `VERIFIED` records; a
+`VERIFIED` record additionally requires a reviewer, a timezone-aware timestamp,
+non-empty settlement notes, source URLs for **both** legs, every checklist item
+`true`, and either a non-empty `known_differences` list or
+`known_differences_reviewed = true`. `live_use_eligible = true` is rejected
+outright in M1.4.
+
+The existing domain `MarketPair` (id + two `Contract`s + free-text `note`) was
+**left unchanged**. It is a sufficient *domain value*; it is not the place for
+review-workflow metadata.
+
+**Rationale:**
+- *Not title-string matching* — titles are marketing text; equal titles routinely
+  settle differently and different titles routinely settle identically. Zero
+  signal about timing, authority, or void rules.
+- *Not fuzzy / embedding similarity* — it optimizes for "reads similarly", which
+  is the exact failure mode; a high score manufactures false confidence.
+- *Not LLM semantic matching* — no calibrated error bound, not reproducible, not
+  auditable at the moment money is at risk (D-004). Deferred: an LLM may later
+  *propose* candidates for human review, never *approve* them.
+- *Not hardcoded pair logic in the arbitrage engine* — that buries risk decisions
+  in code diffs and couples strategy to specific markets; a curated data file
+  keeps the decision visible, diffable, and reviewable as a *settlement-rules*
+  review rather than a code review.
+- *Not expanding `MarketPair`* — adding `reviewer` / `status` / `sources` to a
+  frozen domain value would couple the deterministic core to a human workflow
+  and put governance metadata onto `Opportunity.pair`.
+- TOML over YAML/JSON: stdlib `tomllib` reads it (no new dependency; YAML would
+  need `pyyaml`), it supports the comments a manually-curated risk file needs,
+  and array-of-tables diffs cleanly in Git.
+
+**Alternatives considered:** JSON registry (rejected — no comments, and a
+review file benefits from inline rationale); YAML registry (rejected — new
+runtime dependency for one milestone); a Python module of pair objects (rejected
+— makes review a code review and invites logic creep); extending `MarketPair`
+(rejected — see above).
+
+**Trade-offs / consequences:** Coverage is limited to what a human has verified,
+and each pair costs real review time. In exchange, an unverified or rejected pair
+cannot reach strategy code by accident, and every equivalence claim is a
+reviewable artifact with its evidence attached. The canonical registry ships
+with **zero pairs** — no real venue identifiers appear in the file. Worked
+format examples live only in `docs/MARKET_PAIRING.md` and the tests, using
+obviously synthetic identifiers.
+
+**Learning takeaway:** In arbitrage, "these are the same contract" is a risk
+model input, not a string-similarity problem. Make that decision explicit,
+human-owned, and enforced by code that fails closed — and keep it out of both the
+domain model and the math engine.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/registry/`,
+`tests/test_market_pair_registry.py`, `docs/MARKET_PAIRING.md`.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
