@@ -172,6 +172,77 @@ to know which venue a book came from or how its asks were derived.
 **Evidence:** `src/prediction_market_arbitrage/adapters/kalshi/normalize.py`,
 `tests/test_kalshi_normalize.py`, `docs/API_SOURCES.md`.
 
+### D-009 — Polymarket US normalizes to one long-side OrderBook from the explicit two-sided book
+
+**Date:** 2026-09-05
+
+**Decision:** A Polymarket US market maps to one `Market`, two `Contract`s
+(`:LONG` from the `long: true` marketSide, `:SHORT` from `long: false`), and
+**one** `OrderBook` on the `:LONG` contract, built directly from the book's
+explicit `bids` and `offers`. The book's `transactTime` is the `OrderBook`
+timestamp (caller `observed_at` is the fallback only when the field is absent).
+The adapter rejects any market whose `marketSides` is not exactly one long +
+one short.
+
+**Rationale:** Observed Polymarket US data is genuinely two-sided — one book per
+slug with real `bids` and `offers` — so no ask synthesis is needed or honest.
+The `1 - x` complement trick from D-008 is Kalshi-specific and is deliberately
+**not** reused here (D-008 required per-venue re-verification). `transactTime` is
+a real server timestamp, unlike Kalshi's book, so it is trusted over a local
+clock reading.
+
+**Alternatives considered:** synthesize a `:SHORT` book via `1 - price` like
+Kalshi (rejected — invents data the API does not return, violates "do not
+distort external data"); collapse both sides into a single anonymous `Contract`
+(rejected — loses the long/short distinction the venue models explicitly);
+always stamp with `observed_at` (rejected — discards a usable server timestamp).
+
+**Trade-offs / consequences:** Downstream code gets only the long-side book from
+Polymarket; a short-side view must be derived later if a strategy needs it. The
+"exactly one long + one short" guard will reject any future multi-outcome
+Polymarket market rather than mis-model it — a deliberate fail-loud choice.
+
+**Learning takeaway:** Normalize to what the venue actually returns. Two venues
+that both settle to $1 can still have different book shapes (bid-only vs.
+two-sided); the adapter is where that difference is absorbed, and reusing
+another venue's shortcut without re-verifying is a bug waiting to happen.
+
+**Status:** ACTIVE for Polymarket US.
+
+**Evidence:** `src/prediction_market_arbitrage/adapters/polymarket_us/normalize.py`,
+`tests/test_polymarket_us_normalize.py`, `docs/API_SOURCES.md` (P-05..P-13).
+
+### D-010 — Fetch before asserting anything about Git remote state
+
+**Date:** 2026-09-05
+
+**Decision:** Before any agent (or contributor) makes a claim about branch
+existence, merge status, ancestry, or remote history — or acts on such a claim —
+it must run `git fetch origin --prune` first. Local refs
+(`refs/remotes/origin/*`, `git branch -vv` output) are treated as **stale until
+refreshed** and are never authoritative on their own.
+
+**Rationale:** During M1.2 an agent stated "branch `feat/kalshi-market-data` did
+not exist" based on stale local refs; the branch existed on the remote and was
+already based on a newly merged `main`. The wrong claim nearly led to work being
+based on the wrong baseline. A fetch is cheap and removes the ambiguity.
+
+**Alternatives considered:** trust local refs and reconcile later (rejected —
+caused the incident); require a full `git fetch --all` + status writeup for
+every command (rejected — heavier than needed; `--prune` on `origin` is enough).
+
+**Trade-offs / consequences:** One extra network round-trip at the start of any
+branch/merge reasoning. In exchange, ancestry claims are verifiable and
+reproducible.
+
+**Learning takeaway:** Distributed VCS has no single clock. "I don't see it"
+means "my mirror hasn't been refreshed", not "it isn't there". Refresh, then
+reason.
+
+**Status:** ACTIVE.
+
+**Evidence:** M2 branch-correction incident recorded in `docs/PROJECT_JOURNAL.md`.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

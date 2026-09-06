@@ -72,6 +72,67 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run --all-files`
   all pass. Not committed — awaiting review.
 
+## 2026-09-05 — M1.2 branch-correction incident (Git protocol)
+
+- While starting M1.2, stale local refs led to the claim "branch
+  `feat/kalshi-market-data` did not exist". After `git fetch origin --prune`:
+  M1.1 was already squash-merged to `origin/main`, and
+  `origin/feat/kalshi-market-data` already existed on that merged baseline.
+- No work was lost: uncommitted + untracked M1.2 changes were preserved with
+  `git stash -u`, the local branch was reset onto `origin/feat/kalshi-market-data`,
+  and the stash was re-applied (one `docs/DECISIONS.md` conflict, resolved as a
+  pure insertion — no M1.1 content overwritten).
+- New rule: **D-010** — `git fetch origin --prune` before any claim about
+  branch/merge/remote state; local refs are stale until refreshed.
+
+## 2026-09-05 — M1.3 Polymarket US REST market-data adapter
+
+- Added `src/prediction_market_arbitrage/adapters/polymarket_us/`: `transport.py`
+  (stdlib `urllib` + its own `Transport` seam / error family — independent of the
+  Kalshi adapter), `client.py`, `normalize.py`, `adapter.py`, `errors.py`.
+- Read-only market data only: `GET /v1/markets`, `/v1/market/slug/{slug}`,
+  `/v1/market/id/{id}`, `/v1/markets/{slug}/book`, `/v1/markets/{slug}/bbo`.
+  No auth, orders, portfolio, WebSocket, storage, or UI. Domain layer does not
+  import the adapter (test enforces this).
+- **Live verification (unauthenticated, no credentials/cookies).** Host
+  `gateway.polymarket.us`, `/v1`. `markets` / `market/slug` / `book` / `bbo` all
+  returned HTTP 200 with no auth (official SDK README: "Public Endpoints (No
+  Authentication)"; OpenAPI `security: []`). Unknown slug → 404 with gRPC-style
+  `{"code":<int>,"message":...,"details":[]}`. A live market can return a fully
+  empty book (`bids: []`, `offers: []`) — observed and fixtured.
+- **Market model (evidence question answered).** A Polymarket US market is a
+  single binary market. `marketSides` has exactly two entries: one `long: true`
+  (tradeable long side, `description` e.g. "Yes" or a team name) and one
+  `long: false`. There is **one** book per slug, quoted in the long side's price
+  space, with **explicit** `bids` and `offers`. Mapping: market → `Market`
+  (id=slug, title=question, close_time=endDate); the two sides → `:LONG` /
+  `:SHORT` `Contract`s; the book → **one** `OrderBook` on `:LONG`
+  (bids=book.bids, asks=book.offers). **No `1 - x` synthesis** (contrast D-008) —
+  the API is already two-sided. **No domain mismatch** — the model represents the
+  observed semantics without distortion.
+- Book ordering (bids high→low, offers low→high) matches `bbo` and the domain's
+  required order, but the adapter still **sorts explicitly** and rejects
+  duplicate price levels rather than assuming source order.
+- `transactTime` (nanosecond RFC-3339) is present on every book and is used as
+  the `OrderBook` timestamp; the parser truncates >6 fractional digits to
+  microseconds; `observed_at` is the documented fallback only if the field is
+  absent.
+- Decimal discipline: only string fields (`px.value`, `qty`, `endDate`,
+  `description`, `slug`, `question`) reach the domain via `domain.to_decimal`;
+  Polymarket's genuine JSON floats (`orderPriceMinTickSize`, `feeCoefficient`)
+  are never read, so no float can leak.
+- Sanitized public fixtures under `tests/fixtures/polymarket_us/` (no
+  credentials/cookies/account ids/headers; bulky sports-media sub-objects
+  dropped, `description` truncated, all numeric/time/id fields verbatim).
+  Offline deterministic tests: +53 (86 → 139 total) across
+  `test_polymarket_us_client.py`, `test_polymarket_us_normalize.py`,
+  `test_polymarket_us_adapter.py`.
+- Evidence: `docs/API_SOURCES.md` (P-01..P-14 + mapping table); assumptions
+  A-012–A-017; decisions **D-009** (Polymarket book mapping) and **D-010** (Git
+  fetch protocol).
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run --all-files`
+  all pass. Not committed — awaiting review.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
