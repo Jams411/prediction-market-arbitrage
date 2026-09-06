@@ -104,6 +104,74 @@ Each decision should include:
 
 **Status:** ACTIVE
 
+### D-007 — Adapter HTTP uses the standard library with an injectable transport seam
+
+**Date:** 2026-09-05
+
+**Decision:** Venue market-data adapters perform HTTP with `urllib.request` from the
+standard library. Each adapter defines a small `Transport` protocol
+(`request(method, url, *, timeout) -> HttpResponse`); the default implementation
+is `urllib`-backed and tests substitute a deterministic fake. Every request sets
+an explicit timeout.
+
+**Rationale:** Keeps the project's zero runtime-dependency posture (`pyproject`
+`dependencies = []`); the protocol seam gives fully offline, deterministic tests
+without a mocking framework. No verified need yet for `httpx`/`requests`
+(connection pooling, HTTP/2, retries) at market-data volumes.
+
+**Alternatives considered:** add `httpx` (rejected — new dependency, not yet
+justified); call `urllib` directly with no seam (rejected — forces network or
+monkeypatching in tests).
+
+**Trade-offs / consequences:** `urllib` is more verbose than `httpx` and has no
+built-in retry/pooling, so those must be added by hand later if needed; in
+exchange the project ships with zero third-party runtime code and the test suite
+never touches the network.
+
+**Learning takeaway:** Depend on a narrow interface you own (`Transport`), not on
+a concrete HTTP library. The seam is what makes the adapter both swappable and
+deterministically testable.
+
+**Status:** ACTIVE — revisit if/when async or connection reuse is required (M2.1).
+
+**Evidence:** `src/prediction_market_arbitrage/adapters/kalshi/transport.py`,
+`docs/API_SOURCES.md`.
+
+### D-008 — Kalshi order books are normalized with implied asks from complementary bids
+
+**Date:** 2026-09-05
+
+**Decision:** Kalshi returns bids only (`orderbook_fp.yes_dollars` /
+`no_dollars`, ascending, best bid last). The adapter produces a normalized
+`OrderBook` per side where `bids` are that side's bids (reversed to strictly
+descending) and `asks` are implied from the **opposite** side's bids as
+`price = 1 - opposite_bid_price`, size unchanged. Only `market_type == "binary"`
+is accepted.
+
+**Rationale:** For a binary market the two contracts settle to $1 total, so a
+YES bid at X is a NO ask at `1 - X` (and vice versa). Confirmed by Kalshi docs
+and by live data (top-of-book implied asks equal the market's quoted
+`yes_ask_dollars` / `no_ask_dollars`). See `docs/API_SOURCES.md` K-07, K-08.
+
+**Alternatives considered:** expose bids only and let the strategy layer imply
+asks (rejected — pushes venue-specific arithmetic past the adapter boundary,
+violating `docs/ARCHITECTURE.md`); assume the older cents-based
+`orderbook.{yes,no}` shape (rejected — not observed in live responses).
+
+**Trade-offs / consequences:** The adapter now encodes one venue-specific
+identity (`1 - x`), so it must be re-checked for every new venue and if Kalshi
+ever changes its book shape; the benefit is that the rest of the system sees a
+uniform two-sided book and never learns that Kalshi is bid-only.
+
+**Learning takeaway:** Normalize at the boundary. Downstream code should not need
+to know which venue a book came from or how its asks were derived.
+
+**Status:** ACTIVE for Kalshi. The `1 - x` identity must be re-verified per venue
+(M1.3 Polymarket) before reuse.
+
+**Evidence:** `src/prediction_market_arbitrage/adapters/kalshi/normalize.py`,
+`tests/test_kalshi_normalize.py`, `docs/API_SOURCES.md`.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
