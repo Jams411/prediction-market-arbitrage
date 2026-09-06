@@ -40,8 +40,11 @@ Every unverified project assumption must be recorded here before implementation 
 | A-019 | A human-curated TOML file behind a fail-closed loader, exposing only `VERIFIED` pairs, is a sufficient gate to keep unverified/rejected pairs out of strategy code. | UNVERIFIED (design assumption) — behaviour is enforced by `tests/test_market_pair_registry.py` and now by the M1.5 engine's registry gate (`tests/test_arbitrage_engine.py`); "sufficient" still depends on all future strategy code routing through `eligible()` / a VERIFIED check. | Yes |
 | A-020 | A registry `VenueLeg` names exactly one order book via `f"{market_id}:{outcome}"` == the adapter-built `OrderBook.contract.id` (Kalshi `YES`/`NO`; Polymarket US `LONG`/`SHORT`). The M1.5 engine joins books to legs on this key and raises on any mismatch. | UNVERIFIED (convention) — followed by the M1.4 example records and both adapters' `Contract.id` construction, but not enforced by the registry loader. If a curator uses a different `outcome` vocabulary the engine fails closed rather than guessing. | Yes |
 | A-021 | For a `COMPLEMENTARY` pair, buying one unit of each leg's named outcome yields exactly 1 unit of settlement value regardless of outcome (payout normalization = $1). The engine computes edge as `size - total_acquisition_cost - fees - buffer`. | UNVERIFIED for real pairs — true by construction for the synthetic tests; for real markets it depends on the human VERIFIED review (A-001, D-006) and on both venues settling complementary sides to a combined $1. | Yes |
-| A-022 | Real Kalshi / Polymarket US fee schedules are not yet known. The M1.5 engine takes an injected `FeeModel`; `ZeroFeeModel` and `FixedPerUnitFeeModel` are baseline/synthetic only. | UNVERIFIED — deriving and verifying each venue's fee formula from primary sources is a later evidence task; until then any non-zero fee number fed to the engine must itself be evidence-backed. | Yes |
+| A-022 | Real Kalshi / Polymarket US fee schedules are not yet known. The M1.5 engine takes an injected `FeeModel`; `ZeroFeeModel` and `FixedPerUnitFeeModel` are baseline/synthetic only. | SUPERSEDED by A-024 (Kalshi) and A-025 (Polymarket US) — the venue **taker** formulas are now verified from primary sources. The injected-`FeeModel` design is unchanged; `ZeroFeeModel` / `FixedPerUnitFeeModel` remain baseline/synthetic. | Yes |
 | A-023 | Reporting `net_edge_per_unit` / `gross_edge_per_unit` as `total / executable_quantity` (a Decimal division that may round to context precision when it does not divide evenly) is acceptable because the engine's *decision* (`net_edge > 0`) and every reported *total* use exact Decimal arithmetic with no division. | ACCEPTED (design) — the per-unit fields are explicitly documented as derived; totals are authoritative. | No |
+| A-024 | Kalshi's general trading (taker) fee is `fees = round_up_to_next_cent(M · 0.07 · C · P · (1−P))`, `P` the contract price in dollars, `C` the contract count, `M` a per-contract multiplier that is `1` "unless otherwise indicated" and is overridden only for the series in Kalshi's current "non-standard fees" table; there is no settlement fee. Maker uses `M · 0.0175`. The pre-July-2026 standalone `0.035` S&P 500 / Nasdaq-100 table has been folded into the `M` system and is no longer a separate coefficient. Implemented as `KalshiTradingFeeModel(multiplier=…)` (default `M = 1`). | VERIFIED (docs) — Kalshi "Fee Schedule for July 2026 - 7.7.26 Update" (`kalshi.com/docs/kalshi-fee-schedule.pdf`, 12 pages, opens in a normal browser; confirmed 2026-09-06) + Help Center "Fees"; extract `docs/evidence/kalshi-fee-schedule-2026-07-07.txt`. The `M = 1` formula reproduces every row of Kalshi's published general fee table (`tests/test_arbitrage_fees.py`); multiplier scaling is covered by independently-calculated cases. The PDF's per-series "non-standard fees" multiplier table is present in the source; no individual multiplier is transcribed or hardcoded — the model takes `M` as a caller-supplied parameter, and a caller evaluating such a series reads its `M` from the current PDF. Not OBSERVED against a real fill; series/market type is not auto-detected from an `OrderBook`. | Yes |
+| A-025 | Polymarket US's trading (taker) fee is `Fee = 0.06 · C · p · (1−p)`, rounded to the nearest cent with banker's rounding (round half to even), `p` in dollars; the maker side is a `−0.0125 · C · p · (1−p)` **rebate** and the >$250k prior-month volume taker rebate is a retrospective weekly account credit. Only the taker fee is modelled (`PolymarketUsTradingFeeModel`). | VERIFIED (docs), re-verified 2026-09-06 — `docs.polymarket.us/fees` "Trading Fee Schedule", "Effective exchange-wide from 12 AM ET, Wednesday July 1, 2026" (retained extract `docs/evidence/polymarket-us-fee-schedule.txt`); the single exchange-wide taker `Θ = 0.06` formula reproduces every row of the published "Fee Schedule by Price" taker column (`tests/test_arbitrage_fees.py`). **Unresolved:** a task prompt asserted the current coefficient is `0.05`; this is **not supported and is contradicted** by the primary source above. Third-party sites describe a July-2026 category split (sports 0.05 / tech 0.04 / crypto 0.07 / geo-econ 0.00) and a March-2026 CFTC filing has been reported as a basis-points-of-"Total Contract Premium" schedule — none of these appears on the official page. Model stays at `0.06` until a primary source says otherwise; any category/series coefficient must be independently evidence-backed. Not OBSERVED against a real fill. | Yes |
+| A-026 | The venue fee models round **each fill slice** `(P_i, qty_i)` independently and sum the rounded slices. | UNVERIFIED (modelling choice) — **still explicitly unresolved.** Every worked example in both venues' published schedules is a single price; neither states how a single taker order that sweeps several price levels is rounded (per level, or once on the aggregate), and Kalshi's API fee-rounding docs describe a per-order "fee accumulator" whose exact effect on a multi-level sweep is not specified. Per-slice rounding can differ from the realized fee by up to one cent per extra level. Fee reconciliation against real fills stays a real-money-gate item. | Yes |
 
 ## M1.1 notes
 
@@ -124,6 +127,38 @@ Every unverified project assumption must be recorded here before implementation 
 - Same-market complete-set arbitrage (a ROADMAP M1.5 bullet) is **not**
   implemented — `MarketPairRecord` is cross-venue by construction. Flagged for a
   future registry extension.
+
+## M1.6 notes (evidence-backed venue fee models)
+
+- Work lives on `feat/venue-fee-models`, branched from `origin/main` after M1.5
+  merged there (D-013).
+- A-024 / A-025 hold the venue **taker** fee formulas; A-026 records the
+  per-fill-slice rounding choice and stays explicitly unresolved. A-022 is
+  SUPERSEDED (the fee-formulas-unknown part), not deleted — the
+  injected-`FeeModel` design and the baseline/synthetic models are unchanged
+  (D-012, D-013).
+- **Kalshi** tracks the current "7.7.26 Update" schedule:
+  `round_up_cent(M · 0.07 · C · P · (1−P))`, `M` a per-contract multiplier
+  (default `1`). The old standalone `0.035` S&P 500 / Nasdaq-100 coefficient is
+  gone — such series now carry a multiplier in Kalshi's per-series
+  "non-standard fees" table (present in the current PDF; no value transcribed
+  or hardcoded — A-024). `KalshiTradingFeeModel(multiplier=…)` takes an
+  evidence-backed `M`; it cannot detect a series from an `OrderBook`.
+- **Polymarket US** stays at the primary-source taker `Θ = 0.06` (re-verified
+  2026-09-06). A prompt's `0.05` claim was **not adopted** — it is contradicted
+  by the live official schedule (A-025).
+- Primary-source extracts are retained under `docs/evidence/`; the Kalshi PDF
+  opens in a normal browser but blocks plain CLI fetchers, and Polymarket's
+  page is client-rendered.
+- Only the **taker** path is modelled — the buy/buy engine always lifts asks.
+  Kalshi maker (`M · 0.0175`) and Polymarket US maker **rebate** (`−0.0125`) and
+  the Polymarket US volume-tier taker rebate are documented but not computed; a
+  rebate is a negative fee the `FeeModel` contract does not represent.
+- The models do **not** resolve fee reconciliation for the real-money gate:
+  no formula has been OBSERVED against a real fill, multi-level-sweep rounding
+  is unverified (A-026), a caller must supply the right Kalshi series `M` from
+  the current PDF, and the Polymarket US category / CFTC-filing coefficient
+  questions are open (A-025).
 
 ### Live-execution gate (M1.3)
 

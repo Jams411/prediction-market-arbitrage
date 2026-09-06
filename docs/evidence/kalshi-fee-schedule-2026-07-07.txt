@@ -1,0 +1,68 @@
+Kalshi Fee Schedule — retained primary-source extract
+=====================================================
+
+Source: https://kalshi.com/docs/kalshi-fee-schedule.pdf
+Current document title: "Fee Schedule for July 2026 - 7.7.26 Update" (12 pages)
+Retrieved / re-verified: 2026-09-06.
+
+ACCESS NOTE
+-----------
+The live PDF is accessible: it opens directly in a normal browser (confirmed
+2026-09-06 — title "Fee Schedule for July 2026 - 7.7.26 Update", 12 pages).
+Plain CLI fetchers (curl / WebFetch / reader proxies) hit a Vercel bot
+challenge, so the formula text below is quoted from Kalshi's own site via
+search-engine indexing of the current PDF plus the Kalshi Help Center ("Fees",
+help.kalshi.com/en/articles/13823805-fees) — both kalshi.com-domain primary
+sources — and the general "M = 1" fee table is reproduced from the same
+schedule.
+
+The 7.7.26 PDF contains a per-series "non-standard fees" table (series such as
+KXAAAGASM, KXATPMATCH, KXBALLONDOR, ... each with its own maker/taker
+multiplier). Individual multiplier values from that table are NOT transcribed
+here: the implementation takes M as a caller-supplied parameter (default 1) and
+hardcodes no series value, so no specific multiplier is needed by the code or
+tests. A caller evaluating one of those series reads its M straight from the
+current PDF.
+
+Verbatim — general trading (taker) fee, current schedule
+-------------------------------------------------------
+"fees = round up(M x 0.07 x C x P x (1-P))"
+  P = the price of a contract in dollars (50 cents is 0.5)
+  C = the number of contracts being traded
+  M = the multiplier for each contract (default is 1 unless otherwise indicated)
+  round up = rounds to the next cent
+
+Verbatim — maker fee
+--------------------
+"fees = round up(M x 0.0175 x C x P x (1-P))"   (same variable meanings)
+
+Change vs the superseded Feb 5, 2026 schedule
+---------------------------------------------
+- Feb 5, 2026 schedule: "fees = round up(0.07 x C x P x (1-P))" with NO M term,
+  plus a SEPARATE standalone table for S&P 500 (INX*) and Nasdaq-100
+  (NASDAQ100*) markets at "fees = round up(0.035 x C x P x (1-P))".
+- 7.7.26 update: adds the per-contract multiplier M (default 1) and replaces the
+  standalone 0.035 index table with a per-series multiplier table. A series that
+  effectively paid 0.035 is now expressed as M = 0.5 on the 0.07 base — but the
+  exact M for INX / NASDAQ100 (or any other series) is NOT confirmed here.
+
+Other terms (unchanged, per Help Center + prior schedule)
+--------------------------------------------------------
+- "There is no settlement fee." No membership fee. No ACH fee.
+- Maker fees only charged on execution; none for canceling a resting order.
+
+General "M = 1" table spot checks (test vectors — identical to the pre-update
+general table, since M = 1 leaves the formula unchanged)
+-------------------------------------------------------------------------------
+Price of 1 contract | Fee for 1 contract | Fee for 100 contracts
+$0.01               | $0.01              | $0.07
+$0.05               | $0.01              | $0.34
+$0.10               | $0.01              | $0.63
+$0.20               | $0.02              | $1.12
+$0.35               | $0.02              | $1.60
+$0.50               | $0.02              | $1.75
+$0.99               | $0.01              | $0.07
+
+Verification: fee = round_up_to_next_cent(M * 0.07 * C * P * (1 - P)) reproduces
+every row above for M = 1. Multiplier behaviour is covered by independently
+calculated cases in tests/test_arbitrage_fees.py (M = 0.5, 1.5, 2, 0).
