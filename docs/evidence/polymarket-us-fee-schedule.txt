@@ -1,0 +1,76 @@
+Polymarket US Fee Schedule — retained primary-source extract
+===========================================================
+
+Source: https://docs.polymarket.us/fees   (page title: "Trading Fee Schedule";
+description: "Trading fee schedule, rebates, and examples")
+Retrieved / re-verified: 2026-09-06 (server-rendered HTML of the official docs
+site; the page fetches cleanly, no bot challenge).
+
+Verbatim — effective date
+-------------------------
+"Effective exchange-wide from 12 AM ET, Wednesday July 1, 2026."
+
+Verbatim — fee formula
+----------------------
+"Fees are computed using a symmetric formula that scales with price uncertainty:
+
+  Fee = Θ × C × p × (1 - p)
+
+Where:
+  - C is the number of contracts
+  - p is the trade price ($0.01 to $0.99)
+  - Θ (theta) is the fee coefficient"
+
+Coefficient table (verbatim, single exchange-wide row)
+-----------------------------------------------------
+                | Theta   | Max (p = $0.50)
+  Taker Fee     |  0.06   |  $1.50
+  Maker Rebate  | -0.0125 | -$0.31
+
+"Maker rebate is applied at the point of trade."
+Volume-tiered TAKER rebate (retrospective, paid weekly), prior calendar-month
+taker volume: $250k-$999,999 -> 10%; $1M-$9,999,999 -> 25%; $10M+ -> 50%.
+
+Verbatim — rounding
+-------------------
+"All fees and rebates are rounded to the nearest $0.01 using banker's rounding
+(round half to even). For example, $0.025 rounds to $0.02 (down to even), while
+$0.035 rounds to $0.04 (up to even)."
+
+Verbatim — misc
+---------------
+"Fees are only charged when a trade executes."
+"On small trades (low quantity or prices near $0.00 or $1.00), the fee can round
+down to $0.00."
+
+Published "Fee Schedule by Price" table (100-lot) spot checks (test vectors)
+--------------------------------------------------------------------------
+Price | Taker Pays (100-lot) | Maker Receives (100-lot)
+$0.01 | $0.06                | $0.01
+$0.02 | $0.12                | $0.02
+$0.03 | $0.17                | $0.04
+$0.04 | $0.23                | $0.05
+$0.05 | $0.28                | $0.06
+$0.10 | $0.54                | $0.11
+$0.50 | $1.50                | $0.31
+
+Verification: taker fee = banker_round_cent(0.06 * C * p * (1 - p)) reproduces
+the "Taker Pays" column for every row above (note $0.05: 0.06*100*0.05*0.95 =
+0.285 -> 0.28 by round-half-to-even; $0.50: 0.06*100*0.25 = 1.50).
+
+UNRESOLVED — "0.05 taker coefficient" claim (see docs/ASSUMPTIONS.md A-025)
+-------------------------------------------------------------------------
+A task prompt asserted the current official Polymarket US taker coefficient is
+0.05. This is NOT supported by the primary source: the live docs.polymarket.us
+"Trading Fee Schedule" page above, dated effective July 1, 2026, shows a single
+exchange-wide Taker Fee Θ = 0.06 with a $1.50 max, and its own worked "Fee
+Schedule by Price" table is internally consistent with Θ = 0.06.
+
+Several third-party sites (evidence-hierarchy level 5) describe a July-2026
+CATEGORY-specific theta split — e.g. sports 0.05, tech/mentions 0.04, crypto
+0.07, geopolitical/economic 0.00 — and a separate March-2026 CFTC filing has
+been reported as a basis-points-of-"Total Contract Premium" schedule (0.30%
+taker / 0.20% maker rebate). None of these appears on the official docs page.
+The model in code remains at the primary-source value Θ_taker = 0.06 until a
+primary source states otherwise; any category/series-specific coefficient a
+caller uses must itself be evidence-backed.

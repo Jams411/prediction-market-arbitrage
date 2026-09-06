@@ -89,12 +89,32 @@ Fees are subtracted per unit and can flip a thin edge negative. Example: gross
 edge 0.03, a synthetic 0.01/unit fee on each leg (0.02 total) plus a 0.01/unit
 execution buffer → net edge 0.00 → no opportunity.
 
-The engine **never hardcodes a real venue fee schedule.** Kalshi and Polymarket
-US fee formulas are a separate evidence task (A-022). M1.5 takes an injected
-`FeeModel`; the shipped models are `ZeroFeeModel` (baseline) and
-`FixedPerUnitFeeModel` (synthetic, for tests). Using a wrong fee number would
-produce confident, wrong edges — so the number must come from verified evidence,
-supplied by the caller.
+The engine **never hardcodes a real venue fee schedule** — the `FeeModel` is
+always injected by the caller. Shipped models:
+
+- `ZeroFeeModel` (baseline) and `FixedPerUnitFeeModel` (synthetic, for tests).
+- `KalshiTradingFeeModel` / `PolymarketUsTradingFeeModel` — M1.6
+  evidence-backed **taker** formulas, each with its venue's published
+  coefficient and cent-rounding rule (A-024 / A-025; primary sources retained
+  under `docs/evidence/`). `VenueFeeModel.real_taker()` bundles both and routes
+  each leg to its own schedule, failing closed on an unknown venue.
+
+  Kalshi (7.7.26 schedule): `round_up_cent(M · 0.07 · C · P · (1−P))`, `M` a
+  per-contract multiplier that is `1` unless the series carries a non-standard
+  multiplier in Kalshi's fee table (caller-supplied — not auto-detected; the
+  old standalone `0.035` index coefficient is folded into `M`). Polymarket US
+  taker: `bankers_round_cent(0.06 · C · P · (1−P))` (exchange-wide; kept at the
+  primary-source `0.06`).
+
+Both formulas reproduce every row of their venue's published fee table for the
+default case (see `tests/test_arbitrage_fees.py`; Kalshi `M`-scaling is covered
+by independently-calculated cases). Rounding is applied **per fill slice** and
+summed; how each venue rounds a single order that sweeps multiple price levels
+is not documented and stays explicitly unresolved (A-026). The volume-tiered /
+maker-side terms, Kalshi's full per-series `M` table, and open Polymarket US
+coefficient questions (A-024 / A-025) are not modelled. Using a wrong fee number
+would produce confident, wrong edges — so the number must come from verified
+evidence, supplied by the caller.
 
 ## 5. Why top-of-book can be misleading
 
@@ -127,7 +147,10 @@ assumptions that real execution can violate:
   depth may be gone. The engine's optional freshness checks (`max_book_age`,
   `max_cross_book_skew`, against an **injected** evaluation time) reject
   obviously stale inputs but cannot model in-flight decay.
-- **Fees not yet verified.** See §4 / A-022.
+- **Fees.** Taker formulas are verified (A-024 / A-025); multi-level-sweep
+  rounding, maker-side and volume-tier terms, and market-specific Kalshi
+  coefficients are not modelled (A-026). Fee reconciliation against real fills
+  is still a real-money-gate item.
 - **Settlement edge cases.** Even a `VERIFIED` pair can hit a rare void/tie path
   a reviewer judged immaterial.
 - **Withdrawals, halts, order rejections, partial fills, minimum sizes** — all
@@ -146,7 +169,7 @@ The engine is deliberately separated from four neighbours (D-012):
 | **Venue adapters** | The engine takes already-normalized `OrderBook`s. It never calls a venue API, so its behaviour does not depend on network, auth, or a venue being up. Adapter bugs stay in the adapter layer. |
 | **Market-pair verification** | Equivalence is a human risk judgement (M1.4). Keeping it out of the engine means a code change to the math can never quietly loosen which pairs are considered "the same bet". |
 | **Execution / broker logic** | The engine computes; it does not place, size-to-fill, hedge, or hold positions. Leg risk and fill realism live where they can be simulated (M2.4). |
-| **Fee-source verification** | Fee formulas are evidence, gathered and verified separately (A-022). Injecting the `FeeModel` means the engine is correct regardless of which venue's schedule is (or isn't) known yet. |
+| **Fee-source verification** | Fee formulas are evidence, gathered and verified separately (A-024 / A-025, supersedes A-022). Injecting the `FeeModel` means the engine stays correct regardless of which venue's schedule is known, changes, or is only partly modelled. |
 
 The payoff: the engine is a **pure function** of (verified record, two books,
 config, evaluation time). Given the same inputs it always returns the same

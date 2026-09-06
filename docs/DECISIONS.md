@@ -387,6 +387,81 @@ reason about in isolation later.
 **Evidence:** `src/prediction_market_arbitrage/arbitrage/`,
 `tests/test_arbitrage_engine.py`, `docs/ARBITRAGE_METHODOLOGY.md`.
 
+### D-013 — Venue fee models are evidence-backed, venue-specific, taker-only, and still injected
+
+**Date:** 2026-09-06
+
+**Decision:** M1.6 adds two real fee models next to the M1.5 baseline
+(`ZeroFeeModel`, `FixedPerUnitFeeModel`), plus a router:
+
+- `KalshiTradingFeeModel` — `fee = round_up_to_next_cent(M · 0.07 · C · P · (1−P))`,
+  the Kalshi published general trading (taker) fee, "Fee Schedule for July 2026
+  — 7.7.26 Update". `M` is the per-contract multiplier (`multiplier=` arg,
+  default `Decimal("1")`); a caller passes an evidence-backed `M` for a series
+  in Kalshi's "non-standard fees" table. No settlement fee. The pre-July-2026
+  standalone `0.035` S&P 500 / Nasdaq-100 coefficient was removed — that table
+  is now part of the per-series `M` system.
+- `PolymarketUsTradingFeeModel` — `fee = bankers_round_cent(0.06 · C · p · (1−p))`,
+  the Polymarket US published exchange-wide taker fee (`docs.polymarket.us/fees`,
+  effective July 1, 2026; re-verified 2026-09-06). Kept at `0.06`; a prompt's
+  `0.05` claim was not adopted — it is contradicted by the live official
+  schedule (A-025).
+- `VenueFeeModel` — a `Mapping[venue, FeeModel]` router; each leg's fills go to
+  its own venue's model. Unknown venue → `ArbitrageError` (fail closed).
+  `VenueFeeModel.real_taker()` bundles the two real models.
+
+Scope boundaries:
+
+- **Taker only.** The buy/buy engine always lifts resting asks. Kalshi maker
+  (`0.0175`) and Polymarket US maker **rebate** (`−0.0125`) and the Polymarket
+  US volume-tier taker rebate are recorded in docstrings / `docs/` but not
+  computed — a rebate is a negative fee the `FeeModel` contract forbids, and the
+  engine has no maker leg.
+- **Per-fill-slice rounding** (A-026): each `(price, qty)` slice is rounded and
+  the rounded slices summed. Multi-level-sweep rounding is undocumented on both
+  venues.
+- **No series detection.** `KalshiTradingFeeModel` cannot tell which Kalshi
+  series a book belongs to; the caller passes the per-contract multiplier `M`
+  (default `1`) from Kalshi's current "non-standard fees" table.
+- **Still injected.** The engine keeps its `FeeModel` protocol and its
+  fee-value validation (finite, non-negative Decimal); it gains no venue
+  knowledge. `EngineConfig.fee_model` still defaults to `ZeroFeeModel`.
+- **Primary sources retained** under `docs/evidence/` (the Kalshi PDF opens in
+  a normal browser but blocks plain CLI fetchers; Polymarket's page is
+  client-rendered).
+
+**Rationale:** The taker formulas are verified from primary sources and
+reproduce every row of each venue's published fee table, so a caller doing paper
+analysis should be able to use the real numbers without hand-rolling them — but
+the engine must not bake them in (D-012): the numbers change (Kalshi's schedule
+moved from a Feb-2026 form to the 7.7.26 multiplier form mid-project), only the
+taker path is modelled, Kalshi's per-series `M` is caller-supplied from its
+current table, and Polymarket US has open questions (a prompt-asserted `0.05`
+contradicted by the live schedule; a reported CFTC-filing basis-points form)
+(A-024 / A-025). Keeping the models as separate injected objects means a fee
+change is a one-line caller edit and a new evidence extract, not an engine
+change.
+
+**Alternatives considered:** hardcode the formulas in the engine (rejected —
+D-012; also hides the taker-only / unresolved-conflict caveats); model maker and
+rebate terms now (rejected — out of scope for a buy/buy engine and needs a
+signed-fee interface); a single combined model with an internal venue `if`
+(rejected — `VenueFeeModel` routing keeps each venue's schedule in its own
+class with its own venue guard).
+
+**Trade-offs / consequences:** A positive `net_edge` computed with
+`VenueFeeModel.real_taker()` is still not a live-trading signal — no formula has
+been OBSERVED against a real fill, and fee reconciliation stays a real-money-gate
+item. Callers evaluating a Kalshi series with a non-standard multiplier must
+supply the evidence-backed `M` themselves.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/arbitrage/fees.py`,
+`tests/test_arbitrage_fees.py`, `docs/evidence/kalshi-fee-schedule-2026-07-07.txt`,
+`docs/evidence/polymarket-us-fee-schedule.txt`, `docs/ASSUMPTIONS.md`
+A-024 / A-025 / A-026.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
