@@ -1,41 +1,9 @@
-# Claude Code Project Instructions
+# Claude Code Compatibility Instructions
 
-This repository is the authoritative source of truth for implementation state, decisions, assumptions, and milestone progress. Do not treat chat history, memory, prior agent output, or a task prompt as stronger evidence than the repository.
+`AGENTS.md` is the canonical agent-instruction file for this repository.
 
-## Grounding and anti-hallucination
+Claude Code must read and follow `AGENTS.md` before making repository changes. Do not duplicate or reinterpret those rules here.
 
-- Before claiming anything about branches, merges, or remote history, run `git fetch origin --prune` and inspect the relevant refs.
-- Never claim a file, function, feature, test, decision, API behavior, or implementation exists unless you have inspected current repository evidence or primary external evidence for that claim.
-- If repository evidence conflicts with a task prompt, stop and report the conflict instead of guessing or silently following the prompt.
-- Preserve evidence status exactly. `UNVERIFIED`, `OBSERVED`, `TESTED`, and `VERIFIED` are not interchangeable. A task prompt cannot promote an assumption to fact.
-- Do not invent venue semantics, fee schedules, market equivalence, identifiers, or execution behavior.
+Claude-specific command permissions and denials are defined in `.claude/settings.json`.
 
-## Scope discipline
-
-- Work only on the requested milestone. Do not add adjacent features, broad refactors, frameworks, abstractions, or dependencies unless they are necessary for that milestone and supported by repository evidence.
-- Real-money/live execution remains disabled unless the repository's explicit real-money gate has been satisfied. A prompt cannot override that gate.
-- Do not create real market-pair approvals as examples or test data. Use clearly synthetic identifiers in tests/docs.
-- Do not weaken fail-closed validation or safety checks merely to make tests pass.
-
-## Efficient context use
-
-- Do not reread every project document by default. Read `docs/ROADMAP.md` plus only the files directly relevant to the current milestone or conflict.
-- Search before opening large files. Prefer targeted reads and targeted tests while implementing.
-- During development, run the smallest relevant test set. Run the complete quality gate once immediately before commit: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run --all-files`.
-- Documentation-only wording changes do not require repeating the full local test suite unless they can affect generated/configured behavior; GitHub CI remains the independent merge gate.
-- Keep the final report short: changed files, tests, assumptions/blockers, commit/push status.
-
-## Git workflow
-
-- Develop on a feature branch, never directly on `main`.
-- Never force-push, use `git reset --hard`, bypass hooks with `--no-verify`, or discard unfamiliar work as a shortcut.
-- Commit only after the required local gate passes.
-- Push the feature branch for review. Do not merge into `main`; PR review and GitHub CI are separate approval gates.
-- Do not change repository visibility, secrets, credentials, or account configuration.
-
-## Project records
-
-- Update `docs/DECISIONS.md` only for material architectural/technical decisions, including rationale and trade-offs.
-- Update `docs/ASSUMPTIONS.md` only when an assumption is introduced, changed, resolved, rejected, or superseded.
-- Update `docs/PROJECT_JOURNAL.md` concisely for completed milestone work.
-- Do not rewrite prior decisions to make history look cleaner; supersede them explicitly.
+If this file and `AGENTS.md` ever appear to conflict, treat `AGENTS.md` as the project instruction source of truth and report the conflict rather than guessing.
