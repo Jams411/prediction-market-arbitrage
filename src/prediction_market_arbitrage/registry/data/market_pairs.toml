@@ -1,0 +1,44 @@
+# =============================================================================
+# Manual Verified Market-Pair Registry               (Milestone M1.4)
+# =============================================================================
+# Read docs/MARKET_PAIRING.md before editing this file.
+#
+# WHAT THIS IS
+#   A human-curated list of cross-venue contract pairings and the review state
+#   of each. Later arbitrage code may ONLY compare a pair whose status is
+#   "VERIFIED".
+#
+# THIS FILE INTENTIONALLY CONTAINS ZERO PAIRS.
+#   No cross-venue pair has been human-verified for settlement equivalence, so
+#   the canonical registry ships empty. Do NOT add a pair (even DRAFT) using
+#   real venue market identifiers as a placeholder — a future reader could
+#   mistake it for a reviewed pair. Worked format examples live only in
+#   docs/MARKET_PAIRING.md and in tests/test_market_pair_registry.py, and use
+#   obviously synthetic ids (e.g. "kalshi-test-market").
+#
+# HOW TO ADD A REAL PAIR
+#   Append a `[[pair]]` table with:
+#     pair_id, proposition, status, relation ("IDENTICAL" | "COMPLEMENTARY"),
+#     [pair.kalshi] / [pair.polymarket_us]  (venue, market_id, outcome, sources),
+#     settlement_notes, known_differences, known_differences_reviewed,
+#     reviewer, verified_at, live_use_eligible (must be false in M1.4),
+#     blocking_reason, notes, and [pair.checklist] (all 11 keys).
+#   A record is only "VERIFIED" when a human has worked the checklist against
+#   BOTH venues' PRIMARY settlement rules and recorded reviewer + verified_at +
+#   settlement_notes + source URLs for BOTH legs + every checklist item = true
+#   + (non-empty known_differences OR known_differences_reviewed = true).
+#
+# HARD RULES
+#   * Title similarity is NOT evidence of settlement equivalence.
+#   * "VERIFIED" means "may be used for paper arbitrage analysis". It is NOT a
+#     live-trading approval. live_use_eligible MUST stay false in M1.4 — no pair
+#     can be live-eligible while A-001 / A-013 / A-015 / A-016 are unresolved.
+#   * LLM / fuzzy / semantic matching is deferred (D-006).
+#
+# The loader fails closed: any malformed record, unknown status, duplicate
+# pair_id, or conflicting venue mapping raises and NOTHING loads.
+# =============================================================================
+
+schema_version = 1
+
+# No [[pair]] entries. See "HOW TO ADD A REAL PAIR" above.

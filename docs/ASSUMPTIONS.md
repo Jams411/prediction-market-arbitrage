@@ -36,6 +36,8 @@ Every unverified project assumption must be recorded here before implementation 
 | A-015 | Preserving only the Polymarket US `slug` (in `Market.id` / `Contract.id`) is enough traceability for future execution/reconciliation; `id`, `marketSides[].id`, `identifier`, `teamId` are dropped. | **UNVERIFIED** — sufficiency for order routing / fill reconciliation is untested; revisit in M1.4 and before any live path. | Yes |
 | A-016 | `question` is the correct normalized `Market.title` across all Polymarket US market types (vs `title` / `subtitle`). | **UNVERIFIED** — `question` chosen from limited samples; `futures` markets showed `title` = team name, `question` = the market question. A wrong label could mislead human pair verification (D-006). | Yes |
 | A-017 | Polymarket US market prices are probability-style decimals in `[0, 1]` (USD notional $1), consistent with A-004. | OBSERVED — all captured prices in `(0, 1)`; `outcomePrices` pairs ≈ sum to 1 | No |
+| A-018 | A two-value `relation` (`IDENTICAL` / `COMPLEMENTARY`) plus one named `outcome` per leg is enough to express every economic outcome mapping later arbitrage code (M1.5) needs between a Kalshi contract and a Polymarket US contract. | UNVERIFIED — no arbitrage math exists yet; revisit in M1.5. Additional relations (e.g. scalar/laddered) may be needed if non-binary markets are ever supported. | Yes |
+| A-019 | A human-curated TOML file behind a fail-closed loader, exposing only `VERIFIED` pairs, is a sufficient gate to keep unverified/rejected pairs out of strategy code. | UNVERIFIED (design assumption) — behaviour is enforced by `tests/test_market_pair_registry.py`, but "sufficient gate" depends on M1.5 actually consuming `eligible()` and nothing else, which does not exist yet. | Yes |
 
 ## M1.1 notes
 
@@ -82,6 +84,23 @@ Every unverified project assumption must be recorded here before implementation 
 - The adapter never reads Polymarket's genuine JSON floats
   (`orderPriceMinTickSize`, `feeCoefficient`); only string fields cross into the
   domain, so no float can leak (D-005).
+
+## M1.4 notes (manual market-pair registry)
+
+- A-018 and A-019 were introduced by the registry (`prediction_market_arbitrage.registry`).
+  See `docs/DECISIONS.md` D-011 and `docs/MARKET_PAIRING.md`.
+- The registry does **not** resolve or override A-013 / A-015 / A-016 (Polymarket
+  US market/book semantics) or A-001 / A-002 / A-003. A `VERIFIED` pair means
+  "contract equivalence has been human-reviewed for paper analysis" — it is not a
+  live-trading approval. `live_use_eligible` must be `false` on every record in
+  M1.4 (the loader rejects `true`).
+- Title similarity is explicitly **not** evidence of equivalence; LLM/fuzzy
+  semantic matching is deferred (D-006). The registry stores human decisions and
+  performs no matching.
+- The shipped `market_pairs.toml` contains **zero pairs** and no real venue
+  identifiers. Worked format examples live only in `docs/MARKET_PAIRING.md` and
+  `tests/test_market_pair_registry.py`, using synthetic ids
+  (`kalshi-test-market`, `polymarket-test-market`).
 
 ### Live-execution gate (M1.3)
 
