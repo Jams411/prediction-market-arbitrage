@@ -316,6 +316,77 @@ domain model and the math engine.
 **Evidence:** `src/prediction_market_arbitrage/registry/`,
 `tests/test_market_pair_registry.py`, `docs/MARKET_PAIRING.md`.
 
+### D-012 — The arbitrage engine is a pure function, isolated from adapters, pairing, execution, and fee-source verification
+
+**Date:** 2026-09-06
+
+**Decision:** M1.5's arbitrage math lives in its own package
+(`prediction_market_arbitrage.arbitrage`) as a pure calculator:
+`ArbitrageEngine.evaluate(record, kalshi_book, polymarket_us_book, *,
+evaluation_time, requested_quantity)` returns an `OpportunityEvaluation` and has
+no I/O, no wall-clock time, no venue knowledge, and no position/order concepts.
+
+- **Registry gate, not bypassable.** The engine evaluates a `MarketPairRecord`
+  only if its status is `VERIFIED`. `evaluate_from_registry(registry, pair_id,
+  ...)` additionally requires the record to be in `registry.eligible()`. Any
+  other status raises `ArbitrageError`.
+- **Books are inputs.** The engine consumes already-normalized `OrderBook`s from
+  the adapters (M1.2/M1.3); it never fetches them.
+- **Fees are injected.** A `FeeModel` protocol is supplied by the caller;
+  shipped models are `ZeroFeeModel` and a synthetic `FixedPerUnitFeeModel`. No
+  real venue schedule is hardcoded (A-022).
+- **Execution buffer is an explicit `Decimal` input.** No statistical slippage
+  estimate.
+- **Only `COMPLEMENTARY` is evaluated** (the buy/buy model). `IDENTICAL` records
+  return no opportunity with a reason — not because identical contracts cannot be
+  arbitraged, but because capturing that edge means selling/shorting the richer
+  side, which needs execution semantics outside this engine. Deferred, not ruled
+  out.
+- **Exact `Decimal` throughout**, no internal rounding; the only divisions are
+  the derived `*_per_unit` fields, and the opportunity test uses exact totals.
+
+**Rationale:** A strategy that is a pure function of (verified record, two books,
+config, evaluation time) is deterministic, replayable against recorded books
+(M2.3), and testable with exact known-answer `Decimal` cases. Entangling it with
+network I/O, human review, or execution would destroy all three properties and
+let a change to the math quietly loosen a risk decision.
+
+Separation, and why each boundary matters:
+
+| Separated from | Why |
+|---|---|
+| Venue adapters | Engine correctness must not depend on network/auth/venue uptime; adapter bugs stay in the adapter layer. |
+| Market-pair verification (M1.4) | Equivalence is a human risk judgement; keeping it out of the engine means editing the math can never change which pairs count as "the same bet". |
+| Execution / broker logic (M2.4) | Leg risk, one-sided fills, latency, partial fills, minimum sizes belong where they can be *simulated*, not asserted. |
+| Fee-source verification (A-022) | Fee formulas are evidence gathered separately; injecting the `FeeModel` keeps the engine correct whether or not a venue's schedule is known. |
+
+**Alternatives considered:** compute inside the arbitrage engine which pairs are
+equivalent (rejected — see M1.4 / D-006, D-011); hardcode current venue fee
+formulas (rejected — unverified; A-022); have the engine fetch books itself
+(rejected — couples math to I/O, kills replay/determinism); extend the domain
+`Opportunity` with the full cost/edge breakdown (rejected — `Opportunity` is a
+minimal venue-neutral container reused by future strategy output; the audit
+detail lives in the strategy-layer `OpportunityEvaluation`, and
+`OpportunityEvaluation.to_opportunity()` builds the minimal container when an
+opportunity exists — mirrors D-011's boundary).
+
+**Trade-offs / consequences:** The engine cannot, by construction, tell you
+whether a positive edge will be *realized* — that needs the paper broker. It
+also does not implement same-market complete-set arbitrage (a ROADMAP M1.5
+bullet): `MarketPairRecord` is cross-venue by construction (fixed `kalshi` +
+`polymarket_us` legs), so a same-venue pairing has no registry representation
+today. Flagged for a future registry extension or a separate mechanism.
+
+**Learning takeaway:** Keep the deterministic core deterministic. Every
+dependency you refuse to bake in — the network, the human equivalence call, the
+fee schedule, the execution model — is a dependency you can test, replay, and
+reason about in isolation later.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/arbitrage/`,
+`tests/test_arbitrage_engine.py`, `docs/ARBITRAGE_METHODOLOGY.md`.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

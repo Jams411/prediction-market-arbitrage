@@ -185,6 +185,63 @@ Use this file as the concise chronological record of milestone progress, evidenc
   M1.4 checkboxes left as-is (M1.2/M1.3 boxes are likewise still unchecked on
   `main`; box-marking is a review step).
 
+## 2026-09-06 — M1.5 Deterministic arbitrage engine
+
+- Added `src/prediction_market_arbitrage/arbitrage/`: `errors.py`
+  (`ArbitrageError`), `fees.py` (`FeeModel` protocol, `ZeroFeeModel`,
+  synthetic `FixedPerUnitFeeModel`), `engine.py` (`EngineConfig`,
+  `LegFill`, `LegEvaluation`, `OpportunityEvaluation`, `ArbitrageEngine`).
+- **Pure function.** `ArbitrageEngine.evaluate(record, kalshi_book,
+  polymarket_us_book, *, evaluation_time, requested_quantity)` →
+  `OpportunityEvaluation`. No I/O, no wall-clock time, no venue knowledge, no
+  positions/orders. `evaluate_from_registry(registry, pair_id, ...)` is the
+  intended entry point.
+- **Registry gate, not bypassable.** `evaluate()` raises unless
+  `record.status == VERIFIED`; `evaluate_from_registry` also requires the record
+  to be in `registry.eligible()`. DRAFT / REVIEW_REQUIRED / REJECTED / SUSPENDED
+  → `ArbitrageError`.
+- **Economics (exact Decimal, no internal rounding):**
+  `gross_total_cost = acq_a + acq_b`; `gross_edge = size - gross_total_cost`;
+  `net_total_cost = gross_total_cost + fees + execution_buffer`;
+  `net_edge = size - net_total_cost`; opportunity iff `net_edge > 0` (exact
+  break-even is not an opportunity). `expected_total_profit = net_edge`.
+  `*_per_unit` are derived (`total / executable_quantity`) and documented as the
+  only possibly-context-rounded fields (A-023).
+- **Depth-walking.** `_walk_asks` fills a target quantity across ascending ask
+  levels and reports each slice + total cost. Executable size =
+  `min(requested, depth_a, depth_b, max_quantity)`; `require_full_fill` turns a
+  depth shortfall into no-opportunity. No smaller partial-fill search (open
+  bound without a verified tick size — deferred to M2.4).
+- **Fees / buffer.** Injected `FeeModel` (no real venue schedule hardcoded —
+  A-022); explicit `Decimal` `execution_buffer_per_unit`. Float config /
+  requested-quantity inputs raise.
+- **Freshness (optional).** `max_book_age` and `max_cross_book_skew` against an
+  **injected** `evaluation_time` (tz-aware; naive raises). Stale / skewed /
+  future-dated books → no opportunity.
+- **Book↔leg join** is on `OrderBook.contract.id == f"{leg.market_id}:{leg.outcome}"`
+  (A-020); any mismatch (wrong contract, swapped books, wrong venue) raises. The
+  engine never guesses which book is which.
+- **Relation scope:** only `COMPLEMENTARY` is evaluated; `IDENTICAL` needs a
+  sell leg → no opportunity with a reason.
+- `OpportunityEvaluation.to_opportunity()` builds the minimal domain
+  `Opportunity` (+ a domain `MarketPair` from the two contracts) only when
+  `has_opportunity`. **Domain models unchanged** — audit detail lives in the
+  strategy layer (D-012, mirrors D-011).
+- Docs: new `docs/ARBITRAGE_METHODOLOGY.md` (why sub-$1 complementary buys are
+  arbitrage; gross vs net; depth; fees; top-of-book; equivalence as a separate
+  prerequisite; positive edge ≠ realized profit; leg/execution risk deferred).
+  Decision D-012 (engine isolation + 4-way separation rationale). Assumptions
+  A-020..A-023.
+- **No production pair added** — `market_pairs.toml` stays empty; all engine
+  tests use in-memory synthetic VERIFIED records with fake ids.
+- Tests: `tests/test_arbitrage_engine.py`, deterministic + offline, +34
+  (175 → 209 total). Exact known-answer Decimal cases (0.45+0.52 baseline; the
+  0.40x5/0.42x10 vs 0.50x8 depth example; fee/buffer/break-even/negative;
+  precision; float rejection) plus registry-enforcement and freshness cases.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting review. `docs/ROADMAP.md`
+  M1.5 checkboxes left as-is (M1.2–M1.4 boxes likewise unchecked on `main`).
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
