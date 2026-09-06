@@ -37,7 +37,11 @@ Every unverified project assumption must be recorded here before implementation 
 | A-016 | `question` is the correct normalized `Market.title` across all Polymarket US market types (vs `title` / `subtitle`). | **UNVERIFIED** — `question` chosen from limited samples; `futures` markets showed `title` = team name, `question` = the market question. A wrong label could mislead human pair verification (D-006). | Yes |
 | A-017 | Polymarket US market prices are probability-style decimals in `[0, 1]` (USD notional $1), consistent with A-004. | OBSERVED — all captured prices in `(0, 1)`; `outcomePrices` pairs ≈ sum to 1 | No |
 | A-018 | A two-value `relation` (`IDENTICAL` / `COMPLEMENTARY`) plus one named `outcome` per leg is enough to express every economic outcome mapping later arbitrage code (M1.5) needs between a Kalshi contract and a Polymarket US contract. | UNVERIFIED — no arbitrage math exists yet; revisit in M1.5. Additional relations (e.g. scalar/laddered) may be needed if non-binary markets are ever supported. | Yes |
-| A-019 | A human-curated TOML file behind a fail-closed loader, exposing only `VERIFIED` pairs, is a sufficient gate to keep unverified/rejected pairs out of strategy code. | UNVERIFIED (design assumption) — behaviour is enforced by `tests/test_market_pair_registry.py`, but "sufficient gate" depends on M1.5 actually consuming `eligible()` and nothing else, which does not exist yet. | Yes |
+| A-019 | A human-curated TOML file behind a fail-closed loader, exposing only `VERIFIED` pairs, is a sufficient gate to keep unverified/rejected pairs out of strategy code. | UNVERIFIED (design assumption) — behaviour is enforced by `tests/test_market_pair_registry.py` and now by the M1.5 engine's registry gate (`tests/test_arbitrage_engine.py`); "sufficient" still depends on all future strategy code routing through `eligible()` / a VERIFIED check. | Yes |
+| A-020 | A registry `VenueLeg` names exactly one order book via `f"{market_id}:{outcome}"` == the adapter-built `OrderBook.contract.id` (Kalshi `YES`/`NO`; Polymarket US `LONG`/`SHORT`). The M1.5 engine joins books to legs on this key and raises on any mismatch. | UNVERIFIED (convention) — followed by the M1.4 example records and both adapters' `Contract.id` construction, but not enforced by the registry loader. If a curator uses a different `outcome` vocabulary the engine fails closed rather than guessing. | Yes |
+| A-021 | For a `COMPLEMENTARY` pair, buying one unit of each leg's named outcome yields exactly 1 unit of settlement value regardless of outcome (payout normalization = $1). The engine computes edge as `size - total_acquisition_cost - fees - buffer`. | UNVERIFIED for real pairs — true by construction for the synthetic tests; for real markets it depends on the human VERIFIED review (A-001, D-006) and on both venues settling complementary sides to a combined $1. | Yes |
+| A-022 | Real Kalshi / Polymarket US fee schedules are not yet known. The M1.5 engine takes an injected `FeeModel`; `ZeroFeeModel` and `FixedPerUnitFeeModel` are baseline/synthetic only. | UNVERIFIED — deriving and verifying each venue's fee formula from primary sources is a later evidence task; until then any non-zero fee number fed to the engine must itself be evidence-backed. | Yes |
+| A-023 | Reporting `net_edge_per_unit` / `gross_edge_per_unit` as `total / executable_quantity` (a Decimal division that may round to context precision when it does not divide evenly) is acceptable because the engine's *decision* (`net_edge > 0`) and every reported *total* use exact Decimal arithmetic with no division. | ACCEPTED (design) — the per-unit fields are explicitly documented as derived; totals are authoritative. | No |
 
 ## M1.1 notes
 
@@ -101,6 +105,25 @@ Every unverified project assumption must be recorded here before implementation 
   identifiers. Worked format examples live only in `docs/MARKET_PAIRING.md` and
   `tests/test_market_pair_registry.py`, using synthetic ids
   (`kalshi-test-market`, `polymarket-test-market`).
+
+## M1.5 notes (deterministic arbitrage engine)
+
+- A-020 through A-023 were introduced by the arbitrage engine
+  (`prediction_market_arbitrage.arbitrage`). See `docs/DECISIONS.md` D-012 and
+  `docs/ARBITRAGE_METHODOLOGY.md`.
+- The engine is a pure function; it evaluates a pair only if its status is
+  `VERIFIED` (registry gate, not bypassable — `evaluate_from_registry` also
+  checks `registry.eligible()`).
+- A positive `net_edge` is **necessary, not sufficient** for realized profit.
+  Leg risk, one-sided fills, latency/staleness beyond the freshness guards,
+  unverified fees (A-022), and settlement edge cases are all deferred to the
+  paper broker / risk work (M2.4 / M2.5). No engine result or synthetic test is
+  a claim of real-world profitability.
+- The engine does **not** resolve A-001/A-002/A-003 or A-013/A-015/A-016; a
+  VERIFIED pair with a positive edge is still not live-approved.
+- Same-market complete-set arbitrage (a ROADMAP M1.5 bullet) is **not**
+  implemented — `MarketPairRecord` is cross-venue by construction. Flagged for a
+  future registry extension.
 
 ### Live-execution gate (M1.3)
 
