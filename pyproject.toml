@@ -9,7 +9,13 @@ description = "Evidence-driven cross-venue prediction market arbitrage research,
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Jameel Shaikh" }]
-dependencies = []
+# `websockets` is the sole runtime dependency: the concrete M2.1
+# `WebsocketsTransport` (livebook/ws_transport.py). It is the client the Kalshi
+# and Polymarket US docs use; pure Python, no transitive deps. Every other
+# module stays dependency-free.
+dependencies = [
+  "websockets>=13",
+]
 
 [project.optional-dependencies]
 dev = [

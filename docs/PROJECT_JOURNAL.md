@@ -305,6 +305,100 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
   --all-files`. Not committed — awaiting review.
 
+## 2026-09-06 — M2.1 Live book state
+
+- Branch `feat/live-book-state` off `origin/main` (includes M1.6).
+- New package `src/prediction_market_arbitrage/livebook/`:
+  - `updates.py` — venue-neutral `BookSnapshot` / `BookDelta` (exact `Decimal`,
+    tz-aware timestamps, optional `sequence`).
+  - `state.py` — `LiveBook` (one contract's `price → quantity` index; additive
+    delta, zero-level removal) and `LiveBookFeed` (connection state + Kalshi
+    `seq` sequencing + staleness vs an **injected** `now` + fail-closed
+    `FeedHealth`). `trading_enabled` is `True` only for `HealthStatus.HEALTHY`;
+    `UNINITIALIZED` / `STALE` / `DISCONNECTED` / `RESYNCING` / `DESYNCED` /
+    `MARKET_NOT_OPEN` all disable trading and `current_order_book(now)` → `None`.
+    Domain invariants enforced by building a real `OrderBook`; a crossed result
+    → `DESYNCED`.
+  - `kalshi_ws.py` — decodes `orderbook_snapshot` / `orderbook_delta` into a
+    YES/NO pair of updates (reusing the K-08 `1 - opposite_bid` implied-ask
+    rule). `delta_fp` applied additively (A-028).
+  - `polymarket_us_ws.py` — decodes `SUBSCRIPTION_TYPE_MARKET_DATA` (a full book
+    every frame) into one `:LONG` `BookSnapshot`; `state` drives market-open
+    gating.
+- **Disconnect / stale / resync:** `mark_disconnected()` → `DISCONNECTED`;
+  `begin_resync()` → `RESYNCING`; the next `apply_snapshot()` restores
+  `HEALTHY`. Kalshi `seq` gap / negative-quantity delta / crossed result →
+  `DESYNCED`, and deltas are ignored until a resync snapshot. Polymarket (no
+  sequence): every frame replaces the book; a `transactTime`-older frame is
+  dropped (at-least-once).
+- **No socket, no credentials, no wall-clock** — both venues' market-data WS
+  need handshake auth (A-027). Decoders + state machine are the testable core;
+  a real transport is a later boundary that calls the same methods.
+- Evidence: `docs/API_SOURCES.md` new sections K-WS-01..06 (Kalshi AsyncAPI) and
+  P-WS-01..04 (Polymarket Markets-WS + streaming guide), all **docs-only** — no
+  live socket, no WS fixture captured. D-014; A-027 / A-028 (Kalshi additive
+  delta — UNVERIFIED, not OBSERVED) / A-029 (Kalshi feed has no market-state
+  gate).
+- Not in scope / unchanged: recorder, replay, paper broker, orders, risk
+  manager, UI. A-013 (Polymarket book side) not resolved. Real-money disabled.
+  `docs/ROADMAP.md` M2.1 checkboxes left as-is (matches the M1.x precedent on
+  `main`).
+- Tests: `tests/test_livebook_state.py`, `tests/test_livebook_kalshi_ws.py`,
+  `tests/test_livebook_polymarket_us_ws.py` — 34 deterministic offline tests;
+  frames follow the published AsyncAPI / docs examples. Suite 256 → 290.
+
+### M2.1 (cont.) — authenticated WebSocket transport boundary
+
+- `livebook/credentials.py` — `KalshiCredentials` / `PolymarketUsCredentials`,
+  frozen, **redacted** `repr`/`str`, `*_credentials_from_env` reading explicit
+  env var names. No secret in repo, log, or disk.
+- `livebook/ws_auth.py` — pure, **docs-verified** builders: sign string
+  `timestamp + "GET" + path` (Kalshi `/trade-api/ws/v2`, Polymarket US
+  `/v1/ws/markets`), the three auth headers, URL constants, and the subscribe
+  command per venue. Signature (RSA-PSS / Ed25519) via an injected `Signer` —
+  no `cryptography` import.
+- `livebook/transport.py` — `WebSocketTransport` / `SnapshotSource` protocols,
+  pure `BackoffPolicy` (exponential, capped, optional `max_attempts`), frame
+  decoders (raw frame → M2.1 updates; acks/errors → `[]`), and
+  `LiveBookConnection`: `connect_and_subscribe` → `pump_one` (route by
+  `contract_id`) → `handle_disconnect` (all feeds → `DISCONNECTED`) →
+  `reconnect(sleep)` → `resync()` (per feed: `begin_resync` → REST
+  `SnapshotSource.fetch` → `apply_snapshot` → `HEALTHY`). `run_forever` is the
+  only loop; socket / REST / clock / sleep all injected.
+- **Concrete transport:** `livebook/ws_transport.py` — `WebsocketsTransport`
+  over the `websockets` library (`websockets>=13` added to
+  `pyproject.toml` — the project's **sole runtime dependency**; the client both
+  venue docs use; pure Python, no transitive deps). Only module in `livebook`
+  that does real network I/O or imports a third-party package.
+  `connect`/`send`/`receive`/`close` wrap `websockets.sync.client`;
+  `ConnectionClosed` and recv-timeout → `TransportClosed`; library handles
+  Ping/Pong. Plugs into the unchanged `LiveBookConnection`.
+- **Still not built:** a `Signer` implementation — the RSA-PSS / Ed25519 step
+  stays the caller's, so **no `cryptography` dependency**. And no real
+  authenticated connection to a venue: `WebsocketsTransport` is tested against a
+  local `websockets` loopback server (real socket, accepts any headers), which
+  is **not** OBSERVED handshake evidence (**A-030** stays UNVERIFIED; **A-028**
+  and the Polymarket subscribe casing/enum conflict (P-WS-AUTH-03) also
+  unresolved).
+- Evidence: `docs/API_SOURCES.md` section WS-A-S1..S6 + K-WS-AUTH-01..04 /
+  P-WS-AUTH-01..03 (docs-only) with a "transport implementation status" note.
+  D-015 (updated: transport added, signer still injected); A-027 updated
+  (boundary implemented), A-030 updated (still no venue handshake).
+- Tests: `tests/test_livebook_credentials.py`, `tests/test_livebook_ws_auth.py`,
+  `tests/test_livebook_transport.py` (31 — redaction, env loaders, sign strings
+  verbatim, header assembly with a fake signer, subscribe validation, backoff
+  math, frame-decoder routing, full connect/pump/disconnect/backoff-reconnect/
+  resync with in-memory fakes) + `tests/test_livebook_ws_transport.py` (5 —
+  real `websockets` round-trip on loopback: connect/send/receive/close, header
+  propagation, recv-timeout → `TransportClosed`, dead-address → `TransportClosed`,
+  and `LiveBookConnection` driving the real transport). Suite 290 → 326.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting request.
+- M2.1 deliverables (REST snapshot init, WS updates, disconnect detection,
+  stale handling, reconnect/resync, trading-disabled-on-unhealthy) are all
+  implemented; `docs/ROADMAP.md` M2.1 checkboxes left unticked per the M1.x
+  precedent on `main`.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
