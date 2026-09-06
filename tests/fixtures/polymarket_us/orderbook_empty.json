@@ -1,0 +1,61 @@
+{
+  "marketData": {
+    "bids": [],
+    "marketSlug": "tec-mlb-champ-2026-09-27-cin",
+    "offers": [],
+    "state": "MARKET_STATE_OPEN",
+    "stats": {
+      "currentPx": {
+        "currency": "USD",
+        "value": "0.0020"
+      },
+      "highPx": {
+        "currency": "USD",
+        "value": "0.0020"
+      },
+      "highSetTime": "2026-09-05T04:08:58.774580613Z",
+      "lastPriceSample": {
+        "longPx": {
+          "currency": "USD",
+          "value": "0.0020"
+        },
+        "shortPx": {
+          "currency": "USD",
+          "value": "0.998"
+        },
+        "ts": "2026-09-06T00:47:37.551288437Z"
+      },
+      "lastTradePx": {
+        "currency": "USD",
+        "value": "0.0020"
+      },
+      "lastTradeQty": "500.0000",
+      "lastTradeSetTime": "2026-09-05T04:08:58.774580613Z",
+      "lowPx": {
+        "currency": "USD",
+        "value": "0.0020"
+      },
+      "lowSetTime": "2026-09-05T04:08:58.774580613Z",
+      "notionalSetTime": "2026-09-05T04:08:58.774580613Z",
+      "notionalTraded": {
+        "currency": "USD",
+        "value": "1.0000"
+      },
+      "openInterest": "183313.0000",
+      "openInterestSetTime": "2026-08-30T11:49:53.466376848Z",
+      "openPx": {
+        "currency": "USD",
+        "value": "0.0020"
+      },
+      "openSetTime": "2026-09-05T04:08:58.774580613Z",
+      "settlementPriceCalculationMethod": "SETTLEMENT_PRICE_CALCULATION_METHOD_EVENT_TIER_3",
+      "settlementPx": {
+        "currency": "USD",
+        "value": "0.0020"
+      },
+      "settlementSetTime": "2026-09-04T21:00:25.505130879Z",
+      "sharesTraded": "500.0000"
+    },
+    "transactTime": "2026-09-06T00:47:37.551288437Z"
+  }
+}
