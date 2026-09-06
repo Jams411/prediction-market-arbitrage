@@ -1,0 +1,80 @@
+{
+  "market": {
+    "active": true,
+    "archived": false,
+    "bestAskQuote": {
+      "currency": "USD",
+      "value": "0.3820"
+    },
+    "bestBidQuote": {
+      "currency": "USD",
+      "value": "0.2650"
+    },
+    "category": "sports",
+    "closed": false,
+    "color": "#BD9000",
+    "comboEnabled": false,
+    "createdAt": "2026-03-19T14:41:53Z",
+    "description": "Will Milwaukee Brewers win the 2026 National League pennant, scheduled for October 23, 2026? If the event is postpone...",
+    "endDate": "2026-11-06T16:20:09Z",
+    "ep3Status": "OPEN",
+    "ep3SyncedAt": "2026-09-06T00:56:11Z",
+    "feeCoefficient": 0.06,
+    "gameStartTime": "2026-09-07T00:00:00Z",
+    "hidden": false,
+    "id": "7913",
+    "manualActivation": false,
+    "marketSides": [
+      {
+        "createdAt": "2026-03-19T14:41:53Z",
+        "description": "Yes",
+        "id": "15825",
+        "identifier": "tec-mlb-nlchamp-2026-09-27-mil",
+        "long": true,
+        "marketId": 7913,
+        "marketSideType": "MARKET_SIDE_TYPE_INSTRUMENT",
+        "price": "0.3820",
+        "quote": {
+          "currency": "USD",
+          "value": "0.3820"
+        },
+        "teamId": 3016,
+        "tradable": true,
+        "updatedAt": "2026-03-19T14:41:53Z"
+      },
+      {
+        "createdAt": "2026-03-19T14:41:53Z",
+        "description": "No",
+        "id": "15826",
+        "identifier": "tec-mlb-nlchamp-2026-09-27-mil",
+        "long": false,
+        "marketId": 7913,
+        "marketSideType": "MARKET_SIDE_TYPE_INSTRUMENT",
+        "price": "0.735",
+        "quote": {
+          "currency": "USD",
+          "value": "0.735"
+        },
+        "teamId": 3016,
+        "tradable": true,
+        "updatedAt": "2026-03-19T14:41:53Z"
+      }
+    ],
+    "marketType": "futures",
+    "minimumTradeQty": 1,
+    "orderPriceMinTickSize": 0.001,
+    "outcomePrices": "[\"0.3820\",\"0.735\"]",
+    "outcomes": "[\"Yes\",\"No\"]",
+    "question": "National League Champion",
+    "slug": "tec-mlb-nlchamp-2026-09-27-mil",
+    "sportsMarketType": "futures",
+    "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_FUTURE",
+    "startDate": "2026-03-19T14:32:23Z",
+    "status": "MARKET_STATUS_OPEN",
+    "subtitle": "",
+    "tags": [],
+    "title": "Milwaukee Brewers",
+    "titleShort": "Milwaukee Brewers",
+    "updatedAt": "2026-09-06T00:56:11Z"
+  }
+}

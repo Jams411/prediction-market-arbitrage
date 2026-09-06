@@ -1,0 +1,49 @@
+{
+  "marketData": {
+    "askDepth": 3,
+    "bestAsk": {
+      "currency": "USD",
+      "value": "0.3820"
+    },
+    "bestBid": {
+      "currency": "USD",
+      "value": "0.2650"
+    },
+    "bidDepth": 7,
+    "currentPx": {
+      "currency": "USD",
+      "value": "0.3230"
+    },
+    "lastPriceSample": {
+      "longPx": {
+        "currency": "USD",
+        "value": "0.2650"
+      },
+      "shortPx": {
+        "currency": "USD",
+        "value": "0.735"
+      },
+      "ts": "2026-09-06T00:57:51.563013666Z"
+    },
+    "lastTradePx": {
+      "currency": "USD",
+      "value": "0.2650"
+    },
+    "longQuote": {
+      "currency": "USD",
+      "value": "0.3820"
+    },
+    "marketSlug": "tec-mlb-nlchamp-2026-09-27-mil",
+    "openInterest": "136483.0000",
+    "settlementPx": {
+      "currency": "USD",
+      "value": "0.1990"
+    },
+    "sharesTraded": "1597.0000",
+    "shortQuote": {
+      "currency": "USD",
+      "value": "0.735"
+    },
+    "state": "MARKET_STATE_OPEN"
+  }
+}
