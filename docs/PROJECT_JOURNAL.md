@@ -617,6 +617,56 @@ Use this file as the concise chronological record of milestone progress, evidenc
   --all-files` all pass. Committed to `feat/dashboard` and pushed for review
   (no PR, no merge to `main`).
 
+## 2026-09-07 — M3.2 Deterministic failure testing
+
+- New `tests/test_failure_scenarios.py` (35 tests) — one section per
+  `docs/ROADMAP.md` M3.2 bullet, driving **existing** seams / fakes with an
+  injected failure and asserting the fail-closed contract plus the designed
+  recovery / resync. Branch `feat/failure-testing` off `origin/main` (M3.1 #14
+  merged). **Tests only — no production feature added, no new dependency.**
+- Coverage by category:
+  - **Venue disconnects** — `mark_disconnected` → trading disabled → `begin_resync`
+    + snapshot → HEALTHY; `LiveBookConnection.reconnect` deterministic backoff
+    (`[1.0, 2.0]`) then `resync`; give-up after `max_attempts` stays failed
+    closed; disconnect shows as a dashboard `ALERT` and vetoes a risk
+    `evaluate_opportunity`.
+  - **Stale prices** — feed STALE disables trading and clears on the next
+    update; engine `max_book_age` rejection; risk `max_data_age` + future-dated
+    health rejection.
+  - **Empty / malformed books** — empty ask side is never an opportunity;
+    duplicate price levels rejected; a crossing delta → DESYNCED (trading
+    disabled); non-JSON transport frame → `LiveBookError`; structurally
+    malformed Kalshi frame → decoder `LiveBookError`.
+  - **Fee mismatch** — a higher fee model flips a gross edge to no-opportunity;
+    execution buffer absorbs a thin edge; risk `min_net_edge_per_unit` floor.
+  - **Partial / one-leg fills** — IOC partial fill cancels the remainder; a
+    one-legged `LegRiskSnapshot` is allowed inside the window and vetoed past
+    `max_unhedged_time`; unhedged leg shows on the dashboard; a hedged
+    observation clears the timer.
+  - **Duplicate messages / orders** — duplicate-sequence delta → `DUPLICATE`
+    (book unchanged); stale-sequence snapshot dropped; duplicate `order_id`
+    → `PaperBrokerError`; recorder exposes no update/delete surface.
+  - **API timeout / rate limit** — adapter propagates `KalshiTimeoutError`
+    (not swallowed); HTTP 429 → `KalshiHTTPError(status=429)`; Polymarket HTTP
+    503 → `PolymarketHTTPError(status=503)`, never a partial book.
+  - **Invalid contract mapping** — non-VERIFIED pair → `ArbitrageError`;
+    book/record contract mismatch → `ArbitrageError`; feed rejects a message
+    for another contract; connection rejects a feed from another venue.
+  - **Database / process restart** — a recording read back by a fresh
+    `ReplaySession` after "process 1" closed is byte-identical across two
+    reopens; reopening a recorder file continues append-only; a foreign
+    `schema_version` file is refused (no migration); unknown `session_id`
+    → `ReplayError`.
+- **No real defect discovered** — every fail-closed / recovery seam behaved as
+  designed; these are modelled scenarios only (see `docs/DECISIONS.md` D-021,
+  `docs/ASSUMPTIONS.md` M3.2 notes). `docs/ROADMAP.md` M3.2 checkboxes left
+  unticked per precedent (all nine items covered).
+- Not implemented: performance report (M3.3), live broker, UI changes, strategy
+  changes, real-money activation.
+- Suite 440 → 475. Gates: `ruff check .`, `mypy src tests`, `pytest`,
+  `pre-commit run --all-files` all pass. Committed to `feat/failure-testing` and
+  pushed for review (no PR, no merge to `main`).
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
