@@ -531,6 +531,48 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
   --all-files` all pass. Not committed — awaiting request.
 
+## 2026-09-07 — M2.5 Deterministic risk manager
+
+- New package `src/prediction_market_arbitrage/risk/` — a fail-closed veto layer
+  over the objects M1.5 / M2.1 / M2.4 already produce. Branch `feat/risk-manager`
+  off `origin/main` (M2.4 #12 merged). **No new runtime dependency, no strategy
+  logic.**
+- `errors.py` (`RiskError`), `limits.py` (`RiskLimits` — 8 optional
+  Decimal/timedelta limits + always-on kill switch, validated), `decision.py`
+  (`RiskDecision(allowed, reasons, checks_run, as_of)` + `raise_if_rejected()`),
+  `state.py` (`RiskState` — kill switch, consecutive-error counter, per-UTC-day
+  realized-PnL ledger, "unhedged since" map; every mutation timestamp-driven),
+  `manager.py` (`RiskManager`, `RiskSnapshot`).
+- `evaluate_order(request, *, now, positions?, marks?, opportunity?, health?,
+  leg?, leg_pair_key?)` runs every configured check and returns **all** failing
+  reasons. `evaluate_opportunity(...)` is the session-wide + edge subset.
+- Enforces: max position (projected signed qty), max exposure
+  (`Σ |projected_qty| * mark`, mark = `marks` → `avg_price` → limit price), max
+  order size, min `net_edge_per_unit`, max data age + unhealthy-feed reject, max
+  unhedged time (`now − since`, non-terminal non-zero leg), consecutive-error
+  limit, max daily loss (realized loss for `now`'s UTC day), kill switch.
+- **Fail closed (A-034):** a set limit with a missing required input
+  (`positions` / `opportunity` / `health` / `leg`) or an unhealthy /
+  future-dated `FeedHealth` → reject. `evaluate_order` advances the unhedged
+  timer as a deliberate side effect.
+- Consumes `OpportunityEvaluation` / `FeedHealth` / `OrderRequest` /
+  `LegRiskSnapshot` / `recorder.PositionRow` unchanged; imports those types
+  only; nothing in strategy/execution imports `risk`.
+- Records: D-019; A-034. `docs/ROADMAP.md` M2.5 checkboxes left unticked per
+  precedent (all nine items implemented).
+- Not implemented: live broker/API orders, dashboard/UI, live execution, new
+  strategy logic. Real-money disabled.
+- Tests: `tests/test_risk_manager.py` (25) + `tests/risk_support.py` —
+  deterministic offline (one per limit + its fail-closed path, kill
+  switch on/off, unhealthy-feed reject without an age limit, future-dated
+  health, both-terminal leg = hedged, multi-reason decision, fully-configured
+  happy path exercising all checks, `evaluate_opportunity` subset, script
+  determinism, `snapshot`, naive-datetime + bad-limits + wrong-type misuse).
+  Suite 387 → 412.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Committed to `feat/risk-manager` and pushed for review
+  (no PR, no merge to `main`).
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
