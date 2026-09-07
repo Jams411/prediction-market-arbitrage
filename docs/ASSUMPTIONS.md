@@ -314,6 +314,27 @@ Every unverified project assumption must be recorded here before implementation 
   persistence read-back, live broker, live execution, strategy changes,
   failure testing (M3.2), performance report (M3.3). Real-money disabled.
 
+## M3.2 notes (deterministic failure testing)
+
+- Work lives on `feat/failure-testing` (branched from `origin/main` after M3.1
+  #14 merged); see `docs/DECISIONS.md` D-021. **Tests only — no production
+  change, no new dependency.**
+- `tests/test_failure_scenarios.py` covers all nine `docs/ROADMAP.md` M3.2
+  categories by driving existing injected-effect seams with modelled failures
+  and asserting fail-closed behaviour + designed recovery. No new assumption is
+  introduced.
+- **No real defect was discovered.** Every fail-closed and recovery path
+  behaved as designed under the modelled inputs. If a later run surfaces a real
+  defect it must be recorded here as a defect entry, separately from the
+  modelled scenario.
+- These scenarios are **not** evidence about real venue behaviour. Live venue
+  semantics remain unverified and continue to block real-money use: A-001 /
+  A-002 / A-003 (equivalence, settlement, fees), A-012 / A-013 / A-015 / A-016
+  (Polymarket US book side, routing identifiers, titles), A-028 / A-030
+  (WebSocket auth + frame formats, never run against a live venue), A-004 family
+  (price tick / fee schedule). The disconnect/reconnect scenario exercises the
+  M2.1 manager only — no concrete networked `WebSocketTransport` exists.
+
 ### Live-execution gate (M1.3)
 
 - The M1.3 Polymarket US adapter is **market-data only**. Live/real-money

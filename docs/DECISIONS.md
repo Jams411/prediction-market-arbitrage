@@ -932,6 +932,58 @@ understate risk (A-034 / A-035). Real-money trading stays disabled (D-002).
 `tests/test_dashboard.py`, `tests/dashboard_support.py`,
 `docs/ASSUMPTIONS.md` A-035.
 
+### D-021 — Failure testing is a modelled-scenario suite over existing seams; real defects are recorded separately
+
+**Date:** 2026-09-07
+
+**Decision:** M3.2 ships `tests/test_failure_scenarios.py` and no production
+code. It is one section per `docs/ROADMAP.md` M3.2 failure category (venue
+disconnects, stale prices, empty/malformed books, fee mismatch, partial/one-leg
+fills, duplicate messages/orders, API timeout/rate limit, invalid contract
+mapping, database/process restart). Each scenario:
+
+- drives an **existing** seam or fake (`livebook` `LiveBookFeed` /
+  `LiveBookConnection` + `FakeWebSocketTransport` / `FakeSnapshotSource`, the
+  arbitrage engine, `PaperBroker`, `RiskManager`, `Recorder` / `ReplaySession`,
+  the adapter `FakeTransport`s, the M3.1 dashboard) — no new production feature,
+  no new dependency;
+- injects one modelled failure (no network, no wall-clock, deterministic);
+- asserts the **fail-closed contract** (trading disabled / rejection / raised
+  error / no partial output) and the **designed recovery** where one exists
+  (`begin_resync` → snapshot → HEALTHY; `LiveBookConnection.reconnect` backoff
+  then `resync`; a fresh snapshot clearing STALE; a hedged observation clearing
+  the unhedged timer).
+
+**Anti-hallucination rule:** a modelled scenario that passes is *not* evidence
+that the real venue behaves this way — it is evidence that our code fails closed
+against the modelled input. Any **real defect** found while writing these tests
+is recorded in `docs/PROJECT_JOURNAL.md` + `docs/ASSUMPTIONS.md` as a defect,
+separately from the scenario, and not hidden inside a green test.
+
+**Rationale:** the individual modules already have unit tests; M3.2's value is a
+single auditable checklist that exercises each failure category end-to-end
+across module boundaries (e.g. disconnect → feed health → risk veto → dashboard
+alert) and pins the fail-closed guarantees so a future refactor cannot quietly
+weaken them.
+
+**Alternatives considered:** fault-injection wrappers / a chaos harness in
+production code (rejected — adds surface area and a dependency for a
+verification milestone; the injected-effect seams already allow every failure to
+be scripted from a test); editing the existing per-module test files (rejected —
+a dedicated file is the reviewable M3.2 deliverable and keeps the cross-cutting
+scenarios in one place).
+
+**Trade-offs / consequences:** some assertions overlap existing unit tests by
+construction (the checklist must cover every category even where one module
+already tests it). The suite proves fail-closed behaviour against *modelled*
+inputs only; live venue semantics (A-001 family, A-012/A-013/A-015/A-016,
+A-028/A-030) remain unverified and still block real-money use.
+
+**Status:** ACTIVE.
+
+**Evidence:** `tests/test_failure_scenarios.py`; result of this session — no
+real defect discovered; `docs/ASSUMPTIONS.md` "M3.2 notes".
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
