@@ -667,6 +667,53 @@ Use this file as the concise chronological record of milestone progress, evidenc
   `pre-commit run --all-files` all pass. Committed to `feat/failure-testing` and
   pushed for review (no PR, no merge to `main`).
 
+## 2026-09-07 — M3.3 Deterministic paper-performance report
+
+- New package `src/prediction_market_arbitrage/perf_report/` — a **pure
+  read-only projection** of one M2.2 recording, read through the M2.3
+  `ReplaySession`. Branch `feat/paper-performance-report` off `origin/main`
+  (M3.2 #15 merged). **No new runtime dependency.**
+- `errors.py` (`PerfReportError`), `models.py` (`Stats` + section dataclasses +
+  `PerfReport`), `build.py` (`build_report`), `render.py` (`render_text`).
+- `build_report(session, *, pnl_scope="portfolio", pnl_scope_id=None)` →
+  immutable `PerfReport`:
+  - **Opportunities**: observed / positive-edge / rejected + rejection-reason
+    histogram; mean/median/min/max net edge (total and per unit) over
+    positive-edge rows; executable-quantity stats; depth-capped count + fraction.
+  - **Opportunity duration** (derived): an episode is a maximal run of
+    consecutive positive-edge evals for one `pair_id`; duration =
+    `last_eval_time − first_eval_time`; single-observation episodes counted
+    separately (no duration).
+  - **Paper trades**: orders, fully/partially/unfilled, fill rate, partial-fill
+    rate, filled-quantity ratio, final-status histogram, fills, fill liquidity,
+    fill fees.
+  - **Depth**: best and total size per side over recorded order books.
+  - **PnL / drawdown**: for one scope, final realized/unrealized/fees/net, peak
+    net, max peak-to-trough drawdown of the `realized + unrealized − fees`
+    series.
+- **Missing ≠ zero.** `Stats` aggregates are `None` when there is no data; each
+  unavailable metric is listed in `PerfReport.unavailable` with its reason. The
+  renderer prints `n/a` (+ reason) vs a real number.
+- **Leg-risk events are not persisted** (no recorder table) — reported as
+  unavailable, never as `0` events.
+- Pure: no wall-clock, no DuckDB access, no writes, no order submission; imports
+  the replay / recorder types only; nothing imports `perf_report`. Bad
+  `pnl_scope` → `PerfReportError`.
+- Records: D-022; A-036. `docs/ROADMAP.md` M3.3 checkboxes left unticked per
+  precedent (all eight items covered where persisted data supports them).
+- Not implemented: leg-risk persistence, live broker, dashboard changes,
+  strategy changes, real-money activation.
+- Tests: `tests/test_perf_report.py` (19) + `tests/perf_report_support.py` —
+  a hand-built known-answer recording (5 opportunities: 3 positive / 2 rejected;
+  net-edge [2,4,1]; a 2-eval P1 episode = 20s + a single-obs P2 episode;
+  3 orders fully/partial/unfilled; 2 order books; portfolio pnl net
+  [0,5,2,6.5] → peak 6.5, drawdown 3; a `contract`-scope row that must be
+  filtered out) plus an empty-session test asserting every aggregate is `None`
+  not `0`. Suite 475 → 493.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Committed to `feat/paper-performance-report` and pushed
+  for review (no PR, no merge to `main`).
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
