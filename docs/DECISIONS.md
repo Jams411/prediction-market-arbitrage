@@ -797,6 +797,76 @@ unproven until a live path exists (which the real-money gate still blocks).
 `tests/test_paper_broker.py`, `tests/paper_broker_support.py`,
 `docs/ASSUMPTIONS.md` A-033.
 
+### D-019 — The risk manager is a deterministic, fail-closed veto over existing objects — no strategy, no new inputs
+
+**Date:** 2026-09-07
+
+**Decision:** M2.5 ships `prediction_market_arbitrage.risk`. No new runtime
+dependency.
+
+- `RiskLimits` (frozen, config-injected, Decimal / timedelta; `None` disables a
+  check): `max_position`, `max_exposure`, `max_order_size`,
+  `min_net_edge_per_unit`, `max_data_age`, `max_unhedged_time`,
+  `max_consecutive_errors`, `max_daily_loss`, plus the always-on kill switch.
+- `RiskManager.evaluate_order(request, *, now, positions?, marks?, opportunity?,
+  health?, leg?, leg_pair_key?)` returns `RiskDecision(allowed, reasons,
+  checks_run, as_of)` — it runs **every configured check** and collects **all**
+  failing reasons (not just the first). `evaluate_opportunity(opportunity, *,
+  now, health?)` is the session-wide + edge subset for gating before an order is
+  sized.
+- **Inputs are the earlier milestones' own objects, unchanged:** M1.5
+  `OpportunityEvaluation` (`net_edge_per_unit`, `has_opportunity`), M2.1
+  `FeedHealth` (`trading_enabled`, `as_of` / `last_update`), M2.4 `OrderRequest`
+  / `LegRiskSnapshot`, `recorder.PositionRow`. The `risk` package imports those
+  types and nothing else; no strategy / execution / broker code imports `risk`.
+- **Fail closed (A-034).** A limit that is set but whose required input is
+  missing (`positions`, `opportunity`, `health`, `leg`) → reject. A provided
+  `FeedHealth` with `trading_enabled == False`, or a future-dated health
+  timestamp → reject. `max_exposure` that cannot value a held contract (no
+  `marks`, `avg_price == 0`, no limit price) → reject.
+- **State (`RiskState`).** The kill switch, the consecutive-error counter, a
+  per-UTC-day realized-PnL ledger (`record_realized_pnl(amount, *, at)`), and a
+  per-pair "unhedged since" map. `evaluate_order` / `observe_leg_risk` update
+  the unhedged timer as a deliberate side effect — the manager must remember
+  when a pair first went unhedged to measure its age. Every mutation takes an
+  injected `at` / `now`; no wall-clock, no RNG.
+- **Semantics.** `max_position` compares the **projected signed** quantity
+  (`current + (qty | -qty)`); `max_exposure` sums `|projected_qty_c| * mark_c`
+  across all contracts (`mark_c` = explicit `marks`, else `avg_price`, else the
+  order's limit price for its own contract); `max_daily_loss` is the realized
+  loss magnitude for `now`'s UTC day; `max_unhedged_time` measures `now − since`
+  for a non-terminal, non-zero `unhedged_quantity`.
+
+**Rationale:** A risk layer that is a pure function of (limits, injected clock,
+supplied inputs, `RiskState`) is deterministic, testable with exact
+known-answer cases, and replayable against M2.3 output. Making it consume the
+existing objects — rather than defining its own position / health / opportunity
+types — keeps the seam thin and means a limit change is a one-line
+`RiskLimits(...)` edit. Returning every failing reason (not the first) makes a
+rejection actionable.
+
+**Alternatives considered:** raise on rejection instead of returning a decision
+(rejected — a decision object composes; `RiskDecision.raise_if_rejected()` is
+there for callers that want the throw); let the manager hold its own position
+book (rejected — the paper broker already owns positions; the manager takes a
+`PositionRow` mapping); mark exposure at live book mid by default (rejected — no
+book is guaranteed at decision time; cost-basis `avg_price` is a deterministic
+fallback approximation and explicit current `marks` is the preferred override).
+
+**Trade-offs / consequences:** `evaluate_order` is not side-effect free (it
+advances the unhedged timer) — documented (A-034). Cost-basis exposure is a
+fallback approximation, not a conservative bound: it can understate risk after
+an adverse move, so `max_exposure` is not safely enforced from cost-basis /
+stale valuation alone — a live caller must pass current `marks`. The
+manager vetoes but does not act — nothing here submits, cancels, or sizes an
+order. Real-money trading stays disabled (D-002).
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/risk/`,
+`tests/test_risk_manager.py`, `tests/risk_support.py`,
+`docs/ASSUMPTIONS.md` A-034.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
