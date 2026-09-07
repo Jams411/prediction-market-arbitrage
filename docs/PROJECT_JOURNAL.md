@@ -483,6 +483,54 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
   --all-files` all pass. Not committed — awaiting request.
 
+## 2026-09-07 — M2.4 Deterministic paper broker
+
+- New package `src/prediction_market_arbitrage/paper_broker/` — a pure,
+  injected-effect simulator of **taker** order execution against normalized
+  `OrderBook` depth. Branch `feat/paper-broker` off `origin/main` (M2.3 #11
+  merged). **No new runtime dependency.**
+- `errors.py` (`PaperBrokerError`), `slippage.py` (`SlippageModel` protocol +
+  `NoSlippage` / `FixedOffsetSlippage` / `PerLevelSlippage`), `models.py`
+  (`OrderRequest`, `Fill`, `Order`, `OrderStatus`, `StatusTransition`,
+  `BrokerEvent`, `LegRiskSnapshot`), `broker.py` (`PaperBroker`,
+  `PaperBrokerConfig`).
+- Driven by `submit(request, *, at)` / `cancel(order_id, *, at)` /
+  `advance(*, at, books={contract_id: OrderBook})`. Monotonic simulated time
+  (enforced); every timestamp injected; no wall-clock, no RNG.
+- **Latency:** order effective at `submit + submit_latency`; a book stamped
+  before that cannot fill it. **Depth / partial fills:** buy walks asks / sell
+  walks bids, best-first, stops at limit price; short depth → `PARTIALLY_FILLED`
+  and keeps working (unless IOC). **Slippage:** per-level `SlippageModel.adjust`
+  clamped to `[0.0001, 0.9999]` (A-033). **Rejections:** malformed request,
+  below `min_order_size`, IOC/market with no eligible liquidity on first
+  eligible book, duplicate id. **Cancellation:** effective at
+  `cancel + cancel_latency`; an earlier fill wins the race; IOC remainder
+  canceled. **Expiry:** market-order remainder past `market_order_ttl`.
+  **Leg risk:** `PaperBroker.leg_risk(a, b, *, as_of, books)` →
+  `LegRiskSnapshot` (unhedged qty, avg prices, completion mid, unhedged
+  notional) — measurement only, judgement is M2.5.
+- Fees: injected `arbitrage.FeeModel` (reuses M1.6 schedules; `ZeroFeeModel`
+  default), one `Fill` per level with its own fee.
+- **Recorder integration, no redesign:** `Order.event_rows()` →
+  `recorder.OrderEventRow`s, `Fill.to_row()` → `recorder.FillRow`,
+  `PaperBroker.position(...)` → `recorder.PositionRow`. Broker imports only those
+  row types; nothing in recorder/replay imports the broker. Test persists a
+  simulated order through a real `Recorder` and reads it back.
+- Records: D-018; A-033. `docs/ROADMAP.md` M2.4 checkboxes left unticked per
+  precedent (all seven items implemented).
+- Not implemented: live broker/API orders, risk manager, dashboard/UI,
+  production live trading, automatic market pairing. Real-money disabled.
+- Tests: `tests/test_paper_broker.py` (28) + `tests/paper_broker_support.py` —
+  deterministic offline (latency gate incl. stale book, depth walk + partial +
+  completion, limit-price cap, sell side, min-size / IOC-no-liquidity /
+  IOC-remainder / duplicate / malformed rejections, fixed + per-level slippage +
+  clamp, cancel-latency + fill-beats-cancel + cancel-after-terminal, market TTL
+  expiry, leg risk, injected fee per fill, position averaging + flatten,
+  recorder round-trip, script determinism, backwards-time + naive-datetime
+  misuse, event-row history). Suite 359 → 387.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting request.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
