@@ -665,6 +665,71 @@ microsecond precision (A-031). No replay/query API ships here — M2.3.
 `tests/test_recorder_schema.py`, `tests/test_recorder.py`,
 `pyproject.toml` (`duckdb>=1.0`), `docs/ASSUMPTIONS.md` A-031.
 
+### D-017 — Replay is a read-only, deterministic reconstruction of a recording, timed by an injected sleep, feeding the live-book path
+
+**Date:** 2026-09-07
+
+**Decision:** M2.3 ships `prediction_market_arbitrage.replay`, a **read-only**
+consumer of an M2.2 recorder database. No new runtime dependency (`duckdb` is
+already present).
+
+- `ReplaySession(connection | .open(path, read_only=True), *, session_id)` —
+  validates `schema_meta.schema_version` and that the session exists, then
+  exposes one iterator per recorded stream (`order_books`, `opportunities`,
+  `order_events`, `fills`, `positions`, `pnl`, `health_events`), each
+  `SELECT ... ORDER BY id` (the recorder's monotonic append key). No `record_*`
+  / write / update / delete method exists on the class.
+- **Reconstruction fidelity.** Stored `VARCHAR` text → exact `Decimal(text)`;
+  stored naive-`TIMESTAMP` → UTC reattached explicitly with
+  `.replace(tzinfo=UTC)` (`replay._read.to_utc`, per A-031). Domain `OrderBook`,
+  `livebook.FeedHealth`, `registry.OutcomeRelation` are rebuilt from the rows.
+  `Venue.name` / `Market.title` are synthesized from the ids (A-032) — the
+  recorder stored identifiers only; every field strategy code joins on is exact.
+  A `health_events` row whose stored `trading_enabled` disagrees with the
+  reconstructed status raises `ReplayError` (a corruption check).
+- **Deterministic order.** `timeline()` merges the streams and sorts on
+  `(recorded_at, kind_rank, row_id)` — a fixed total order. Two byte-identical
+  recordings replay to equal `timeline()`s.
+- **Injected timing.** `play(sleep=no_sleep, speed=1.0)` yields `timeline()`
+  events, calling `sleep(gap / speed)` for the recorded wall-gap before each
+  event after the first. `no_sleep` (the default) makes replay a plain
+  deterministic iterator for tests; `realtime(speed)` returns a `time.sleep`
+  wrapper for real-time playback. The engine never reads a wall clock itself.
+- **Strategy-interface compatibility.** `as_book_snapshots()` yields
+  `livebook.BookSnapshot` objects (`sequence` / `market_state` = `None`), and
+  `feed_book_snapshots({contract_id: LiveBookFeed})` applies them through the
+  unchanged `LiveBookFeed.apply_snapshot`, paced like `play`. That is the
+  "replay through the same strategy-facing interface" surface — where current
+  abstractions allow it. Re-running the M1.5 engine needs the verified pair
+  record, which the recorder does not store (only the *result*), so that path
+  is left to the caller with the reconstructed `OrderBook`s + `RecordedOpportunity`.
+
+**Rationale:** A recording is an audit artifact; a replay that can only read it,
+reconstructs it deterministically, and hands books to the same `LiveBookFeed`
+the live path uses lets M2.4/M2.5 be exercised against captured reality with no
+network and no non-determinism. Keeping timing injected (default no-sleep) means
+every replay test is fast and exact; `realtime` is one small wrapper for the
+rare real-time need.
+
+**Alternatives considered:** replay through a `WebSocketTransport` fake that
+re-emits recorded frames (rejected — the recorder stores normalized
+`OrderBook`s, not raw venue frames; reconstructing frames would be lossy and
+venue-specific); a single SQL `UNION ALL` for `timeline()` (rejected — a Python
+merge of already-ordered streams is clearer and the sort key is explicit); make
+`play` sleep by default with real `time.sleep` (rejected — determinism-first,
+matching the rest of the codebase; opt in via `realtime`).
+
+**Trade-offs / consequences:** `Venue.name` / `Market.title` are not
+round-tripped (A-032). The engine cannot be auto-re-run from a recording alone
+(no stored pair record). Replay of a `:memory:` database requires handing in the
+live connection; file databases open `read_only=True`.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/replay/`,
+`tests/test_replay.py`, `tests/replay_support.py`,
+`docs/ASSUMPTIONS.md` A-031 / A-032.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

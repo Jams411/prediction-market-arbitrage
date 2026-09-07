@@ -439,6 +439,50 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
   --all-files` all pass. Not committed — awaiting request.
 
+## 2026-09-07 — M2.3 Replay adapter
+
+- New package `src/prediction_market_arbitrage/replay/` — a **read-only,
+  deterministic** consumer of an M2.2 recorder DuckDB database. Branch
+  `feat/replay-adapter` off `origin/main` (which now has M2.1 #9 + M2.2 #10).
+  **No new runtime dependency** (`duckdb` already present).
+- `errors.py` (`ReplayError`), `_read.py` (stored text → exact `Decimal`;
+  naive-`TIMESTAMP` → UTC reattached via `.replace(tzinfo=UTC)` per A-031;
+  `rebuild_contract`), `models.py` (`RecordedOrderBook` + 6 stream row types +
+  `ReplayEvent`), `session.py` (`ReplaySession`, `no_sleep`, `realtime`).
+- `ReplaySession(connection | .open(path, read_only=True), *, session_id)` —
+  checks `schema_version` + session existence, then one iterator per stream
+  (`order_books`, `opportunities`, `order_events`, `fills`, `positions`, `pnl`,
+  `health_events`), each `SELECT ... ORDER BY id`. No write/update/delete
+  surface.
+- `timeline()` merges the streams on `(recorded_at, kind_rank, row_id)` — a
+  fixed total order; two identical recordings replay to equal timelines (test).
+- `play(sleep=no_sleep, speed=1.0)` — injected timing; default `no_sleep` is a
+  plain deterministic iterator, `realtime(speed)` wraps `time.sleep` for
+  real-time playback.
+- **Strategy-interface compatibility:** `as_book_snapshots()` yields
+  `livebook.BookSnapshot` (`sequence` / `market_state` = `None`);
+  `feed_book_snapshots({contract_id: LiveBookFeed})` applies replayed books
+  through the unchanged `LiveBookFeed.apply_snapshot`, paced like `play` (test
+  drives a real feed to `HEALTHY` with Decimal-exact levels). Re-running the
+  M1.5 engine needs the verified pair record, which the recorder does not store
+  — left to the caller with the reconstructed `OrderBook`s + `RecordedOpportunity`.
+- **A-032:** `Venue.name` / `Market.title` are synthesized from ids (recorder
+  stored identifiers only); `Contract.id`, `outcome`, `venue.id`, `market.id`,
+  Decimal prices/qty, level order, UTC book timestamp are all exact.
+- Records: D-017; A-031 (reattach noted), A-032. `docs/ROADMAP.md` M2.3 checkbox
+  left unticked per precedent (item implemented).
+- Not implemented: paper broker, risk manager, dashboard/UI, live execution,
+  new recorder features. Real-money disabled.
+- Tests: `tests/test_replay.py` (16) + `tests/replay_support.py` — deterministic
+  offline (order-book Decimal + UTC fidelity incl. a 30-digit value, livebook
+  `BookSnapshot` shape, real `LiveBookFeed` driven by `feed_book_snapshots`,
+  opportunity/health/order/fill/position/PnL streams, null `last_update`,
+  timeline ordering, two-recording determinism, `play` default no-sleep +
+  gap/speed pacing, `realtime` scaling, non-recorder DB / missing session /
+  foreign schema-version errors, no-write-API surface). Suite 343 → 359.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting request.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

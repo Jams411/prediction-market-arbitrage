@@ -49,7 +49,8 @@ Every unverified project assumption must be recorded here before implementation 
 | A-028 | Kalshi `orderbook_delta.delta_fp` is applied **additively** to the aggregated contract count already resting at that `(side, price_dollars)` level; a level reaching exactly zero is removed; a result below zero is a desync. | UNVERIFIED — the channel wording ("incremental updates to maintain a live orderbook") and the signed fixed-point value support no other reading, but the exact rule is not stated and is **not OBSERVED** against a real feed (auth-gated). `livebook/state.py` implements additive application; a real capture must confirm before live use. | Yes |
 | A-029 | The Kalshi live book carries **no market tradability state** — `orderbook_delta` frames have no `state` field; lifecycle/halt information is on a separate channel (`market-and-event-lifecycle`) not decoded in M2.1. So `LiveBookFeed.health()` gates on market state **only** for feeds that report one (Polymarket US `MARKET_STATE_*`); a Kalshi feed can read `HEALTHY` during a halt this layer cannot see. | VERIFIED (docs) that the field is absent; the **consequence** (no halt gating for Kalshi) is an accepted M2.1 gap — the lifecycle channel is future work. | Yes |
 | A-030 | The authenticated WebSocket handshake, subscribe body, and frame formats built by `livebook.ws_auth` and carried by `livebook.ws_transport.WebsocketsTransport` match what the real Kalshi / Polymarket US servers require. | **UNVERIFIED — docs-only, no live OBSERVED handshake against a venue.** Every claim (URLs, header names, `timestamp + "GET" + path` sign strings, subscribe shapes) is transcribed from official docs (WS-A-S1..S6) and unit-tested; the concrete `websockets` transport is exercised against a **local loopback server** (real socket, but it accepts any headers). No authenticated connection to Kalshi / Polymarket US was made and no WS fixture was captured — the framework holds no credentials and no signer implementation. A real connect (with credentials + a `Signer`) + one captured `orderbook_delta` / `MARKET_DATA` frame is required before live use, and resolves A-028 at the same time. Also unresolved: the Polymarket US subscribe casing/enum discrepancy between two doc pages (P-WS-AUTH-03). | Yes |
-| A-031 | The M2.2 recorder normalizes every timezone-aware timestamp to a naive-UTC `TIMESTAMP` (microsecond precision) and stores every `Decimal` as exact `str(Decimal)` text; this loses no fidelity the pipeline actually carries. | ACCEPTED (design) — domain timestamps are already UTC and microsecond-truncated (naive `TIMESTAMP` preserves the instant; a reader re-attaches UTC), and string-Decimal round-trips exactly at any scale (no fixed-scale `DECIMAL` column). The original `tzinfo` object and sub-microsecond precision are not preserved; neither exists upstream. No sub-µs or non-UTC timestamp reaches the recorder in the current pipeline — revisit if that changes. | No |
+| A-031 | The M2.2 recorder normalizes every timezone-aware timestamp to a naive-UTC `TIMESTAMP` (microsecond precision) and stores every `Decimal` as exact `str(Decimal)` text; this loses no fidelity the pipeline actually carries. | ACCEPTED (design) — domain timestamps are already UTC and microsecond-truncated (naive `TIMESTAMP` preserves the instant; a reader re-attaches UTC), and string-Decimal round-trips exactly at any scale (no fixed-scale `DECIMAL` column). The original `tzinfo` object and sub-microsecond precision are not preserved; neither exists upstream. No sub-µs or non-UTC timestamp reaches the recorder in the current pipeline — revisit if that changes. M2.3 `replay._read.to_utc` performs the reattach (`.replace(tzinfo=UTC)`). | No |
+| A-032 | An order book reconstructed by the M2.3 replay adapter is faithful for every field strategy / engine code uses (`Contract.id`, `outcome`, `venue.id`, `market.id`, exact `Decimal` prices / quantities, level ordering, UTC book timestamp), but `Venue.name` and `Market.title` are synthesized from the ids because the recorder never stored display names. | ACCEPTED (design) — the M1.5 engine and M2.1 book layer join on `Contract.id` (A-020) and never read `Venue.name` / `Market.title`; the recorder schema (M2.2) deliberately holds identifiers only. `replay._read.rebuild_contract` sets `name = id`, `title = market_id`. A consumer that needs true display names must join against a market catalogue outside the recording. | No |
 
 ## M1.1 notes
 
@@ -222,6 +223,27 @@ Every unverified project assumption must be recorded here before implementation 
   recorder.
 - No replay/query API, no paper broker, no risk manager, no UI — deferred
   (M2.3+). Real-money trading stays disabled.
+
+## M2.3 notes (replay adapter)
+
+- Work lives on `feat/replay-adapter` (branched from `origin/main` after M2.1
+  and M2.2 merged); see `docs/DECISIONS.md` D-017.
+- A-032 introduced here (replay synthesizes `Venue.name` / `Market.title` from
+  ids; every strategy-relevant field is exact).
+- `prediction_market_arbitrage.replay.ReplaySession` is **read-only** — no
+  `record_*` / write / update / delete surface; `.open(path, read_only=True)` by
+  default. It adds **no runtime dependency** (`duckdb` already present from
+  M2.2).
+- Determinism: every stream query is `ORDER BY` the recorder's monotonic `id`;
+  `timeline()` merges streams on `(recorded_at, kind_rank, row_id)` — a fixed
+  total order. Two identical recordings replay byte-identically (test).
+- Timing is injected: `play(sleep=..., speed=...)` defaults to `no_sleep`
+  (deterministic); `realtime(speed)` reproduces recorded wall-gaps.
+- Live-book compatibility: `feed_book_snapshots({contract_id: LiveBookFeed})`
+  hands a replayed book to `LiveBookFeed.apply_snapshot` unchanged
+  (`sequence` / `market_state` are `None` — the recorder did not store them).
+- Not implemented: paper broker, risk manager, dashboard/UI, live execution,
+  new recorder features. Real-money trading stays disabled.
 
 ### Live-execution gate (M1.3)
 
