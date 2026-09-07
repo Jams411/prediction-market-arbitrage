@@ -399,6 +399,46 @@ Use this file as the concise chronological record of milestone progress, evidenc
   implemented; `docs/ROADMAP.md` M2.1 checkboxes left unticked per the M1.x
   precedent on `main`.
 
+## 2026-09-06 — M2.2 Persistent recorder
+
+- New package `src/prediction_market_arbitrage/recorder/` — a **write-only,
+  append-only** DuckDB sink (`duckdb>=1.0`, the second runtime dependency after
+  `websockets`). Continues the `feat/live-book-state` branch.
+- `schema.py` — idempotent `initialize(conn)` (`CREATE ... IF NOT EXISTS`) that
+  refuses a foreign `SCHEMA_VERSION`; tables `recording_sessions`,
+  `order_book_snapshots` + `order_book_levels`, `opportunities`, `order_events`,
+  `fills`, `positions`, `pnl`, `health_events`, `schema_meta`; a per-table
+  `SEQUENCE` gives monotonic `id`s.
+- `models.py` — `OrderEventRow` / `FillRow` / `PositionRow` / `PnlRow` (frozen,
+  validated) for entities with no domain type yet (M2.4 / M2.5).
+- `recorder.py` — `Recorder` with `record_order_book`, `record_opportunity`
+  (takes an M1.5 `OpportunityEvaluation`), `record_order_event`, `record_fill`,
+  `record_position`, `record_pnl`, `record_health_event` (takes an M2.1
+  `FeedHealth`). Each appends one row (order book: parent + level rows) and
+  returns the new id. `Recorder.open(database=":memory:", ...)` connects + inits
+  + registers the session (`INSERT OR IGNORE`). No update/delete API.
+- **Fidelity (A-031):** money/price/qty stored as exact `str(Decimal)` in
+  `VARCHAR` (no fixed-scale `DECIMAL`); timestamps must be tz-aware, normalized
+  to naive-UTC `TIMESTAMP` (µs). Naive datetime / non-`Decimal` money →
+  `RecorderError`.
+- **Determinism:** no wall-clock, no random id; `session_id` + every timestamp
+  injected. Same calls → byte-identical rows (test). Sequence ids persist across
+  reopen of a file-backed DB (test).
+- **Decoupling:** the recorder imports the *types* it stores and none of their
+  behaviour; nothing in domain / arbitrage / livebook imports the recorder.
+- Records: D-016; A-031. `docs/ROADMAP.md` M2.2 checkboxes left unticked per the
+  M1.x / M2.1 precedent (all six items — DuckDB, order-book, opportunities,
+  orders/fills, positions/PnL, health events — are implemented).
+- Not in scope / unchanged: replay adapter (M2.3), paper broker, risk manager,
+  UI, live execution. Real-money disabled.
+- Tests: `tests/test_recorder_schema.py` (3) + `tests/test_recorder.py` (14) —
+  17 deterministic offline (schema init/idempotency/version guard, Decimal +
+  timestamp round-trip, monotonic ids, opportunity/health/order/fill/position/
+  PnL writes, null `last_update`, byte-identical determinism, no-update/delete
+  surface, file persistence). Suite 326 → 343.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting request.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

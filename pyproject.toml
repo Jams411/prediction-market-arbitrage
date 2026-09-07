@@ -15,6 +15,9 @@ authors = [{ name = "Jameel Shaikh" }]
 # module stays dependency-free.
 dependencies = [
   "websockets>=13",
+  # DuckDB backs the M2.2 persistent recorder
+  # (prediction_market_arbitrage.recorder). Embedded, single-file, no server.
+  "duckdb>=1.0",
 ]
 
 [project.optional-dependencies]

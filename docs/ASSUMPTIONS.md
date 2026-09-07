@@ -49,6 +49,7 @@ Every unverified project assumption must be recorded here before implementation 
 | A-028 | Kalshi `orderbook_delta.delta_fp` is applied **additively** to the aggregated contract count already resting at that `(side, price_dollars)` level; a level reaching exactly zero is removed; a result below zero is a desync. | UNVERIFIED — the channel wording ("incremental updates to maintain a live orderbook") and the signed fixed-point value support no other reading, but the exact rule is not stated and is **not OBSERVED** against a real feed (auth-gated). `livebook/state.py` implements additive application; a real capture must confirm before live use. | Yes |
 | A-029 | The Kalshi live book carries **no market tradability state** — `orderbook_delta` frames have no `state` field; lifecycle/halt information is on a separate channel (`market-and-event-lifecycle`) not decoded in M2.1. So `LiveBookFeed.health()` gates on market state **only** for feeds that report one (Polymarket US `MARKET_STATE_*`); a Kalshi feed can read `HEALTHY` during a halt this layer cannot see. | VERIFIED (docs) that the field is absent; the **consequence** (no halt gating for Kalshi) is an accepted M2.1 gap — the lifecycle channel is future work. | Yes |
 | A-030 | The authenticated WebSocket handshake, subscribe body, and frame formats built by `livebook.ws_auth` and carried by `livebook.ws_transport.WebsocketsTransport` match what the real Kalshi / Polymarket US servers require. | **UNVERIFIED — docs-only, no live OBSERVED handshake against a venue.** Every claim (URLs, header names, `timestamp + "GET" + path` sign strings, subscribe shapes) is transcribed from official docs (WS-A-S1..S6) and unit-tested; the concrete `websockets` transport is exercised against a **local loopback server** (real socket, but it accepts any headers). No authenticated connection to Kalshi / Polymarket US was made and no WS fixture was captured — the framework holds no credentials and no signer implementation. A real connect (with credentials + a `Signer`) + one captured `orderbook_delta` / `MARKET_DATA` frame is required before live use, and resolves A-028 at the same time. Also unresolved: the Polymarket US subscribe casing/enum discrepancy between two doc pages (P-WS-AUTH-03). | Yes |
+| A-031 | The M2.2 recorder normalizes every timezone-aware timestamp to a naive-UTC `TIMESTAMP` (microsecond precision) and stores every `Decimal` as exact `str(Decimal)` text; this loses no fidelity the pipeline actually carries. | ACCEPTED (design) — domain timestamps are already UTC and microsecond-truncated (naive `TIMESTAMP` preserves the instant; a reader re-attaches UTC), and string-Decimal round-trips exactly at any scale (no fixed-scale `DECIMAL` column). The original `tzinfo` object and sub-microsecond precision are not preserved; neither exists upstream. No sub-µs or non-UTC timestamp reaches the recorder in the current pipeline — revisit if that changes. | No |
 
 ## M1.1 notes
 
@@ -203,6 +204,24 @@ Every unverified project assumption must be recorded here before implementation 
 - The layer is pure/offline like the M1.5 engine: no wall-clock, exact
   `Decimal`, domain invariants enforced by building a real `OrderBook`. It does
   **not** resolve A-013 (which Polymarket book side) or the live-execution gate.
+
+## M2.2 notes (persistent recorder)
+
+- Work lives on `feat/live-book-state` (continues M2.1's branch); see
+  `docs/DECISIONS.md` D-016.
+- A-031 introduced here (naive-UTC-µs `TIMESTAMP` + string-`Decimal` storage).
+- `prediction_market_arbitrage.recorder` is **write-only and append-only** —
+  `Recorder` has record methods and no update/delete; DuckDB per-table
+  `SEQUENCE` ids make ordered inserts deterministic. `session_id` and all
+  timestamps are injected; no wall-clock, no random id.
+- `duckdb>=1.0` is the second runtime dependency (after `websockets`).
+- Order / fill / position / PnL have no domain model (M2.4 / M2.5), so the
+  recorder owns `OrderEventRow` / `FillRow` / `PositionRow` / `PnlRow`. It
+  records `OpportunityEvaluation` (M1.5) and `FeedHealth` (M2.1) directly and
+  imports none of their behaviour; nothing in strategy/execution imports the
+  recorder.
+- No replay/query API, no paper broker, no risk manager, no UI — deferred
+  (M2.3+). Real-money trading stays disabled.
 
 ### Live-execution gate (M1.3)
 

@@ -603,6 +603,68 @@ stays disabled.
 `pyproject.toml` (`websockets>=13`), `docs/API_SOURCES.md`
 (WS-A-S1..S6, K-WS-AUTH-*, P-WS-AUTH-*), `docs/ASSUMPTIONS.md` A-027 / A-030.
 
+### D-016 — The recorder is a write-only, append-only DuckDB sink, decoupled from strategy/execution, with string-Decimal / naive-UTC fidelity
+
+**Date:** 2026-09-06
+
+**Decision:** M2.2 ships `prediction_market_arbitrage.recorder`, backed by one
+embedded DuckDB database (file or `:memory:`; `duckdb>=1.0` is the second
+runtime dependency).
+
+- **Write-only.** `Recorder` exposes `record_order_book`, `record_opportunity`,
+  `record_order_event`, `record_fill`, `record_position`, `record_pnl`,
+  `record_health_event` — and nothing that updates or deletes. An entity that
+  changes over time (order status, position, PnL, feed health) is a **sequence
+  of appended rows** ordered by a monotonic per-table `id` (a DuckDB
+  `SEQUENCE`) plus injected event / record timestamps.
+- **Deterministic.** No wall-clock read, no random id: given the same call
+  sequence with the same inputs against a fresh database, the rows are
+  byte-identical. Row ids come from sequences (monotonic under single-threaded
+  ordered inserts); `session_id` and every timestamp are caller-supplied.
+- **Decoupled.** The recorder imports the *types* it stores (`OrderBook`,
+  `OpportunityEvaluation`, `FeedHealth`) but none of their behaviour, and no
+  strategy / engine / transport code imports the recorder. Orders / fills /
+  positions / PnL have no domain model yet (M2.4 / M2.5), so the recorder owns
+  their row schema in `recorder.models` (`OrderEventRow`, `FillRow`,
+  `PositionRow`, `PnlRow`).
+- **Fidelity.** Monetary / price / quantity columns are `VARCHAR` holding exact
+  `str(Decimal)` text — a `Decimal(text)` round-trip is exact at any scale, and
+  a fixed-scale `DECIMAL(38, n)` column is deliberately *not* used. Timestamps
+  must be timezone-aware on the way in; they are normalized to UTC and stored as
+  a naive-UTC `TIMESTAMP` (microsecond precision, matching what the domain
+  already carries — see A-031). Naive datetimes and non-`Decimal` money values
+  raise `RecorderError`.
+- **Schema.** `schema.initialize` is idempotent (`CREATE ... IF NOT EXISTS`) and
+  refuses a database written by a different `SCHEMA_VERSION` (no migrations in
+  M2.2). Tables: `recording_sessions`, `order_book_snapshots` +
+  `order_book_levels`, `opportunities`, `order_events`, `fills`, `positions`,
+  `pnl`, `health_events`, `schema_meta`.
+
+**Rationale:** A recorder that never mutates is trivially auditable and safe to
+run alongside a live loop — a bug can add junk rows but cannot corrupt history.
+String-Decimal storage removes the one place a financial value could silently
+lose precision on the way to disk. DuckDB gives SQL + columnar analytics and
+zero-copy Arrow/pandas export for the replay adapter (M2.3) with no server.
+
+**Alternatives considered:** SQLite (rejected — DuckDB's `DECIMAL`/`TIMESTAMP`
+handling and analytical queries fit replay/analysis better, and the ROADMAP
+names DuckDB); store `DECIMAL(38, 18)` columns (rejected — caps scale and
+precision; the recorder does no math so text is strictly safer); an ORM
+(rejected — a dependency and indirection for ~9 flat append tables); `UPDATE`
+mutable rows for orders/positions (rejected — kills the append-only audit
+guarantee; state-over-time is a row sequence).
+
+**Trade-offs / consequences:** `duckdb` is now a runtime dependency. Timestamps
+are stored naive-UTC, so a reader must re-attach UTC (the M2.3 replay adapter
+will); the original `tzinfo` object is not preserved, only the UTC instant at
+microsecond precision (A-031). No replay/query API ships here — M2.3.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/recorder/`,
+`tests/test_recorder_schema.py`, `tests/test_recorder.py`,
+`pyproject.toml` (`duckdb>=1.0`), `docs/ASSUMPTIONS.md` A-031.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
