@@ -730,6 +730,73 @@ live connection; file databases open `read_only=True`.
 `tests/test_replay.py`, `tests/replay_support.py`,
 `docs/ASSUMPTIONS.md` A-031 / A-032.
 
+### D-018 — The paper broker is a pure, injected-effect simulator of taker execution against real book depth
+
+**Date:** 2026-09-07
+
+**Decision:** M2.4 ships `prediction_market_arbitrage.paper_broker`. No new
+runtime dependency.
+
+- `PaperBroker` keeps mutable order/position state internally and hands out
+  frozen `Order` / `Fill` / `LegRiskSnapshot` snapshots. The caller advances
+  simulated time: `submit(request, *, at)`, `cancel(order_id, *, at)`,
+  `advance(*, at, books)` where `books` is `{contract_id: OrderBook}` live at
+  `at`. Time is monotonic non-decreasing (enforced); every timestamp is
+  injected; there is no wall-clock read and no RNG.
+- **Matching.** A buy walks `book.asks`, a sell `book.bids`, best price first,
+  stopping at a limit price. Eligible only when
+  `effective_at <= at` **and** `book.timestamp >= effective_at` (latency: an
+  order reaches the engine at `submit + submit_latency`, and a book captured
+  before that cannot fill it). Partial fills leave the order working unless it
+  is IOC. One `Fill` per book level, `liquidity = "taker"`, fee from the
+  injected `FeeModel` (reuses `arbitrage.FeeModel` — `ZeroFeeModel` default),
+  execution price from the injected `SlippageModel` clamped to
+  `[0.0001, 0.9999]` (A-033).
+- **Lifecycle.** `SUBMITTED → PARTIALLY_FILLED → FILLED`, or `REJECTED`
+  (malformed request, below `min_order_size`, IOC/market with no eligible
+  liquidity on its first eligible book), `CANCELED` (cancel effective at
+  `cancel_time + cancel_latency` — a fill that lands first wins; IOC remainder),
+  `EXPIRED` (market-order remainder past `market_order_ttl`). Each transition is
+  an appended `StatusTransition`; `OrderStatus` values match
+  `recorder.ORDER_STATUSES`.
+- **Leg risk.** `leg_risk(a, b, *, as_of, books)` returns the deterministic
+  measurement of one-legged exposure — `unhedged_quantity = a.filled −
+  b.filled`, each leg's average price, the mid of `b`'s current book as the
+  price to complete the missing leg, and `abs(unhedged) × that mid`. It does not
+  judge whether the exposure is acceptable — that is the M2.5 risk manager.
+- **Recorder integration, no redesign.** `Order.event_rows()` →
+  `list[recorder.OrderEventRow]`; `Fill.to_row()` → `recorder.FillRow`;
+  `PaperBroker.position(contract_id, *, as_of)` → `recorder.PositionRow`. The
+  broker imports those four row types and nothing else from the recorder; it
+  does not import `Recorder`. The recorder / replay packages do not import the
+  broker.
+
+**Rationale:** Same discipline as the M1.5 engine and M2.1/M2.3 — a simulator
+that is a pure function of (requests, injected books, injected times, config) is
+deterministic, replayable against M2.3 output, and exhaustively testable with
+exact `Decimal` known-answer cases. Reusing `arbitrage.FeeModel` means the fee
+schedule the strategy priced with (M1.6) is the one the paper fills pay.
+
+**Alternatives considered:** an event-loop broker with its own scheduler
+(rejected — a stepped `advance(to)` is simpler and its ordering is explicit);
+model resting/maker fills now (rejected — needs queue-position and order-flow
+assumptions with no evidence; deferred); a random slippage draw (rejected —
+kills determinism; `SlippageModel` is a pure function); give the broker its own
+Order/Fill row types (rejected — the recorder already owns those since M2.2;
+reuse them).
+
+**Trade-offs / consequences:** Taker-only (A-033) — no maker-fill, queue, or
+hidden-liquidity modelling. The `[0.0001, 0.9999]` clamp is a chosen epsilon,
+not a verified venue tick. Positive simulated fills are **not** realized fills;
+real latency, partial-fill microstructure, and venue rejection semantics stay
+unproven until a live path exists (which the real-money gate still blocks).
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/paper_broker/`,
+`tests/test_paper_broker.py`, `tests/paper_broker_support.py`,
+`docs/ASSUMPTIONS.md` A-033.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

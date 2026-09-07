@@ -51,6 +51,7 @@ Every unverified project assumption must be recorded here before implementation 
 | A-030 | The authenticated WebSocket handshake, subscribe body, and frame formats built by `livebook.ws_auth` and carried by `livebook.ws_transport.WebsocketsTransport` match what the real Kalshi / Polymarket US servers require. | **UNVERIFIED — docs-only, no live OBSERVED handshake against a venue.** Every claim (URLs, header names, `timestamp + "GET" + path` sign strings, subscribe shapes) is transcribed from official docs (WS-A-S1..S6) and unit-tested; the concrete `websockets` transport is exercised against a **local loopback server** (real socket, but it accepts any headers). No authenticated connection to Kalshi / Polymarket US was made and no WS fixture was captured — the framework holds no credentials and no signer implementation. A real connect (with credentials + a `Signer`) + one captured `orderbook_delta` / `MARKET_DATA` frame is required before live use, and resolves A-028 at the same time. Also unresolved: the Polymarket US subscribe casing/enum discrepancy between two doc pages (P-WS-AUTH-03). | Yes |
 | A-031 | The M2.2 recorder normalizes every timezone-aware timestamp to a naive-UTC `TIMESTAMP` (microsecond precision) and stores every `Decimal` as exact `str(Decimal)` text; this loses no fidelity the pipeline actually carries. | ACCEPTED (design) — domain timestamps are already UTC and microsecond-truncated (naive `TIMESTAMP` preserves the instant; a reader re-attaches UTC), and string-Decimal round-trips exactly at any scale (no fixed-scale `DECIMAL` column). The original `tzinfo` object and sub-microsecond precision are not preserved; neither exists upstream. No sub-µs or non-UTC timestamp reaches the recorder in the current pipeline — revisit if that changes. M2.3 `replay._read.to_utc` performs the reattach (`.replace(tzinfo=UTC)`). | No |
 | A-032 | An order book reconstructed by the M2.3 replay adapter is faithful for every field strategy / engine code uses (`Contract.id`, `outcome`, `venue.id`, `market.id`, exact `Decimal` prices / quantities, level ordering, UTC book timestamp), but `Venue.name` and `Market.title` are synthesized from the ids because the recorder never stored display names. | ACCEPTED (design) — the M1.5 engine and M2.1 book layer join on `Contract.id` (A-020) and never read `Venue.name` / `Market.title`; the recorder schema (M2.2) deliberately holds identifiers only. `replay._read.rebuild_contract` sets `name = id`, `title = market_id`. A consumer that needs true display names must join against a market catalogue outside the recording. | No |
+| A-033 | The M2.4 paper broker models **taker** execution only: every fill crosses the resting book (`liquidity = "taker"`), the executed price of each level slice is `SlippageModel.adjust(...)` clamped into `[0.0001, 0.9999]`, one `Fill` is emitted per book level with its fee from the injected `FeeModel`, and latency / cancellation are resolved by comparing injected `timedelta`s (a fill that lands before a cancel's effective time wins). | ACCEPTED (design) — resting-order / maker-fill simulation, queue-position modelling, iceberg/hidden size, and a verified minimum price tick are deferred; there is no evidence for venue tick size (A-004 family) so the clamp bounds are a chosen epsilon, not a venue rule. Deterministic given (requests, injected books, injected times, config); no wall-clock, no RNG. Positive simulated fills are **not** proof of realized fills — leg risk, real latency, and venue rejection semantics stay unproven until a live path exists. | Yes |
 
 ## M1.1 notes
 
@@ -244,6 +245,28 @@ Every unverified project assumption must be recorded here before implementation 
   (`sequence` / `market_state` are `None` — the recorder did not store them).
 - Not implemented: paper broker, risk manager, dashboard/UI, live execution,
   new recorder features. Real-money trading stays disabled.
+
+## M2.4 notes (deterministic paper broker)
+
+- Work lives on `feat/paper-broker` (branched from `origin/main` after M2.3
+  merged); see `docs/DECISIONS.md` D-018.
+- A-033 introduced here (taker-only execution, `[0.0001, 0.9999]` slippage
+  clamp, latency/cancel resolved by injected `timedelta`s).
+- `prediction_market_arbitrage.paper_broker.PaperBroker` is **pure and
+  deterministic** — no wall-clock, no RNG. The caller drives `advance(at=...,
+  books=...)`; injected `fee_model` (reuses `arbitrage.FeeModel`), `slippage`
+  (`NoSlippage` / `FixedOffsetSlippage` / `PerLevelSlippage`), latencies, min
+  size, market TTL. Simulated time is monotonic non-decreasing (enforced).
+- Covers every M2.4 ROADMAP item: latency, partial fills, available depth,
+  rejections, slippage, cancellation, leg-risk simulation
+  (`PaperBroker.leg_risk`).
+- **Recorder integration, no redesign:** `Order.event_rows()` →
+  `list[recorder.OrderEventRow]`, `Fill.to_row()` → `recorder.FillRow`,
+  `PaperBroker.position(...)` → `recorder.PositionRow`. The broker imports those
+  row types only; it does not import `Recorder`, and nothing in the recorder /
+  replay imports the broker.
+- Not implemented: live broker/API orders, risk manager, dashboard/UI,
+  production live trading, automatic market pairing. Real-money stays disabled.
 
 ### Live-execution gate (M1.3)
 
