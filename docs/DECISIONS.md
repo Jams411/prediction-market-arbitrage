@@ -984,6 +984,70 @@ A-028/A-030) remain unverified and still block real-money use.
 **Evidence:** `tests/test_failure_scenarios.py`; result of this session — no
 real defect discovered; `docs/ASSUMPTIONS.md` "M3.2 notes".
 
+### D-022 — The paper-performance report is a pure read-only projection of one recording; missing metrics are `None`, never `0`
+
+**Date:** 2026-09-07
+
+**Decision:** M3.3 ships `prediction_market_arbitrage.perf_report`. No new
+runtime dependency.
+
+- `build_report(session, *, pnl_scope="portfolio", pnl_scope_id=None)` takes an
+  M2.3 `ReplaySession` (the only read-back path for an M2.2 recording — the
+  recorder is write-only, D-016) and returns an immutable `PerfReport`.
+  `render_text(report)` renders a deterministic sectioned summary.
+- Metrics: opportunities observed / positive-edge / rejected + rejection-reason
+  histogram; mean/median/min/max **net edge** (total and per unit) over
+  positive-edge rows; executable-quantity stats + depth-capped fraction;
+  derived opportunity duration; paper-trade counts with fill / partial-fill
+  rates and filled-quantity ratio; fill count / liquidity / fees; available
+  depth from recorded order books (best and total size per side); paper PnL and
+  **max drawdown** (largest peak-to-trough decline of the `realized + unrealized
+  − fees` series for one scope).
+- **`Stats`** carries `count` plus `mean/median/minimum/maximum` that are
+  `None` when `count == 0`. A metric the recording cannot support is `None` and
+  named in `PerfReport.unavailable`; a real `0` count / value stays `0`. The
+  renderer prints `n/a` (with the reason) vs the number accordingly.
+- **Opportunity duration is derived, not recorded.** The recorder stores
+  discrete `OpportunityEvaluation` rows, not spans. An *episode* is a maximal
+  run of consecutive positive-edge evaluations for one `pair_id` ordered by
+  evaluation time; its duration is `last_eval_time − first_eval_time`. A
+  single-observation episode carries no duration information and is counted
+  separately (`single_observation_episodes`), never as duration `0`.
+- **Leg-risk events are not persisted.** The M2.2 schema has no leg-risk table
+  (`LegRiskSnapshot` is an in-memory M2.4/M2.5 object). `LegRiskStats.recorded`
+  is always `False`; the report lists `leg_risk_events` under `unavailable` —
+  not `0` events.
+- Pure: no wall-clock, no persistence write, no order submission; imports the
+  replay / recorder types only; nothing imports `perf_report`. `pnl_scope` is
+  validated against `recorder.PNL_SCOPES` (bad scope → `PerfReportError`).
+
+**Rationale:** a report that is a pure function of one `ReplaySession` is
+deterministic and known-answer testable, reuses the existing read-back path
+instead of touching DuckDB, and stays a strict observer. Making "missing" a
+first-class `None` (not `0`) keeps an empty or partial recording from silently
+reading as "0% fill rate, 0 drawdown".
+
+**Alternatives considered:** read the DuckDB directly (rejected — duplicates
+M2.3 and couples the report to persistence); add a leg-risk recorder table now
+(rejected — out of M3.3 scope and needs an M2.4 producer that records it;
+reported as unavailable instead); treat a single opportunity observation as a
+zero-length episode (rejected — conflates "no duration data" with "instant
+opportunity").
+
+**Trade-offs / consequences:** opportunity duration is only as good as the
+evaluation cadence in the recording, and an episode that never goes negative
+before the recording ends is measured only up to its last positive eval.
+Drawdown is computed on recorded PnL samples, not a continuous equity curve.
+The report describes *paper* results only — positive paper PnL is not proof of
+realised profit (ARBITRAGE_METHODOLOGY). Real-money trading stays disabled
+(D-002).
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/perf_report/`,
+`tests/test_perf_report.py`, `tests/perf_report_support.py`,
+`docs/ASSUMPTIONS.md` "M3.3 notes".
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
