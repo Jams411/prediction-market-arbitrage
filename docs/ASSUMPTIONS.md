@@ -45,6 +45,10 @@ Every unverified project assumption must be recorded here before implementation 
 | A-024 | Kalshi's general trading (taker) fee is `fees = round_up_to_next_cent(M · 0.07 · C · P · (1−P))`, `P` the contract price in dollars, `C` the contract count, `M` a per-contract multiplier that is `1` "unless otherwise indicated" and is overridden only for the series in Kalshi's current "non-standard fees" table; there is no settlement fee. Maker uses `M · 0.0175`. The pre-July-2026 standalone `0.035` S&P 500 / Nasdaq-100 table has been folded into the `M` system and is no longer a separate coefficient. Implemented as `KalshiTradingFeeModel(multiplier=…)` (default `M = 1`). | VERIFIED (docs) — Kalshi "Fee Schedule for July 2026 - 7.7.26 Update" (`kalshi.com/docs/kalshi-fee-schedule.pdf`, 12 pages, opens in a normal browser; confirmed 2026-09-06) + Help Center "Fees"; extract `docs/evidence/kalshi-fee-schedule-2026-07-07.txt`. The `M = 1` formula reproduces every row of Kalshi's published general fee table (`tests/test_arbitrage_fees.py`); multiplier scaling is covered by independently-calculated cases. The PDF's per-series "non-standard fees" multiplier table is present in the source; no individual multiplier is transcribed or hardcoded — the model takes `M` as a caller-supplied parameter, and a caller evaluating such a series reads its `M` from the current PDF. Not OBSERVED against a real fill; series/market type is not auto-detected from an `OrderBook`. | Yes |
 | A-025 | Polymarket US's trading (taker) fee is `Fee = 0.06 · C · p · (1−p)`, rounded to the nearest cent with banker's rounding (round half to even), `p` in dollars; the maker side is a `−0.0125 · C · p · (1−p)` **rebate** and the >$250k prior-month volume taker rebate is a retrospective weekly account credit. Only the taker fee is modelled (`PolymarketUsTradingFeeModel`). | VERIFIED (docs), re-verified 2026-09-06 — `docs.polymarket.us/fees` "Trading Fee Schedule", "Effective exchange-wide from 12 AM ET, Wednesday July 1, 2026" (retained extract `docs/evidence/polymarket-us-fee-schedule.txt`); the single exchange-wide taker `Θ = 0.06` formula reproduces every row of the published "Fee Schedule by Price" taker column (`tests/test_arbitrage_fees.py`). **Unresolved:** a task prompt asserted the current coefficient is `0.05`; this is **not supported and is contradicted** by the primary source above. Third-party sites describe a July-2026 category split (sports 0.05 / tech 0.04 / crypto 0.07 / geo-econ 0.00) and a March-2026 CFTC filing has been reported as a basis-points-of-"Total Contract Premium" schedule — none of these appears on the official page. Model stays at `0.06` until a primary source says otherwise; any category/series coefficient must be independently evidence-backed. Not OBSERVED against a real fill. | Yes |
 | A-026 | The venue fee models round **each fill slice** `(P_i, qty_i)` independently and sum the rounded slices. | UNVERIFIED (modelling choice) — **still explicitly unresolved.** Every worked example in both venues' published schedules is a single price; neither states how a single taker order that sweeps several price levels is rounded (per level, or once on the aggregate), and Kalshi's API fee-rounding docs describe a per-order "fee accumulator" whose exact effect on a multi-level sweep is not specified. Per-slice rounding can differ from the realized fee by up to one cent per extra level. Fee reconciliation against real fills stays a real-money-gate item. | Yes |
+| A-027 | The M2.1 live book layer holds **no credentials in the framework** and does its network I/O only through the injected `WebSocketTransport` seam. `livebook.transport.LiveBookConnection` is the deterministic manager (connect → subscribe → pump → `mark_disconnected` → backoff reconnect → REST `resync` → `HEALTHY`); `livebook.ws_transport.WebsocketsTransport` is a concrete transport over the `websockets` library; `livebook.ws_auth` builds the docs-verified handshake message + headers + subscribe command (RSA-PSS / Ed25519 via an injected `Signer` — no `cryptography` import); `livebook.credentials` holds redacted, config-injected keys. | ACCEPTED (scope) + IMPLEMENTED — the whole boundary, backoff, reconnect/resync flow, and a real `websockets` transport are code; tested with fakes and a local loopback server. What remains is a real authenticated connection to a venue (A-030). | Yes |
+| A-028 | Kalshi `orderbook_delta.delta_fp` is applied **additively** to the aggregated contract count already resting at that `(side, price_dollars)` level; a level reaching exactly zero is removed; a result below zero is a desync. | UNVERIFIED — the channel wording ("incremental updates to maintain a live orderbook") and the signed fixed-point value support no other reading, but the exact rule is not stated and is **not OBSERVED** against a real feed (auth-gated). `livebook/state.py` implements additive application; a real capture must confirm before live use. | Yes |
+| A-029 | The Kalshi live book carries **no market tradability state** — `orderbook_delta` frames have no `state` field; lifecycle/halt information is on a separate channel (`market-and-event-lifecycle`) not decoded in M2.1. So `LiveBookFeed.health()` gates on market state **only** for feeds that report one (Polymarket US `MARKET_STATE_*`); a Kalshi feed can read `HEALTHY` during a halt this layer cannot see. | VERIFIED (docs) that the field is absent; the **consequence** (no halt gating for Kalshi) is an accepted M2.1 gap — the lifecycle channel is future work. | Yes |
+| A-030 | The authenticated WebSocket handshake, subscribe body, and frame formats built by `livebook.ws_auth` and carried by `livebook.ws_transport.WebsocketsTransport` match what the real Kalshi / Polymarket US servers require. | **UNVERIFIED — docs-only, no live OBSERVED handshake against a venue.** Every claim (URLs, header names, `timestamp + "GET" + path` sign strings, subscribe shapes) is transcribed from official docs (WS-A-S1..S6) and unit-tested; the concrete `websockets` transport is exercised against a **local loopback server** (real socket, but it accepts any headers). No authenticated connection to Kalshi / Polymarket US was made and no WS fixture was captured — the framework holds no credentials and no signer implementation. A real connect (with credentials + a `Signer`) + one captured `orderbook_delta` / `MARKET_DATA` frame is required before live use, and resolves A-028 at the same time. Also unresolved: the Polymarket US subscribe casing/enum discrepancy between two doc pages (P-WS-AUTH-03). | Yes |
 
 ## M1.1 notes
 
@@ -159,6 +163,46 @@ Every unverified project assumption must be recorded here before implementation 
   is unverified (A-026), a caller must supply the right Kalshi series `M` from
   the current PDF, and the Polymarket US category / CFTC-filing coefficient
   questions are open (A-025).
+
+## M2.1 notes (live book state)
+
+- Work lives on `feat/live-book-state`, branched from `origin/main` (includes
+  M1.6). See `docs/DECISIONS.md` D-014 and `docs/API_SOURCES.md` (K-WS-*,
+  P-WS-*).
+- A-027 (transport boundary + reconnect/resync manager implemented; networked
+  socket still out), A-028 (Kalshi additive delta application — UNVERIFIED, not
+  OBSERVED), A-029 (Kalshi feed has no market-state gate), A-030 (WS
+  handshake/subscribe/frame formats are docs-only, no live OBSERVED handshake)
+  were introduced here.
+- `livebook.ws_auth` builds the handshake sign-string (`timestamp + "GET" +
+  path`), the 3 auth headers, and the subscribe command for each venue
+  (RSA-PSS/Ed25519 via an injected `Signer`); `livebook.credentials` holds
+  redacted, env/config-injected keys (`KALSHI_API_KEY_ID` /
+  `KALSHI_API_PRIVATE_KEY_PEM`, `POLYMARKET_US_KEY_ID` /
+  `POLYMARKET_US_SECRET_KEY`); `livebook.transport.LiveBookConnection` drives
+  feeds through connect → subscribe → pump → `mark_disconnected` →
+  `BackoffPolicy` reconnect → REST `resync` → `HEALTHY`, all over injected
+  `WebSocketTransport` / `SnapshotSource` / `clock` / `sleep`.
+- `livebook.ws_transport.WebsocketsTransport` is the concrete transport over the
+  `websockets` library — the project's **sole runtime dependency**
+  (`websockets>=13`; pure Python, no transitive deps). It is the only module
+  that does real network I/O or imports a third-party package. Tested against a
+  local `websockets` loopback server; still **no authenticated connection to a
+  real venue** (A-030) and **no `Signer` implementation** in the repo (the crypto
+  step stays the caller's, keeping `cryptography` out of the tree).
+- `LiveBookFeed.health()` is **fail-closed**: `trading_enabled` is `True` only
+  for `HealthStatus.HEALTHY`. Uninitialized, stale (vs an injected `now`),
+  disconnected, resyncing, desynced (sequence gap / negative-quantity delta /
+  crossed-book result), and not-open all disable it, and
+  `current_order_book(now)` returns `None` unless healthy.
+- Kalshi `seq` gaps → `DESYNCED` until a fresh snapshot (`begin_resync()` then
+  `apply_snapshot()`); duplicate/old `seq` are ignored. Polymarket US has no
+  sequence — each `MARKET_DATA` frame is a full snapshot that replaces state,
+  and a frame whose `transactTime` predates the last accepted one is dropped
+  (at-least-once delivery, P-WS-04).
+- The layer is pure/offline like the M1.5 engine: no wall-clock, exact
+  `Decimal`, domain invariants enforced by building a real `OrderBook`. It does
+  **not** resolve A-013 (which Polymarket book side) or the live-execution gate.
 
 ### Live-execution gate (M1.3)
 

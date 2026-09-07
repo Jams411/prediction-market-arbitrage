@@ -199,3 +199,139 @@ recursively dropped bulky sports-media sub-objects (`team`, `*Icon`, `image`,
 semantics above (A-012, A-013, A-015, A-016) **must not be relied on for live
 execution**. Real-money trading stays disabled (D-002; ROADMAP "Real-money
 gate") until each is confirmed by primary evidence.
+
+---
+
+## Kalshi — WebSocket order book (M2.1)
+
+Verification date: **2026-09-06** (docs read; **no live socket connection** —
+the channel requires API-key auth in the handshake, which M2.1 does not do).
+
+### Official sources consulted
+
+| # | Source | URL |
+|---|---|---|
+| K-WS-S1 | Orderbook Updates (AsyncAPI) | https://docs.kalshi.com/websockets/orderbook-updates |
+| K-WS-S2 | WebSocket Connection | https://docs.kalshi.com/websockets/websocket-connection |
+| K-WS-S3 | Quick Start: WebSockets | https://docs.kalshi.com/getting_started/quick_start_websockets |
+| K-WS-S4 | Connection Keep-Alive | https://docs.kalshi.com/websockets/connection-keep-alive |
+
+### Claims
+
+| ID | Claim | Evidence status | Source / observation | Used in code |
+|---|---|---|---|---|
+| K-WS-01 | Production WebSocket host is `wss://external-api-ws.kalshi.com`; the connection requires API-key auth in the handshake (public channels included). | VERIFIED (docs) | K-WS-S1 `servers.production`; K-WS-S2. | Not connected in M2.1; recorded for the transport boundary. |
+| K-WS-02 | The `orderbook_delta` channel sends one `orderbook_snapshot` then incremental `orderbook_delta` messages. Every message carries `sid` (subscription id) and `seq` (integer, per-subscription, sequential) — "checked ... to guarantee you received all the messages ... snapshot/delta consistency". | VERIFIED (docs) | K-WS-S1 AsyncAPI payload schemas + `seq` description. | `livebook/kalshi_ws.py`; `LiveBookFeed` sequence check. |
+| K-WS-03 | `orderbook_snapshot.msg` = `{ market_ticker, market_id, yes_dollars_fp?, no_dollars_fp? }`; each side is an optional array of `[price_dollars, contract_count_fp]` **string** pairs — the **same** level shape and bids-only-per-side YES/NO semantics as the REST `orderbook_fp` payload (K-06/K-07/K-08). Absent side key = no offers on that side. | VERIFIED (docs) + reuses OBSERVED REST semantics | K-WS-S1 schema + example; K-06/K-08. | `decode_orderbook_snapshot` (reuses the `1 - opposite_bid` implied-ask rule). |
+| K-WS-04 | `orderbook_delta.msg` = `{ market_ticker, market_id, price_dollars:str, delta_fp:str (signed, "2 decimals"), side:"yes"\|"no", ts_ms?:int (Unix ms), ts?:str (deprecated) }`. | VERIFIED (docs) | K-WS-S1 schema + example (`{"price_dollars":"0.960","delta_fp":"-54.00","side":"yes"}`). | `decode_orderbook_delta`. |
+| K-WS-05 | `update_subscription` supports `add_markets` / `delete_markets` / `get_snapshot`; `get_snapshot` returns a fresh `orderbook_snapshot` **without** changing the subscription. | VERIFIED (docs) | K-WS-S1 requirements list. | The transport's resync primitive; `LiveBookFeed.begin_resync()` + the next `apply_snapshot()` model it. |
+| K-WS-06 | Keep-alive: the server sends Ping frames every ~10s with body `heartbeat`; the client replies Pong. | VERIFIED (docs) | K-WS-S4. | Transport concern; not in M2.1 code. |
+
+### Not verified / assumptions (M2.1)
+
+- **A-028** — that `delta_fp` is applied **additively** to the aggregated
+  contract count already at that `(side, price)` level (result 0 ⇒ level
+  removed). The channel description ("incremental updates to maintain a live
+  orderbook") plus a signed fixed-point value support no other reading, but the
+  exact application rule is not spelled out and is **not OBSERVED** against a
+  real feed. `livebook/state.py` implements additive application.
+- No live frames captured (auth-gated handshake); no sanitized WS fixture.
+- Market lifecycle / trading-state changes ride a **separate** channel
+  (`market-and-event-lifecycle`), not decoded here (**A-029**) — the Kalshi live
+  book carries no `market_state`.
+
+---
+
+## Polymarket US — WebSocket order book (M2.1)
+
+Verification date: **2026-09-06** (docs read; **no live socket connection** —
+the endpoint requires API-key auth in the handshake).
+
+### Official sources consulted
+
+| # | Source | URL |
+|---|---|---|
+| P-WS-S1 | Markets WebSocket | https://docs.polymarket.us/api-reference/websocket/markets |
+| P-WS-S2 | Streaming semantics & best practices | https://docs.polymarket.us/trader-guide/streaming-apis |
+
+### Claims
+
+| ID | Claim | Evidence status | Source / observation | Used in code |
+|---|---|---|---|---|
+| P-WS-01 | Markets WebSocket endpoint is `wss://api.polymarket.us/v1/ws/markets`; API-key auth is required in the handshake. | VERIFIED (docs) | P-WS-S1 "Endpoint" + "Authentication Required". | Not connected in M2.1; recorded for the transport boundary. |
+| P-WS-02 | A `SUBSCRIPTION_TYPE_MARKET_DATA` message carries a **complete** `marketData` object each time: `{ marketSlug, bids[], offers[], state, stats, transactTime }` — the **same** schema as the REST `/v1/markets/{slug}/book` payload (P-06/P-07): levels are `{ px:{ value:<decimal string>, currency:"USD" }, qty:<decimal string> }`, "sorted best-to-worst". There is **no sequence number** and **no delta message** on this channel. | VERIFIED (docs) | P-WS-S1 "Market Data Response" example + "Order Book Depth"; P-06/P-07. | `livebook/polymarket_us_ws.py` (each frame → a full `BookSnapshot`). |
+| P-WS-03 | `marketData.state` is one of `MARKET_STATE_{OPEN,PREOPEN,SUSPENDED,HALTED,EXPIRED,TERMINATED,MATCH_AND_CLOSE_AUCTION}`. | VERIFIED (docs) | P-WS-S1 "Market States". | `LiveBookFeed` treats only `MARKET_STATE_OPEN` as tradeable (fail-closed). |
+| P-WS-04 | Streams "always start with a snapshot"; delivery is **at-least-once** (dedupe on message id); a single stream is ordered. | VERIFIED (docs) | P-WS-S2 "Snapshots and Deltas", "Delivery Guarantees", "Message Ordering". | `LiveBookFeed` drops a full snapshot whose `transactTime` is older than the last accepted one (reordered / repeated delivery). |
+
+### Not verified / assumptions (M2.1)
+
+- No live frames captured (auth-gated handshake); no sanitized WS fixture.
+- The trader-guide "Streaming" page describes a **separate** gRPC/HTTP streaming
+  system ("not WebSockets"); only the dedicated **Markets WebSocket** page
+  (P-WS-S1) is decoded here. Which real-time system a production deployment uses
+  is a later (transport) decision.
+- `stats` (last trade, volume, OI, high/low) is **ignored** — not book state.
+- Attribution of the single book to the `:LONG` contract carries A-013's
+  UNVERIFIED caveat forward from M1.3.
+
+**Live-execution gate:** M2.1 decodes documented WebSocket schemas and maintains
+book state deterministically; it opens **no socket** and holds **no
+credentials**. A-028 (Kalshi delta application) and A-029 (Kalshi market-state
+source) are unresolved. Real-money trading stays disabled (D-002; ROADMAP
+"Real-money gate").
+
+---
+
+## WebSocket authenticated-handshake / transport boundary (M2.1)
+
+Verification date: **2026-09-06** (docs read). **No live socket, no credentials,
+no networked transport implemented** — see the blocker below.
+
+### Official sources consulted
+
+| # | Source | URL |
+|---|---|---|
+| WS-A-S1 | Kalshi — Quick Start: WebSockets | https://docs.kalshi.com/getting_started/quick_start_websockets |
+| WS-A-S2 | Kalshi — Quick Start: Authenticated Requests (request signing) | https://docs.kalshi.com/getting_started/quick_start_authenticated_requests |
+| WS-A-S3 | Kalshi — WebSocket Connection (AsyncAPI: `subscribe` command) | https://docs.kalshi.com/websockets/websocket-connection |
+| WS-A-S4 | Polymarket US — WebSocket API Overview | https://docs.polymarket.us/api-reference/websocket/overview |
+| WS-A-S5 | Polymarket US — Authentication | https://docs.polymarket.us/api-reference/authentication |
+| WS-A-S6 | Polymarket US — Markets WebSocket (subscribe body) | https://docs.polymarket.us/api-reference/websocket/markets |
+
+### Claims
+
+| ID | Claim | Evidence status | Source / observation | Used in code |
+|---|---|---|---|---|
+| K-WS-AUTH-01 | Kalshi WS URL is `wss://external-api-ws.kalshi.com/trade-api/ws/v2` (prod) / `wss://external-api-ws.demo.kalshi.co/trade-api/ws/v2` (demo). | VERIFIED (docs) | WS-A-S1 "Connection URL". | `ws_auth.KALSHI_WS_URL_PROD/DEMO`. |
+| K-WS-AUTH-02 | Handshake carries 3 headers: `KALSHI-ACCESS-KEY` (API key id), `KALSHI-ACCESS-TIMESTAMP` (Unix **ms** string), `KALSHI-ACCESS-SIGNATURE` (base64). | VERIFIED (docs) | WS-A-S1 "Required Headers"; WS-A-S2 table. | `ws_auth.kalshi_ws_handshake`. |
+| K-WS-AUTH-03 | Signed message = `timestamp + "GET" + "/trade-api/ws/v2"`; signature = RSA-PSS (MGF1-SHA256, salt = digest length) over SHA-256, base64-encoded. | VERIFIED (docs) | WS-A-S1 "Signing the WebSocket Request"; WS-A-S2 `sign_request` code. | `ws_auth.kalshi_ws_sign_message`; the RSA-PSS step is an injected `Signer`. |
+| K-WS-AUTH-04 | Subscribe command: `{"id": <int>, "cmd": "subscribe", "params": {"channels": ["orderbook_delta"], "market_tickers": [...]}}` (`market_ticker` for one; mutually exclusive). | VERIFIED (docs) | WS-A-S3 AsyncAPI `subscribeCommand`. | `ws_auth.kalshi_subscribe_command`. |
+| P-WS-AUTH-01 | Polymarket US Markets-WS URL is `wss://api.polymarket.us/v1/ws/markets`. | VERIFIED (docs) | WS-A-S4 "Connection". | `ws_auth.POLYMARKET_US_WS_MARKETS_URL`. |
+| P-WS-AUTH-02 | Handshake carries 3 headers: `X-PM-Access-Key` (key id), `X-PM-Timestamp` (Unix **ms** string, within 30s of server time), `X-PM-Signature` (base64). Signed message = `timestamp + "GET" + "/v1/ws/markets"`; signature = Ed25519 over the message, base64-encoded. | VERIFIED (docs) | WS-A-S4 "Authentication"; WS-A-S5 raw-request signing (`message = f"{timestamp}{method}{path}"`, Ed25519). | `ws_auth.polymarket_us_ws_handshake` / `polymarket_us_ws_sign_message`; Ed25519 is an injected `Signer`. |
+| P-WS-AUTH-03 | Markets-WS subscribe body: `{"subscribe": {"requestId": <str>, "subscriptionType": "SUBSCRIPTION_TYPE_MARKET_DATA", "marketSlugs": [...]}}`, ≤100 slugs. **Discrepancy:** WS-A-S4 (overview) shows snake_case keys (`request_id`, `subscription_type`) and an **int** enum (`1`), while WS-A-S6 (channel-specific) uses camelCase + the string enum. The code follows WS-A-S6. | VERIFIED (docs) with an unresolved casing/enum discrepancy between two doc pages | WS-A-S6 example; WS-A-S4 "Request Format". | `ws_auth.polymarket_us_subscribe_command`. |
+
+### Transport implementation status (M2.1)
+
+- **Networked transport: implemented.** `livebook.ws_transport.WebsocketsTransport`
+  is a concrete `WebSocketTransport` over the `websockets` library (the client
+  the Kalshi / Polymarket US docs use; now the project's sole runtime
+  dependency, `websockets>=13`). `connect(handshake)` opens
+  `websockets.sync.client.connect(url, additional_headers=headers)`; `send` /
+  `receive` / `close` map to `recv` / `send` / context-manager exit;
+  `ConnectionClosed` and recv-timeout both surface as `TransportClosed`. Server
+  Ping/Pong keepalive is handled by the library. It plugs into the unchanged
+  `LiveBookConnection`.
+- **RSA-PSS / Ed25519 signing is still injected** (`Signer`) — the framework
+  imports no `cryptography`. A caller supplies the signer for a real connection.
+- **No live OBSERVED handshake or frame against a real venue.** The transport is
+  tested against a **local `websockets` server on loopback** (a real socket
+  round-trip, but the local server accepts any headers). No authenticated
+  connection to Kalshi / Polymarket US was made; no WS fixture was captured; the
+  signing message strings / header names are unit-tested only against the docs.
+  Whether a real venue server accepts the handshake is **not verified** —
+  recorded as **A-030**.
+- Kalshi `orderbook_delta` is described as a **private channel** (WS-A-S1) — it
+  rides the authenticated session even though its payload is public market data.
+- Polymarket US `X-PM-Signature` construction uses `path` with no documented
+  query-strip rule (there are no query params on the WS path, so this does not
+  bite here).

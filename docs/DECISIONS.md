@@ -462,6 +462,147 @@ supply the evidence-backed `M` themselves.
 `docs/evidence/polymarket-us-fee-schedule.txt`, `docs/ASSUMPTIONS.md`
 A-024 / A-025 / A-026.
 
+### D-014 — Live book state is a pure state machine over decoded WS messages, with fail-closed health; the socket is a separate boundary
+
+**Date:** 2026-09-06
+
+**Decision:** M2.1 ships `prediction_market_arbitrage.livebook`:
+
+- `updates.py` — venue-neutral `BookSnapshot` (full book for one contract) and
+  `BookDelta` (signed change to the aggregated quantity at one `(side, price)`),
+  both exact `Decimal`, timestamps tz-aware, optional `sequence`.
+- `state.py` — `LiveBook` (a contract's `price → quantity` index; additive delta
+  application, zero-level removal) and `LiveBookFeed` (connection state +
+  per-subscription sequencing + staleness against an **injected** `now` +
+  `FeedHealth`). Health is **fail-closed**: `trading_enabled` is `True` only for
+  `HealthStatus.HEALTHY`; `UNINITIALIZED`, `STALE`, `DISCONNECTED`, `RESYNCING`,
+  `DESYNCED`, `MARKET_NOT_OPEN` all disable it and `current_order_book(now)`
+  returns `None`. Domain invariants (ordering, not-crossed) are enforced by
+  building a real `OrderBook`; a crossed result → `DESYNCED`.
+- `kalshi_ws.py` / `polymarket_us_ws.py` — **pure** decoders from each venue's
+  documented WebSocket frames (`API_SOURCES.md` K-WS-*, P-WS-*). Kalshi
+  `orderbook_snapshot` / `orderbook_delta` → a YES/NO pair of updates (the K-08
+  `1 - opposite_bid` implied-ask coupling); Polymarket `MARKET_DATA` → one
+  `:LONG` full snapshot.
+
+Boundaries:
+
+- **No socket, no credentials, no wall-clock** (D-012 style). Both venues'
+  market-data WebSockets need API-key auth in the handshake, so a real transport
+  (handshake, keep-alive Pong, reconnect/backoff) is deferred; `LiveBookFeed`
+  exposes `mark_disconnected()` / `begin_resync()` for it to call (A-027).
+- **Sequencing is per-venue.** Kalshi `seq` gap → `DESYNCED` until a resync
+  snapshot; duplicate/stale `seq` ignored. Polymarket has no sequence — every
+  frame is a full snapshot; a `transactTime`-older frame is dropped
+  (at-least-once, P-WS-04). `require_sequence` selects the behaviour.
+- **Delta application is additive** (A-028) — documented-consistent but not
+  OBSERVED against a live Kalshi feed.
+- **Market-state gating** applies only to feeds that report it (Polymarket
+  `MARKET_STATE_OPEN` = tradeable, all else not). Kalshi's orderbook channel
+  carries no state; halt detection there needs a separate channel (A-029).
+
+**Rationale:** Same payoff as the M1.5 engine — a book state that is a pure
+function of (decoded messages, injected clock) is deterministic, replayable
+(M2.3), and exhaustively testable with exact `Decimal` cases. Keeping the socket
+out means auth, flakiness, and backoff live where they can be faked, and the
+fail-closed health verdict is the single thing a future strategy/risk layer
+gates on.
+
+**Alternatives considered:** decode straight to a domain `OrderBook` and diff
+(rejected — loses the sequence/health machinery and the additive-delta record);
+one combined feed object per venue pair (rejected — one `LiveBookFeed` per
+contract keeps Kalshi's YES/NO coupling explicit at the decoder, not the core);
+ship a real `asyncio` WebSocket client now (rejected — needs credentials and is
+not deterministically testable; A-027).
+
+**Trade-offs / consequences:** M2.1 cannot prove a real feed behaves as the docs
+say — no frames were captured (auth-gated), so there is no WS fixture and A-028
+stays UNVERIFIED. A Kalshi feed can read `HEALTHY` through a halt this layer
+cannot see (A-029). Real-money trading stays disabled.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/livebook/`,
+`tests/test_livebook_state.py`, `tests/test_livebook_kalshi_ws.py`,
+`tests/test_livebook_polymarket_us_ws.py`, `docs/API_SOURCES.md` (K-WS-*, P-WS-*),
+`docs/ASSUMPTIONS.md` A-027 / A-028 / A-029.
+
+### D-015 — The authenticated WebSocket transport is an injected boundary: docs-verified auth builders, a deterministic reconnect/resync manager, and a thin `websockets` transport (signer stays injected)
+
+**Date:** 2026-09-06
+
+**Decision:** M2.1's transport work (`livebook.credentials`, `livebook.ws_auth`,
+`livebook.transport`) stops at the last deterministically testable layer:
+
+- `credentials.py` — `KalshiCredentials` / `PolymarketUsCredentials`, frozen,
+  **redacted** `repr`/`str`, built by the caller from config
+  (`*_credentials_from_env` read explicit env var names). No secret is
+  hard-coded, logged, or written to disk.
+- `ws_auth.py` — pure builders, each **verified from official docs**
+  (`API_SOURCES.md` K-WS-AUTH-*, P-WS-AUTH-*): the exact sign string
+  (`timestamp + "GET" + path`), the three auth headers, the URL constants, and
+  the subscribe command. The RSA-PSS (Kalshi) / Ed25519 (Polymarket US)
+  signature is produced by an **injected `Signer`** — the framework imports no
+  `cryptography`.
+- `transport.py` — `WebSocketTransport` / `SnapshotSource` **protocols** (the
+  socket + REST-resync seams), a pure `BackoffPolicy`, frame decoders
+  (raw frame → M2.1 updates; control frames → `[]`), and `LiveBookConnection`:
+  `connect_and_subscribe` → `pump_one` (route each decoded update to its feed by
+  `contract_id`) → on `TransportClosed`: `handle_disconnect` (every feed →
+  `DISCONNECTED`) → `reconnect(sleep)` (backoff, optional `max_attempts`) →
+  `resync()` (per feed: `begin_resync` → `SnapshotSource.fetch` →
+  `apply_snapshot` → `HEALTHY`). `run_forever(sleep, should_continue)` is the
+  only loop; every effect (socket, REST, clock, sleep) is injected.
+
+**Concrete transport (added same day):** `ws_transport.py` —
+`WebsocketsTransport`, a `WebSocketTransport` over the `websockets` library
+(`websockets>=13`, the project's **sole runtime dependency**; the client both
+venue docs use; pure Python, no transitive deps). It is the only `livebook`
+module that does real network I/O or imports a third-party package.
+`connect(handshake)` opens `websockets.sync.client.connect(url,
+additional_headers=headers)` (held as a context manager); `send` / `receive` /
+`close` wrap `send` / `recv(timeout)` / CM-exit; `ConnectionClosed` and a
+recv-timeout both surface as `TransportClosed`; the library answers server
+Ping/Pong. It plugs into the unchanged `LiveBookConnection`.
+
+**Still NOT built:** a `Signer` implementation. The RSA-PSS / Ed25519 step stays
+the caller's, so the framework takes **no `cryptography` dependency**. And no
+real authenticated connection has been made — `WebsocketsTransport` is tested
+against a local `websockets` loopback server (real socket, accepts any headers),
+which is **not** evidence a real venue accepts the handshake. That gap and the
+missing live OBSERVED frame are **A-030**.
+
+**Rationale:** Same discipline as D-012 / D-014 — keep the part that can be a
+pure function pure. The auth sign-strings and reconnect/resync sequencing are
+exactly the bug-prone logic; making them injectable-effect functions means they
+are unit-tested against the docs today and a real socket is a thin adapter
+later. A wrong sign string or a botched resync order would silently disable or
+mis-feed the book; those are now pinned by tests.
+
+**Alternatives considered:** hand-roll RFC 6455 over `ssl`+`socket` (rejected —
+large unreviewable surface for a boundary; `websockets` is smaller and is what
+the docs use); add `cryptography` for the signature (rejected — kept behind the
+injected `Signer` so the tree stays crypto-free); `websocket-client` instead of
+`websockets` (rejected — `websockets` matches the docs' `additional_headers`
+handshake mechanism exactly and has a first-class sync API and no transitive
+deps).
+
+**Trade-offs / consequences:** `websockets` is now a runtime dependency (was
+zero). A real connection still needs the caller to supply a `Signer` and live
+credentials; the first such connection must capture an `orderbook_delta` /
+`MARKET_DATA` frame and confirm the handshake — that observation resolves A-028
+and A-030 together and is a prerequisite for any live path. Real-money trading
+stays disabled.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/livebook/credentials.py`,
+`.../ws_auth.py`, `.../transport.py`, `.../ws_transport.py`,
+`tests/test_livebook_credentials.py`, `tests/test_livebook_ws_auth.py`,
+`tests/test_livebook_transport.py`, `tests/test_livebook_ws_transport.py`,
+`pyproject.toml` (`websockets>=13`), `docs/API_SOURCES.md`
+(WS-A-S1..S6, K-WS-AUTH-*, P-WS-AUTH-*), `docs/ASSUMPTIONS.md` A-027 / A-030.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
