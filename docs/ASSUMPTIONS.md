@@ -52,6 +52,7 @@ Every unverified project assumption must be recorded here before implementation 
 | A-031 | The M2.2 recorder normalizes every timezone-aware timestamp to a naive-UTC `TIMESTAMP` (microsecond precision) and stores every `Decimal` as exact `str(Decimal)` text; this loses no fidelity the pipeline actually carries. | ACCEPTED (design) — domain timestamps are already UTC and microsecond-truncated (naive `TIMESTAMP` preserves the instant; a reader re-attaches UTC), and string-Decimal round-trips exactly at any scale (no fixed-scale `DECIMAL` column). The original `tzinfo` object and sub-microsecond precision are not preserved; neither exists upstream. No sub-µs or non-UTC timestamp reaches the recorder in the current pipeline — revisit if that changes. M2.3 `replay._read.to_utc` performs the reattach (`.replace(tzinfo=UTC)`). | No |
 | A-032 | An order book reconstructed by the M2.3 replay adapter is faithful for every field strategy / engine code uses (`Contract.id`, `outcome`, `venue.id`, `market.id`, exact `Decimal` prices / quantities, level ordering, UTC book timestamp), but `Venue.name` and `Market.title` are synthesized from the ids because the recorder never stored display names. | ACCEPTED (design) — the M1.5 engine and M2.1 book layer join on `Contract.id` (A-020) and never read `Venue.name` / `Market.title`; the recorder schema (M2.2) deliberately holds identifiers only. `replay._read.rebuild_contract` sets `name = id`, `title = market_id`. A consumer that needs true display names must join against a market catalogue outside the recording. | No |
 | A-033 | The M2.4 paper broker models **taker** execution only: every fill crosses the resting book (`liquidity = "taker"`), the executed price of each level slice is `SlippageModel.adjust(...)` clamped into `[0.0001, 0.9999]`, one `Fill` is emitted per book level with its fee from the injected `FeeModel`, and latency / cancellation are resolved by comparing injected `timedelta`s (a fill that lands before a cancel's effective time wins). | ACCEPTED (design) — resting-order / maker-fill simulation, queue-position modelling, iceberg/hidden size, and a verified minimum price tick are deferred; there is no evidence for venue tick size (A-004 family) so the clamp bounds are a chosen epsilon, not a venue rule. Deterministic given (requests, injected books, injected times, config); no wall-clock, no RNG. Positive simulated fills are **not** proof of realized fills — leg risk, real latency, and venue rejection semantics stay unproven until a live path exists. | Yes |
+| A-034 | The M2.5 risk manager fails **closed**: a limit that is set but whose required input is missing (`positions`, `opportunity`, `health`, `leg`) or unhealthy (`FeedHealth.trading_enabled == False`, future-dated health timestamp) produces `allowed = False` with a reason, never a skipped check. `RiskManager.evaluate_order` / `observe_leg_risk` update the per-pair "unhedged since" timer as a deliberate side effect (it must remember when a pair first went unhedged); portfolio exposure is valued at each contract's `PositionRow.avg_price` (cost basis) only as a deterministic fallback approximation when no explicit `marks` are supplied. | ACCEPTED (design) — deterministic given (limits, injected `now`, the supplied inputs, and `RiskState`); no wall-clock, no RNG. The manager only vetoes — it emits no orders and contains no strategy logic. Explicit current `marks` are the preferred exposure valuation. Cost basis is **not** a conservative bound: it can understate current exposure after an adverse price move, so for live-use semantics `max_exposure` must not be treated as safely enforced when exposure is valued from cost-basis / stale inputs alone — a live caller must supply current `marks`. (The check still fails closed when a contract cannot be valued at all.) Kill switch, error streak, daily-PnL ledger, and unhedged timers are the only state it owns. | Yes |
 
 ## M1.1 notes
 
@@ -267,6 +268,29 @@ Every unverified project assumption must be recorded here before implementation 
   replay imports the broker.
 - Not implemented: live broker/API orders, risk manager, dashboard/UI,
   production live trading, automatic market pairing. Real-money stays disabled.
+
+## M2.5 notes (deterministic risk manager)
+
+- Work lives on `feat/risk-manager` (branched from `origin/main` after M2.4
+  merged); see `docs/DECISIONS.md` D-019. **No new runtime dependency.**
+- A-034 introduced here (fail-closed policy + `evaluate_order`'s unhedged-timer
+  side effect + cost-basis exposure valuation as a deterministic fallback
+  approximation, not a safe live bound).
+- `prediction_market_arbitrage.risk.RiskManager` enforces `RiskLimits`
+  (config-injected, Decimal/timedelta, `None` disables a check): max position,
+  max exposure, max order size, min net edge/unit, max data age, max unhedged
+  time, consecutive-error limit, max daily loss, kill switch. Returns a
+  `RiskDecision(allowed, reasons, checks_run, as_of)` — **all** failing reasons,
+  not just the first.
+- Consumes the earlier milestones' objects unchanged: M1.5
+  `OpportunityEvaluation`, M2.1 `FeedHealth`, M2.4 `OrderRequest` /
+  `LegRiskSnapshot` / `recorder.PositionRow`. Imports those types only; no
+  strategy / execution code imports the risk manager.
+- Deterministic: every method takes an injected tz-aware `now`; the only mutable
+  state (kill switch, error streak, per-UTC-day realized-PnL ledger, unhedged
+  timers) lives in `RiskState`. Naive datetime → `RiskError`.
+- Not implemented: live broker/API orders, dashboard/UI, live execution, new
+  strategy logic. Real-money trading stays disabled.
 
 ### Live-execution gate (M1.3)
 
