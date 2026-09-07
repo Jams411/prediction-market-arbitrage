@@ -573,6 +573,50 @@ Use this file as the concise chronological record of milestone progress, evidenc
   --all-files` all pass. Committed to `feat/risk-manager` and pushed for review
   (no PR, no merge to `main`).
 
+## 2026-09-07 — M3.1 Operational dashboard
+
+- New package `src/prediction_market_arbitrage/dashboard/` — a **read-only,
+  deterministic projection** of the objects the pipeline already produces.
+  Branch `feat/dashboard` off `origin/main` (M2.5 #13 merged). **No new runtime
+  dependency, no strategy logic.**
+- `errors.py` (`DashboardError`), `models.py` (frozen view dataclasses +
+  `Severity` / `Alert` / `DashboardView`), `build.py` (`build_dashboard`),
+  `render.py` (`render_text`).
+- `build_dashboard(*, now, feeds?, registry?, opportunities?, orders?,
+  positions?, marks?, pnl?, leg_risk?, risk?, last_risk_decision?,
+  max_data_age?)` → immutable `DashboardView` with `feeds`, `pairs`,
+  `opportunities`, `orders`, `fills` (flattened from `Order.fills`), `positions`,
+  `pnl`, `leg_risk`, `risk`, `alerts`, `worst_data_age`, `.healthy`.
+- Shows: venue/feed health + derived WebSocket state, verified/curated pairs,
+  current opportunities, paper orders/fills, positions/PnL + best-effort
+  exposure, risk state (kill switch / error streak / daily PnL / unhedged
+  pairs / last decision), latency/data-age. Unhealthy & stale states are
+  surfaced as ranked `alerts` (`ALERT` before `WARN`) and tokenised
+  `[ALERT]` / `[WARN]` / `[STALE]` in `render_text`.
+- WebSocket state is derived from `FeedHealth.status` (livebook exposes no
+  separate socket-state accessor). Exposure reuses the A-034 mark fallback
+  (explicit `marks` → cost basis → none); cost-basis exposure is labelled
+  approximate.
+- Consumes M1.4 / M1.5 / M2.1 / M2.2 / M2.4 / M2.5 objects unchanged; imports
+  those types only; nothing imports `dashboard`. No wall-clock (naive `now` →
+  `DashboardError`), no socket, no recorder / DuckDB read, no order submission.
+- Records: D-020; A-035. `docs/ROADMAP.md` M3.1 checkboxes left unticked per
+  precedent (all eight items implemented).
+- Not implemented: live-updating TUI / web server, alert escalation, live
+  broker/orders, strategy changes, failure testing (M3.2), performance report
+  (M3.3), real-money activation.
+- Tests: `tests/test_dashboard.py` (28) + `tests/dashboard_support.py` —
+  deterministic offline (empty view, naive-`now` reject, immutability, render
+  determinism; healthy / stale / disconnected / uninitialized / market-not-open
+  feeds; registry projection; opportunity + stale flag; order/fill flattening +
+  rejected-order warn; position exposure via explicit mark / cost-basis / none
+  + stale; PnL net; leg-risk warn + both-terminal quiet; kill switch alert,
+  error streak + daily loss warn, unhedged-pair listing, rejected last decision;
+  alert ranking; worst-data-age; render tokens). Suite 412 → 440.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Committed to `feat/dashboard` and pushed for review
+  (no PR, no merge to `main`).
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

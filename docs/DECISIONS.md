@@ -867,6 +867,71 @@ order. Real-money trading stays disabled (D-002).
 `tests/test_risk_manager.py`, `tests/risk_support.py`,
 `docs/ASSUMPTIONS.md` A-034.
 
+### D-020 — The operational dashboard is a pure, read-only projection of in-memory pipeline objects — no persistence reads, no side effects
+
+**Date:** 2026-09-07
+
+**Decision:** M3.1 ships `prediction_market_arbitrage.dashboard`. No new runtime
+dependency.
+
+- `build_dashboard(*, now, feeds?, registry?, opportunities?, orders?,
+  positions?, marks?, pnl?, leg_risk?, risk?, last_risk_decision?,
+  max_data_age?)` returns an immutable `DashboardView` (frozen dataclasses):
+  `feeds`, `pairs`, `opportunities`, `orders`, `fills`, `positions`, `pnl`,
+  `leg_risk`, `risk`, `alerts`, `worst_data_age`, and a `healthy` property.
+  `render_text(view)` renders a deterministic sectioned plain-text report.
+- **Inputs are the earlier milestones' own objects, unchanged:** M1.4
+  `MarketPairRegistry` (`.all()`), M1.5 `OpportunityEvaluation`, M2.1
+  `LiveBookFeed` / `FeedHealth`, M2.4 `Order` / `Fill` / `PositionRow` /
+  `LegRiskSnapshot`, M2.2 `PnlRow`, M2.5 `RiskManager` / `RiskDecision`. The
+  `dashboard` package imports those types and nothing else; nothing imports
+  `dashboard`.
+- **Read-only + deterministic.** Every input is inspected, never mutated; `now`
+  is injected (naive → `DashboardError`); no wall-clock, no DuckDB / recorder
+  read, no socket, no order submission. `fills` are flattened from `Order.fills`
+  (not a separate input). `risk` state is read via `RiskManager.snapshot(now=)`,
+  which is itself pure.
+- **WebSocket state** is derived from `FeedHealth.status` — the livebook layer
+  (M2.1) exposes no separate socket-state accessor (`LiveBookConnection` only
+  offers `feed_health()` / `all_healthy()`). Mapping: `DISCONNECTED` →
+  `disconnected`, `RESYNCING` → `resyncing`, `UNINITIALIZED` → `offline`,
+  everything else → `connected`.
+- **Alert severity policy (A-035).** `ALERT` = kill switch engaged, any feed not
+  `trading_enabled` for a hard reason, any stale feed. `WARN` = `resyncing` /
+  `market_not_open` feed, consecutive errors > 0, a realized daily loss, an
+  unhedged pair / leg, a rejected paper order, a stale opportunity / position
+  (age > `max_data_age`), a rejected last `RiskDecision`. `alerts` is ranked
+  `ALERT` before `WARN` (stable within a band); `view.healthy` is `False` iff any
+  `ALERT` is present.
+- **Exposure valuation** reuses the A-034 mark fallback: explicit `marks` →
+  `PositionRow.avg_price` (labelled `mark_is_cost_basis`) → `None` (no exposure
+  shown). Cost-basis exposure on the dashboard is a display approximation, not a
+  risk bound.
+
+**Rationale:** A dashboard that is a pure function of (injected `now`, supplied
+objects) is deterministic and trivially testable, matches the rest of the
+codebase (no wall-clock, injected effects), and stays a strict observer — it
+cannot perturb the pipeline it reports on. Reusing the existing value objects
+keeps the seam thin: a new field to show is a one-line projection edit.
+
+**Alternatives considered:** read the recorder DuckDB directly (rejected — the
+recorder is write-only by D-016; replay/M2.3 already owns read-back, and the
+dashboard would then couple to persistence and need I/O); a live-updating TUI /
+web server (rejected — out of M3.1 scope and would add a dependency and a loop);
+a dedicated socket-state enum in livebook (rejected — no evidence a real socket
+layer exists yet; `FeedHealth.status` already carries disconnect / resync).
+
+**Trade-offs / consequences:** the caller must gather and pass the current
+objects each render — there is no polling or subscription. Display-only: no
+alert is escalated anywhere, nothing is emailed / paged. Cost-basis exposure can
+understate risk (A-034 / A-035). Real-money trading stays disabled (D-002).
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/dashboard/`,
+`tests/test_dashboard.py`, `tests/dashboard_support.py`,
+`docs/ASSUMPTIONS.md` A-035.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

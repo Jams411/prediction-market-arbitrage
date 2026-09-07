@@ -53,6 +53,7 @@ Every unverified project assumption must be recorded here before implementation 
 | A-032 | An order book reconstructed by the M2.3 replay adapter is faithful for every field strategy / engine code uses (`Contract.id`, `outcome`, `venue.id`, `market.id`, exact `Decimal` prices / quantities, level ordering, UTC book timestamp), but `Venue.name` and `Market.title` are synthesized from the ids because the recorder never stored display names. | ACCEPTED (design) — the M1.5 engine and M2.1 book layer join on `Contract.id` (A-020) and never read `Venue.name` / `Market.title`; the recorder schema (M2.2) deliberately holds identifiers only. `replay._read.rebuild_contract` sets `name = id`, `title = market_id`. A consumer that needs true display names must join against a market catalogue outside the recording. | No |
 | A-033 | The M2.4 paper broker models **taker** execution only: every fill crosses the resting book (`liquidity = "taker"`), the executed price of each level slice is `SlippageModel.adjust(...)` clamped into `[0.0001, 0.9999]`, one `Fill` is emitted per book level with its fee from the injected `FeeModel`, and latency / cancellation are resolved by comparing injected `timedelta`s (a fill that lands before a cancel's effective time wins). | ACCEPTED (design) — resting-order / maker-fill simulation, queue-position modelling, iceberg/hidden size, and a verified minimum price tick are deferred; there is no evidence for venue tick size (A-004 family) so the clamp bounds are a chosen epsilon, not a venue rule. Deterministic given (requests, injected books, injected times, config); no wall-clock, no RNG. Positive simulated fills are **not** proof of realized fills — leg risk, real latency, and venue rejection semantics stay unproven until a live path exists. | Yes |
 | A-034 | The M2.5 risk manager fails **closed**: a limit that is set but whose required input is missing (`positions`, `opportunity`, `health`, `leg`) or unhealthy (`FeedHealth.trading_enabled == False`, future-dated health timestamp) produces `allowed = False` with a reason, never a skipped check. `RiskManager.evaluate_order` / `observe_leg_risk` update the per-pair "unhedged since" timer as a deliberate side effect (it must remember when a pair first went unhedged); portfolio exposure is valued at each contract's `PositionRow.avg_price` (cost basis) only as a deterministic fallback approximation when no explicit `marks` are supplied. | ACCEPTED (design) — deterministic given (limits, injected `now`, the supplied inputs, and `RiskState`); no wall-clock, no RNG. The manager only vetoes — it emits no orders and contains no strategy logic. Explicit current `marks` are the preferred exposure valuation. Cost basis is **not** a conservative bound: it can understate current exposure after an adverse price move, so for live-use semantics `max_exposure` must not be treated as safely enforced when exposure is valued from cost-basis / stale inputs alone — a live caller must supply current `marks`. (The check still fails closed when a contract cannot be valued at all.) Kill switch, error streak, daily-PnL ledger, and unhedged timers are the only state it owns. | Yes |
+| A-035 | The M3.1 operational dashboard is a **read-only, deterministic projection**: `build_dashboard(*, now, ...)` inspects the objects the pipeline already produces (M1.4 registry, M1.5 `OpportunityEvaluation`, M2.1 `LiveBookFeed` / `FeedHealth`, M2.4 `Order` / `Fill` / `PositionRow` / `LegRiskSnapshot`, M2.2 `PnlRow`, M2.5 `RiskManager`) and returns an immutable `DashboardView`; it mutates nothing, reads no wall-clock, opens no socket, and does not read the recorder DuckDB. "WebSocket state" is **derived from `FeedHealth.status`** (livebook exposes no separate socket-state accessor). Alert severity: `ALERT` = kill switch / a hard-unhealthy feed / any stale feed; `WARN` = resyncing or market-not-open feed, consecutive errors, realized daily loss, unhedged pair/leg, rejected paper order, stale opportunity/position, rejected last `RiskDecision`. Dashboard exposure reuses the A-034 mark fallback (explicit `marks` → cost basis → none) and cost-basis exposure is labelled approximate. | ACCEPTED (design) — deterministic given (`now`, supplied objects); no wall-clock, no RNG, no I/O. Display-only: no alert is escalated, paged, or emailed anywhere. The dashboard is a strict observer and cannot perturb the pipeline. Real-money trading stays disabled (D-002). See `docs/DECISIONS.md` D-020. | No |
 
 ## M1.1 notes
 
@@ -291,6 +292,27 @@ Every unverified project assumption must be recorded here before implementation 
   timers) lives in `RiskState`. Naive datetime → `RiskError`.
 - Not implemented: live broker/API orders, dashboard/UI, live execution, new
   strategy logic. Real-money trading stays disabled.
+
+## M3.1 notes (operational dashboard)
+
+- Work lives on `feat/dashboard` (branched from `origin/main` after M2.5
+  merged, PR #13); see `docs/DECISIONS.md` D-020. **No new runtime dependency.**
+- A-035 introduced here (read-only deterministic projection; WS state derived
+  from `FeedHealth.status`; alert severity policy; A-034 mark fallback reused
+  for displayed exposure).
+- `prediction_market_arbitrage.dashboard.build_dashboard(*, now, feeds?,
+  registry?, opportunities?, orders?, positions?, marks?, pnl?, leg_risk?,
+  risk?, last_risk_decision?, max_data_age?)` → immutable `DashboardView`
+  (`feeds`, `pairs`, `opportunities`, `orders`, `fills`, `positions`, `pnl`,
+  `leg_risk`, `risk`, `alerts`, `worst_data_age`, `.healthy`).
+  `render_text(view)` → deterministic sectioned plain text, unhealthy / stale
+  rows tokenised `[ALERT]` / `[WARN]` / `[STALE]`.
+- Consumes earlier milestones' objects unchanged; imports those types only;
+  nothing imports `dashboard`. No wall-clock (naive `now` → `DashboardError`),
+  no socket, no recorder / DuckDB read, no order submission.
+- Not implemented: live-updating TUI / web server, alert escalation / paging,
+  persistence read-back, live broker, live execution, strategy changes,
+  failure testing (M3.2), performance report (M3.3). Real-money disabled.
 
 ### Live-execution gate (M1.3)
 
