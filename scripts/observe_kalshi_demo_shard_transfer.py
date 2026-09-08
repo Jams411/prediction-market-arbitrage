@@ -1,7 +1,7 @@
 """Authenticated **read-only** inspection of Kalshi *demo* exchange-instance
-transfer state, run after a **manual demo-UI** ``Exchange 0 -> Exchange 1``
-transfer of $10 failed with "Transfer failed: Service unavailable, please try
-again later." (see ``docs/API_SOURCES.md`` / A-038).
+transfer state (balance per shard, transfer history, exchange status), used to
+observe A-038's manual demo-UI ``Exchange 0 -> Exchange 1`` transfer attempts
+(first "Service unavailable"; then a $10 success). See ``docs/API_SOURCES.md``.
 
 GET-only. This script **cannot** initiate a transfer, allocate collateral, or
 place an order. It does not call ``POST /portfolio/intra_exchange_instance_transfer``
@@ -26,13 +26,16 @@ the URL). Account-scoped bodies pass through :func:`observe_kalshi_demo.sanitise
 (D-024 fail-safe allowlist); the public ``/exchange/status`` body is kept
 verbatim (non-account exchange-wide state only).
 
-Run manually:  ``python scripts/observe_kalshi_demo_shard_transfer.py``
+Run manually:  ``python scripts/observe_kalshi_demo_shard_transfer.py [SUBDIR]``
+(``SUBDIR`` = evidence subdirectory under ``docs/evidence/kalshi-demo/``;
+default ``shard-transfer``).
 """
 
 from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import observe_kalshi_demo as obs
@@ -41,9 +44,10 @@ import observe_kalshi_demo_shard_balance as shbal
 OUT_DIR = obs.OUT_DIR / "shard-transfer"
 
 
-def observe() -> int:
+def observe(out_dir: Path | None = None) -> int:
+    target = out_dir if out_dir is not None else OUT_DIR
     key_id = obs.keychain_key_id()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    target.mkdir(parents=True, exist_ok=True)
 
     # (name, path, query, key_id_or_None, keep_body_verbatim)
     plan: list[tuple[str, str, dict[str, Any] | None, str | None, bool]] = [
@@ -77,7 +81,7 @@ def observe() -> int:
             "headers": result["headers"],
             "body": body,
         }
-        (OUT_DIR / f"{name}.json").write_text(json.dumps(clean, indent=2, sort_keys=True) + "\n")
+        (target / f"{name}.json").write_text(json.dumps(clean, indent=2, sort_keys=True) + "\n")
         shape = sorted(body.keys()) if isinstance(body, dict) else type(body).__name__
         summary.append(
             {
@@ -90,10 +94,11 @@ def observe() -> int:
         )
         print(f"  {name:34s} {result['status']:>3}  {clean['request']['path']} {query or ''}")
 
-    (OUT_DIR / "SUMMARY.json").write_text(json.dumps(summary, indent=2) + "\n")
-    print(f"\nwrote {len(plan)} fixtures + SUMMARY.json to {OUT_DIR}")
+    (target / "SUMMARY.json").write_text(json.dumps(summary, indent=2) + "\n")
+    print(f"\nwrote {len(plan)} fixtures + SUMMARY.json to {target}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(observe())
+    _sub = sys.argv[1] if len(sys.argv) > 1 else None
+    sys.exit(observe(obs.OUT_DIR / _sub if _sub else None))
