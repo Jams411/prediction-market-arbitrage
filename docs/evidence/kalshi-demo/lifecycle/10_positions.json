@@ -1,0 +1,16 @@
+{
+  "body": {
+    "cursor": "",
+    "event_positions": [],
+    "market_positions": []
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 15:29:09 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/positions"
+  },
+  "status": 200
+}
