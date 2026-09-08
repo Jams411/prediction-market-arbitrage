@@ -373,6 +373,7 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 | K-TR-S14 | Creating and using a demo account (Kalshi Help Center) | https://help.kalshi.com/account/demo-account |
 | K-TR-S15 | Get Balance — API reference (`exchange_index` query param scopes balance/portfolio to one shard) | https://docs.kalshi.com/api-reference/portfolio/get-balance |
 | K-TR-S16 | Set Target Balance Allocation — API reference (`POST /portfolio/target_balance_allocation`) | https://docs.kalshi.com/api-reference/portfolio/set-target-balance-allocation |
+| K-TR-S17 | Get Intra Account Transfers — API reference (`GET /portfolio/intra_exchange_instance_transfers`, `GetIntraExchangeInstanceTransfersResponse`) | https://docs.kalshi.com/api-reference/portfolio/get-intra-account-transfers |
 
 ### Claims
 
@@ -397,7 +398,8 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 | K-TR-17 | **Demo accounts are not pre-funded.** "Your demo account won't have funds preloaded, so follow the tutorial to add mock funds using a test payment method" (test debit cards / Plaid sandbox / testnet crypto). Adding demo funds is self-service; no account-type gate or verification for demo trading is documented. | VERIFIED (docs) | K-TR-S14. | The provisioned demo key's account shows `portfolio_value = 0` / all breakdown balances `0.0000` (K-TR-OBS-10) — i.e. never funded. |
 | K-TR-18 | **Documented self-service demo-funding flow.** Sign up / sign in at `demo.kalshi.co/sign-up` with mock details, open the deposit section, pick a test payment method: **debit card** (Visa `4000 0566 5566 5556`, Mastercard `5200 8282 8282 8210`; any future expiry, any 3-digit CVV) — recommended; **ACH via Plaid sandbox** (`user_good` / `pass_good`, phone `415-555-0010`, OTP `123456`); **Google Pay** test cards (processed as a debit card); **crypto** via a testnet faucet ("Do NOT send real cryptocurrency to demo wallet addresses"). No deposit-amount limit, and **no exchange-shard / collateral-allocation step**, is documented in the demo-funding flow itself — shard allocation is a separate programmatic step (K-TR-14/15, K-TR-19). | VERIFIED (docs) | K-TR-S14. | Remediation path for A-038: fund the demo account before any order-entry probe. |
 | K-TR-19 | **Per-shard balance is read via a query param, not a separate endpoint.** `GET /portfolio/balance` takes optional `exchange_index` (integer, optional; "used to scope the balance and portfolio value. If omitted, both include all exchange indexes.") and optional `subaccount` (0–63, default 0). Response `GetBalanceResponse`: `balance` (int64 cents), `balance_dollars` (string), `portfolio_value` (int64 cents), `updated_ts` (int64), `balance_breakdown[]` (`exchange_index` int, `balance` fixed-point-dollar string; omitted for subaccount-restricted keys). | VERIFIED (docs) | K-TR-S15. Confirmed live on demo — K-TR-OBS-14. | Supersedes the shorthand `GET /portfolio/balance?exchange_index=N` note in K-TR-15 with the exact param semantics. |
-| K-TR-20 | **Moving / allocating collateral to a shard (documented endpoints).** (a) One-off move: `POST /portfolio/intra_exchange_instance_transfer` — required `source`/`destination` ∈ {`event_contract`, `margined`}, `amount` (int64 **centicents**); optional `source_exchange_shard` / `destination_exchange_shard` (0–100, default 0), `source_subaccount` / `destination_subaccount` (default 0, event-contract↔event-contract only); 200 → `{ transfer_id }`. Cross-index transfers "run in up to three non-atomic steps" (partial-failure is not rolled back). (b) Standing split: `POST /portfolio/target_balance_allocation` — `allocations[]` (≤101 items, each `exchange_index` ≥0 + `percent` 0–100; percentages must total 100; empty array disables auto-rebalancing), optional `resting_margin_reservation` ∈ {`max`, `sum`} (default `sum`); 200 → `{}`. Auto-rebalancing then issues intra-exchange transfers ~every 10 s when balances drift. **No `GET` for the current target allocation is documented** (corrects K-TR-15's "`POST`/`GET`"). Subaccount routing: `Create Subaccount` and `Transfer Between Subaccounts` each take an `exchange_index`. | VERIFIED (docs) | K-TR-S10; K-TR-S11; K-TR-S16. | A-038 remediation path (documented), still unexecuted — no transfer or allocation call was made. |
+| K-TR-20 | **Moving / allocating collateral to a shard (documented endpoints).** (a) One-off move: `POST /portfolio/intra_exchange_instance_transfer` — required `source`/`destination` ∈ {`event_contract`, `margined`}, `amount` (int64 **centicents**); optional `source_exchange_shard` / `destination_exchange_shard` (0–100, default 0), `source_subaccount` / `destination_subaccount` (default 0, event-contract↔event-contract only); 200 → `{ transfer_id }`. Cross-index transfers "run in up to three non-atomic steps" (partial-failure is not rolled back). (b) Standing split: `POST /portfolio/target_balance_allocation` — `allocations[]` (≤101 items, each `exchange_index` ≥0 + `percent` 0–100; percentages must total 100; empty array disables auto-rebalancing), optional `resting_margin_reservation` ∈ {`max`, `sum`} (default `sum`); 200 → `{}`. Auto-rebalancing then issues intra-exchange transfers ~every 10 s when balances drift. Subaccount routing: `Create Subaccount` and `Transfer Between Subaccounts` each take an `exchange_index`. | VERIFIED (docs) | K-TR-S10; K-TR-S11; K-TR-S16. | A-038 remediation path (documented), still unexecuted — no transfer or allocation call was made. |
+| K-TR-21 | **Read-only endpoints for exchange-instance transfer state (API changelog 2026-08-27).** (a) `GET /portfolio/intra_exchange_instance_transfers` — transfer history; query `limit` (default 100, max 500), `cursor`; auth required. `GetIntraExchangeInstanceTransfersResponse` = `{ transfers[], cursor? }`; each `IntraExchangeInstanceTransfer` = `transfer_id` (string), `source` / `destination` ∈ {`event_contract`, `margined`}, `source_exchange_shard` (int), `destination_exchange_shard` (int), `amount` (fixed-point-dollar string), `status` ∈ {`pending`, `complete`}, `created_ts` (int ms). (b) `GET /portfolio/target_balance_allocation` — reads the current standing split; changelog lists it alongside the `POST`. **This supersedes K-TR-20's "no `GET` for the current target allocation is documented"** — the changelog documents the `GET`, and it was OBSERVED live on demo (K-TR-OBS-19). The changelog also mentions `GET /portfolio/intra_exchange_instance_transfers/{transfer_id}`, but the API-reference OpenAPI spec does **not** define a single-transfer `GET` (**doc inconsistency, UNKNOWN**). No documented error/status code maps to HTTP 503 / "Service unavailable" for the transfer `POST` (K-TR-20 error schema is generic `{code, message, details?}`), and no shard-activation / minimum-amount / destination-initialization precondition is stated. | VERIFIED (docs) | K-TR-S9 (2026-08-27 entry); K-TR-S17. | Read-only diagnosis path for A-038's transfer failure. |
 
 ### Not verified / gaps (pre-M4)
 
@@ -510,6 +512,34 @@ by the D-024 sanitiser; the public `/exchange/status` body is kept verbatim).
 | K-TR-OBS-15 | `GET /exchange/status` on demo, **unauthenticated** (`security: []`, K-TR-S12) → HTTP **200** `{ exchange_active, trading_active, intra_exchange_transfers_active, exchange_index_statuses[] }`. Observed **4** shard entries: `exchange_index` 0..3, each with `exchange_active = true`, `trading_active = true`, `intra_exchange_transfers_active = true`; `description` = `"Default"` (0), `"Demo shard 1"` (1), `"Demo shard 2"` (2), `""` (3). Top-level flags all `true`. So on demo, trading **and** intra-exchange transfers are active on every shard — the K-TR-20 remediation path is not gated by exchange status. | OBSERVED | `shard-balance/exchange_status.json` (200, body verbatim). | None. |
 | K-TR-OBS-16 | This probe covers only the **inspection** endpoints (`GET /portfolio/balance[?exchange_index]`, `GET /exchange/status`). It did **not** add demo funds, call `POST /portfolio/intra_exchange_instance_transfer` or `POST /portfolio/target_balance_allocation`, or place an order. From the redacted fixtures it is **not** possible to confirm the demo account is funded or that any collateral is allocated on shard 1. Direct confirmation of demo shard funding / allocation remains **not done**. | OBSERVED (scope statement) | Absence of any write call in `scripts/observe_kalshi_demo_shard_balance.py`; `SUMMARY.json` lists GET probes only. | A-038 stays **blocking** (K-TR-OBS-12). |
 
+#### 2026-09-08 (later still) — manual demo-UI shard transfer failed; GET-only diagnosis
+
+**Manual evidence (operator, official Kalshi demo web UI — not scripted):**
+
+- The demo account was **funded with $100 mock cash** (self-service, K-TR-18).
+- Post-funding exchange balances shown in the UI: **Exchange 0 (Default) $100;
+  Exchange 1 (Demo shard 1) $0; Exchange 2 $0; Exchange 3 $0.**
+- A manual UI transfer **Exchange 0 → Exchange 1, amount $10** was attempted.
+- The UI returned: **"Transfer failed: Service unavailable, please try again
+  later."**
+- The transfer was **not** retried. No order was placed.
+
+**Cause is NOT known.** "Service unavailable" is not inferred to mean
+insufficient funds, a provisioning failure, or any specific cause.
+
+GET-only follow-up (`scripts/observe_kalshi_demo_shard_transfer.py`; fixtures in
+`docs/evidence/kalshi-demo/shard-transfer/*.json`; account bodies redacted,
+public `/exchange/status` verbatim). **No `POST` to any transfer / allocation
+endpoint; no retry; no order.**
+
+| # | Claim | Status | Evidence | Code impact |
+|---|-------|--------|----------|-------------|
+| K-TR-OBS-17 | Immediately after the failed UI transfer, `GET /portfolio/balance`, `GET /portfolio/balance?exchange_index=0`, and `GET /portfolio/balance?exchange_index=1` each returned **HTTP 200** with the full `GetBalanceResponse` (4-entry `balance_breakdown`). All monetary values are redacted in the fixtures, so the $100 / $0 split reported by the UI is **not** independently confirmed here. | OBSERVED (envelope only) | `shard-transfer/balance_all.json`, `shard-transfer/balance_exchange_index_{0,1}.json` (200). | None. |
+| K-TR-OBS-18 | `GET /portfolio/intra_exchange_instance_transfers` (K-TR-21) on demo → **HTTP 200** `{"transfers": []}`. The failed UI transfer left **no transfer record** in the history list at probe time. This is consistent with the request being rejected before a record was created, but does **not** establish why. | OBSERVED | `shard-transfer/intra_exchange_instance_transfers.json` (200). | None. |
+| K-TR-OBS-19 | `GET /portfolio/target_balance_allocation` on demo → **HTTP 200** `{"allocations": []}`. Confirms the changelog-documented `GET` exists (supersedes K-TR-20's "no GET documented", K-TR-21) and that **no standing allocation split is configured** (empty ⇒ auto-rebalancing disabled, K-TR-20). | OBSERVED | `shard-transfer/target_balance_allocation.json` (200). | None. |
+| K-TR-OBS-20 | `GET /exchange/status` (unauth) at the same time → **HTTP 200**; **all four** demo shards (`exchange_index` 0..3) and the top-level object report `exchange_active = true`, `trading_active = true`, `intra_exchange_transfers_active = true`. So **Exchange 1 reports both `trading_active` and `intra_exchange_transfers_active` true** — the only transfer precondition exposed by a documented read-only endpoint (K-TR-20 / K-TR-S12) was **satisfied** when the UI transfer failed. Re-confirms K-TR-OBS-15 on a later capture. | OBSERVED | `shard-transfer/exchange_status.json` (200, body verbatim). | None. |
+| K-TR-OBS-21 | **Documented-requirements comparison.** Kalshi's intra-exchange-instance-transfer docs (K-TR-20 / K-TR-S11) state **no** precondition this probe found violated: shard/transfer flags are all `true` (K-TR-OBS-20); no minimum amount, destination "initialization", or shard-activation requirement is documented; and **no documented error/status code maps to HTTP 503 / "Service unavailable"** (the error schema is a generic `{code, message, details?}`). The observed state is therefore **consistent with the documented happy path**, yet the UI transfer failed — the failure is **UNDOCUMENTED** and its cause is **UNKNOWN**. Not inferred to be funding, provisioning, or capacity. | OBSERVED + docs gap | K-TR-OBS-17..20; K-TR-20; K-TR-S9/S11/S17. | A-038 stays **blocking**; shard collateral still cannot be allocated on demo. |
+
 ### Not verified / still open
 
 - Array **element** shapes for positions / fills / orders — demo account is
@@ -529,8 +559,19 @@ by the D-024 sanitiser; the public `/exchange/status` body is kept verbatim).
 - **Demo account funded state and shard-1 collateral allocation are still
   unconfirmed** (K-TR-OBS-16). The read-only probe reached only the inspection
   endpoints; `POST /portfolio/intra_exchange_instance_transfer` and `POST
-  /portfolio/target_balance_allocation` (K-TR-20) were **not** called, and no
-  demo funds were added. A-038 remains blocking.
+  /portfolio/target_balance_allocation` (K-TR-20) were **not** called by this
+  project, and no demo funds were added by this project. A-038 remains blocking.
+- **Why the manual demo-UI `Exchange 0 → Exchange 1` $10 transfer failed with
+  "Service unavailable" (K-TR-OBS-17..21) is UNKNOWN.** All documented,
+  read-only-observable preconditions were satisfied at probe time (shards
+  active, transfers active, GET endpoints 200, no standing allocation). Kalshi
+  documents no 503 / "Service unavailable" case for this `POST`. Not retried;
+  no `POST` was issued by this project. Could be a transient demo-service
+  outage, an undocumented precondition, or a demo-environment limitation —
+  **no evidence distinguishes these.**
+- Single-transfer `GET /portfolio/intra_exchange_instance_transfers/{transfer_id}`
+  — mentioned in the 2026-08-27 changelog but absent from the API-reference
+  OpenAPI spec (K-TR-21). Not probed.
 - Nothing here promotes a Real-money gate item. "Position/order reconciliation"
   still needs element-level shapes plus a live round-trip; A-037 / D-023 stand.
 

@@ -85,6 +85,14 @@ _ALLOWED_BODY_SCALARS: frozenset[object] = frozenset(
         "Please switch to the V2 endpoints",
         "user_not_found",
         "user not found",
+        # Intra-exchange-instance transfer enum constants (fixed server
+        # strings — GetIntraExchangeInstanceTransfersResponse). These carry
+        # response-shape evidence only; every account-specific scalar on a
+        # transfer record (amount, transfer_id, created_ts) is still redacted.
+        "pending",
+        "complete",
+        "event_contract",
+        "margined",
     }
 )
 

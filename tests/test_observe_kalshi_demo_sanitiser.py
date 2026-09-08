@@ -37,6 +37,39 @@ def test_order_endpoint_error_constants_pass_through() -> None:
         }
 
 
+def test_transfer_enum_constants_pass_through_but_account_scalars_do_not() -> None:
+    # Added for the 2026-09-08 demo shard-transfer diagnosis (K-TR-OBS-18):
+    # GetIntraExchangeInstanceTransfersResponse rows.
+    body = {
+        "transfers": [
+            {
+                "transfer_id": "9f8e-0001",
+                "source": "margined",
+                "destination": "event_contract",
+                "source_exchange_shard": 0,
+                "destination_exchange_shard": 1,
+                "amount": "10.0000",
+                "status": "pending",
+                "created_ts": 1788850000000,
+            }
+        ]
+    }
+    assert obs.sanitise_body(body) == {
+        "transfers": [
+            {
+                "transfer_id": "<redacted>",
+                "source": "margined",
+                "destination": "event_contract",
+                "source_exchange_shard": "<number>",
+                "destination_exchange_shard": "<number>",
+                "amount": "<redacted>",
+                "status": "pending",
+                "created_ts": "<number>",
+            }
+        ]
+    }
+
+
 def test_empty_containers_and_structure_preserved() -> None:
     body = {"cursor": "", "fills": [], "market_positions": [], "meta": {}}
     assert obs.sanitise_body(body) == body
