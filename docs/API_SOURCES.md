@@ -371,6 +371,8 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 | K-TR-S12 | Get Exchange Status — API reference (`/exchange/status`, `exchange_index_statuses`) | https://docs.kalshi.com/api-reference/exchange/get-exchange-status |
 | K-TR-S13 | API Keys (self-service key creation, demo == prod process) | https://docs.kalshi.com/getting_started/api_keys |
 | K-TR-S14 | Creating and using a demo account (Kalshi Help Center) | https://help.kalshi.com/account/demo-account |
+| K-TR-S15 | Get Balance — API reference (`exchange_index` query param scopes balance/portfolio to one shard) | https://docs.kalshi.com/api-reference/portfolio/get-balance |
+| K-TR-S16 | Set Target Balance Allocation — API reference (`POST /portfolio/target_balance_allocation`) | https://docs.kalshi.com/api-reference/portfolio/set-target-balance-allocation |
 
 ### Claims
 
@@ -393,6 +395,9 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 | K-TR-15 | **Preallocating collateral is a prerequisite for sharded order entry.** "Programmatic traders must preallocate collateral on a given exchange shard before order placement." Funds are moved between shards by `POST /portfolio/intra_exchange_instance_transfer` (`source`/`destination` = `event_contract`\|`margined`, `amount` in centicents, `source_exchange_shard`/`destination_exchange_shard` 0–100 default 0). A target split can also be set via `POST`/`GET /portfolio/target_balance_allocation` "through the REST API and the clearing portal". Per-shard status: `GET /exchange/status` → `exchange_active`, `trading_active`, `intra_exchange_transfers_active`, `exchange_index_statuses[]`. Per-shard balance: `GET /portfolio/balance?exchange_index=N`. | VERIFIED (docs) | K-TR-S10; K-TR-S11; K-TR-S12; K-TR-S9 (2026-08-20 entries: cross-shard transfer, target-allocation endpoints, per-index exchange status). | None — informs A-038 remediation path only. |
 | K-TR-16 | **API keys are self-service and unscoped.** A key is created in Profile Settings → "API Keys" → "Create New API Key"; "This process is the same for the demo or production environment." The docs describe a single RSA key type with **no permission levels / roles** (no read-vs-trade scope) and **no approval, support ticket, or separate enablement** step after key generation. | VERIFIED (docs) | K-TR-S13. | Rules out an API-key-permission explanation for K-TR-OBS-12's 404. |
 | K-TR-17 | **Demo accounts are not pre-funded.** "Your demo account won't have funds preloaded, so follow the tutorial to add mock funds using a test payment method" (test debit cards / Plaid sandbox / testnet crypto). Adding demo funds is self-service; no account-type gate or verification for demo trading is documented. | VERIFIED (docs) | K-TR-S14. | The provisioned demo key's account shows `portfolio_value = 0` / all breakdown balances `0.0000` (K-TR-OBS-10) — i.e. never funded. |
+| K-TR-18 | **Documented self-service demo-funding flow.** Sign up / sign in at `demo.kalshi.co/sign-up` with mock details, open the deposit section, pick a test payment method: **debit card** (Visa `4000 0566 5566 5556`, Mastercard `5200 8282 8282 8210`; any future expiry, any 3-digit CVV) — recommended; **ACH via Plaid sandbox** (`user_good` / `pass_good`, phone `415-555-0010`, OTP `123456`); **Google Pay** test cards (processed as a debit card); **crypto** via a testnet faucet ("Do NOT send real cryptocurrency to demo wallet addresses"). No deposit-amount limit, and **no exchange-shard / collateral-allocation step**, is documented in the demo-funding flow itself — shard allocation is a separate programmatic step (K-TR-14/15, K-TR-19). | VERIFIED (docs) | K-TR-S14. | Remediation path for A-038: fund the demo account before any order-entry probe. |
+| K-TR-19 | **Per-shard balance is read via a query param, not a separate endpoint.** `GET /portfolio/balance` takes optional `exchange_index` (integer, optional; "used to scope the balance and portfolio value. If omitted, both include all exchange indexes.") and optional `subaccount` (0–63, default 0). Response `GetBalanceResponse`: `balance` (int64 cents), `balance_dollars` (string), `portfolio_value` (int64 cents), `updated_ts` (int64), `balance_breakdown[]` (`exchange_index` int, `balance` fixed-point-dollar string; omitted for subaccount-restricted keys). | VERIFIED (docs) | K-TR-S15. Confirmed live on demo — K-TR-OBS-14. | Supersedes the shorthand `GET /portfolio/balance?exchange_index=N` note in K-TR-15 with the exact param semantics. |
+| K-TR-20 | **Moving / allocating collateral to a shard (documented endpoints).** (a) One-off move: `POST /portfolio/intra_exchange_instance_transfer` — required `source`/`destination` ∈ {`event_contract`, `margined`}, `amount` (int64 **centicents**); optional `source_exchange_shard` / `destination_exchange_shard` (0–100, default 0), `source_subaccount` / `destination_subaccount` (default 0, event-contract↔event-contract only); 200 → `{ transfer_id }`. Cross-index transfers "run in up to three non-atomic steps" (partial-failure is not rolled back). (b) Standing split: `POST /portfolio/target_balance_allocation` — `allocations[]` (≤101 items, each `exchange_index` ≥0 + `percent` 0–100; percentages must total 100; empty array disables auto-rebalancing), optional `resting_margin_reservation` ∈ {`max`, `sum`} (default `sum`); 200 → `{}`. Auto-rebalancing then issues intra-exchange transfers ~every 10 s when balances drift. **No `GET` for the current target allocation is documented** (corrects K-TR-15's "`POST`/`GET`"). Subaccount routing: `Create Subaccount` and `Transfer Between Subaccounts` each take an `exchange_index`. | VERIFIED (docs) | K-TR-S10; K-TR-S11; K-TR-S16. | A-038 remediation path (documented), still unexecuted — no transfer or allocation call was made. |
 
 ### Not verified / gaps (pre-M4)
 
@@ -491,6 +496,20 @@ Tool: `scripts/observe_kalshi_demo_order_lifecycle.py`; fixtures in
 | K-TR-OBS-12 | `POST /portfolio/events/orders` (documented V2 create, K-TR-04) on demo with this key → **HTTP 404** `{"error":{"code":"user_not_found","message":"user not found","details":"Exchange user not found. For Predictions: reference … Exchange Sharding documentation."}}`. The 404 is an **account-provisioning** error, not path-not-found: the same key authenticates every portfolio **read** (K-TR-OBS-01) but is not resolvable as an "Exchange user" for order entry. | OBSERVED | `lifecycle/01_submit_v2_events_orders.json` (404). | Blocks OBSERVED evidence for K-TR-06/07/08/09/10; see A-038. |
 | K-TR-OBS-13 | After both failed create attempts, `GET /portfolio/positions` and `GET /portfolio/fills` were **unchanged** (`{…: [], "cursor": ""}`). No order, position, or fill was created. Re-confirms K-TR-OBS-04 / K-TR-OBS-05 envelopes on a second same-day capture. | OBSERVED (envelope only) | `lifecycle/10_positions.json`, `lifecycle/11_fills.json` (200). | None. |
 
+#### 2026-09-08 (later still) — demo shard-balance / exchange-status read-only probe
+
+For A-038, a GET-only probe of the *inspection* half of the shard-funding path.
+No funds were added, no collateral moved, no order touched. Tool:
+`scripts/observe_kalshi_demo_shard_balance.py`; fixtures in
+`docs/evidence/kalshi-demo/shard-balance/*.json` (account-scoped bodies redacted
+by the D-024 sanitiser; the public `/exchange/status` body is kept verbatim).
+
+| # | Claim | Status | Evidence | Code impact |
+|---|-------|--------|----------|-------------|
+| K-TR-OBS-14 | `GET /portfolio/balance?exchange_index=N` is live on demo for `N` ∈ {0,1,2,3} → each HTTP **200** with the same `GetBalanceResponse` schema as the unscoped call (`balance`, `balance_dollars`, `portfolio_value`, `updated_ts`, `balance_breakdown[]`). The scoped response still carries the **full 4-entry** `balance_breakdown` (one per `exchange_index` 0..3), not just the requested shard. Confirms the documented per-shard balance query param (K-TR-19). Values redacted — whether the scoped `balance` differs from the total was **not** recorded. | OBSERVED | `shard-balance/balance_all.json`, `shard-balance/balance_exchange_index_{0,1,2,3}.json` (all 200); `shard-balance/SUMMARY.json`. | None — observation only. |
+| K-TR-OBS-15 | `GET /exchange/status` on demo, **unauthenticated** (`security: []`, K-TR-S12) → HTTP **200** `{ exchange_active, trading_active, intra_exchange_transfers_active, exchange_index_statuses[] }`. Observed **4** shard entries: `exchange_index` 0..3, each with `exchange_active = true`, `trading_active = true`, `intra_exchange_transfers_active = true`; `description` = `"Default"` (0), `"Demo shard 1"` (1), `"Demo shard 2"` (2), `""` (3). Top-level flags all `true`. So on demo, trading **and** intra-exchange transfers are active on every shard — the K-TR-20 remediation path is not gated by exchange status. | OBSERVED | `shard-balance/exchange_status.json` (200, body verbatim). | None. |
+| K-TR-OBS-16 | This probe covers only the **inspection** endpoints (`GET /portfolio/balance[?exchange_index]`, `GET /exchange/status`). It did **not** add demo funds, call `POST /portfolio/intra_exchange_instance_transfer` or `POST /portfolio/target_balance_allocation`, or place an order. From the redacted fixtures it is **not** possible to confirm the demo account is funded or that any collateral is allocated on shard 1. Direct confirmation of demo shard funding / allocation remains **not done**. | OBSERVED (scope statement) | Absence of any write call in `scripts/observe_kalshi_demo_shard_balance.py`; `SUMMARY.json` lists GET probes only. | A-038 stays **blocking** (K-TR-OBS-12). |
+
 ### Not verified / still open
 
 - Array **element** shapes for positions / fills / orders — demo account is
@@ -504,6 +523,14 @@ Tool: `scripts/observe_kalshi_demo_order_lifecycle.py`; fixtures in
   (K-TR-OBS-12 / A-038). Needs an Exchange-sharded demo account (account
   configuration — out of scope) or a later capture.
 - `429` body and headers (K-TR-12) — not triggered.
+- Whether an `exchange_index`-scoped `GET /portfolio/balance` returns a
+  **different** `balance` / `portfolio_value` than the unscoped call — the
+  scoped values are redacted in the fixtures (K-TR-OBS-14).
+- **Demo account funded state and shard-1 collateral allocation are still
+  unconfirmed** (K-TR-OBS-16). The read-only probe reached only the inspection
+  endpoints; `POST /portfolio/intra_exchange_instance_transfer` and `POST
+  /portfolio/target_balance_allocation` (K-TR-20) were **not** called, and no
+  demo funds were added. A-038 remains blocking.
 - Nothing here promotes a Real-money gate item. "Position/order reconciliation"
   still needs element-level shapes plus a live round-trip; A-037 / D-023 stand.
 
