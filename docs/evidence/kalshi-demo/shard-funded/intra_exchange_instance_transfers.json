@@ -1,0 +1,26 @@
+{
+  "body": {
+    "transfers": [
+      {
+        "amount": "<redacted>",
+        "created_ts": "<number>",
+        "destination": "event_contract",
+        "destination_exchange_shard": "<number>",
+        "source": "event_contract",
+        "source_exchange_shard": "<number>",
+        "status": "complete",
+        "transfer_id": "<redacted>"
+      }
+    ]
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 21:18:52 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/intra_exchange_instance_transfers",
+    "query": {}
+  },
+  "status": 200
+}

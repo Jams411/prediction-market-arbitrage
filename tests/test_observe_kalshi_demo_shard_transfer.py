@@ -88,3 +88,23 @@ def test_only_exchange_status_body_is_kept_verbatim(monkeypatch: Any, tmp_path: 
     assert row["transfer_id"] == "<redacted>"  # account-specific id redacted
     assert row["amount"] == "<redacted>"  # amount redacted
     assert row["status"] == "pending"  # enum constant kept (shape evidence)
+
+
+def test_out_dir_argument_overrides_module_default(monkeypatch: Any, tmp_path: Path) -> None:
+    def fake_request(
+        path: str, query: dict[str, Any] | None, key_id: str | None
+    ) -> dict[str, Any]:
+        body = {"exchange_active": True} if path == "/exchange/status" else {"balance": 1}
+        return {"request": {"method": "GET", "path": path, "query": query or {}},
+                "status": 200, "headers": {}, "body": body}
+
+    monkeypatch.setattr(shbal, "_request", fake_request)
+    monkeypatch.setattr(obs, "keychain_key_id", lambda: "demo-key-id")
+    # Point the module default at a dir we do NOT expect to be written.
+    unused = tmp_path / "unused"
+    monkeypatch.setattr(st, "OUT_DIR", unused)
+    target = tmp_path / "shard-funded"
+
+    assert st.observe(target) == 0
+    assert (target / "SUMMARY.json").is_file()
+    assert not unused.exists()

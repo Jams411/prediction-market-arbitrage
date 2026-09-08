@@ -1,0 +1,15 @@
+{
+  "body": {
+    "allocations": []
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 21:18:52 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/target_balance_allocation",
+    "query": {}
+  },
+  "status": 200
+}

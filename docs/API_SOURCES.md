@@ -540,6 +540,32 @@ endpoint; no retry; no order.**
 | K-TR-OBS-20 | `GET /exchange/status` (unauth) at the same time → **HTTP 200**; **all four** demo shards (`exchange_index` 0..3) and the top-level object report `exchange_active = true`, `trading_active = true`, `intra_exchange_transfers_active = true`. So **Exchange 1 reports both `trading_active` and `intra_exchange_transfers_active` true** — the only transfer precondition exposed by a documented read-only endpoint (K-TR-20 / K-TR-S12) was **satisfied** when the UI transfer failed. Re-confirms K-TR-OBS-15 on a later capture. | OBSERVED | `shard-transfer/exchange_status.json` (200, body verbatim). | None. |
 | K-TR-OBS-21 | **Documented-requirements comparison.** Kalshi's intra-exchange-instance-transfer docs (K-TR-20 / K-TR-S11) state **no** precondition this probe found violated: shard/transfer flags are all `true` (K-TR-OBS-20); no minimum amount, destination "initialization", or shard-activation requirement is documented; and **no documented error/status code maps to HTTP 503 / "Service unavailable"** (the error schema is a generic `{code, message, details?}`). The observed state is therefore **consistent with the documented happy path**, yet the UI transfer failed — the failure is **UNDOCUMENTED** and its cause is **UNKNOWN**. Not inferred to be funding, provisioning, or capacity. | OBSERVED + docs gap | K-TR-OBS-17..20; K-TR-20; K-TR-S9/S11/S17. | A-038 stays **blocking**; shard collateral still cannot be allocated on demo. |
 
+#### 2026-09-08 (later still) — manual demo-UI shard transfer **succeeded**; GET-only confirmation
+
+**Manual evidence (operator, official Kalshi demo web UI):** the operator
+**re-attempted** the `Exchange 0 → Exchange 1` transfer of **$10** and it
+**succeeded**; the UI then showed **Exchange 0 = $90, Exchange 1 = $10**. No
+order was placed; the transfer was not repeated again.
+
+GET-only confirmation (`scripts/observe_kalshi_demo_shard_transfer.py shard-funded`;
+fixtures `docs/evidence/kalshi-demo/shard-funded/*.json`; account bodies redacted,
+public `/exchange/status` verbatim). **No `POST`; no order.**
+
+| # | Claim | Status | Evidence | Code impact |
+|---|-------|--------|----------|-------------|
+| K-TR-OBS-22 | `GET /portfolio/intra_exchange_instance_transfers` now returns **one** transfer record (was `{"transfers": []}` at K-TR-OBS-18). Fields present: `transfer_id`, `source` = `"event_contract"`, `destination` = `"event_contract"`, `source_exchange_shard`, `destination_exchange_shard`, `amount`, `status` = **`"complete"`**, `created_ts`. `amount` / `transfer_id` / `created_ts` / both shard indices are **redacted** in the fixture; `source`/`destination`/`status` are fixed enum constants and survive. So per Kalshi's own transfer history the retried cross-shard transfer **settled successfully** (`status = complete`), and the earlier "Service unavailable" (K-TR-OBS-17..21) was **not persistent**. | OBSERVED | `shard-funded/intra_exchange_instance_transfers.json` (200). | None. |
+| K-TR-OBS-23 | `GET /portfolio/balance`, `?exchange_index=0`, `?exchange_index=1` each still → **HTTP 200** with the full `GetBalanceResponse` (4-entry `balance_breakdown`). All monetary values are redacted, so the operator-reported **$90 / $10** split is **not** independently confirmed from these fixtures — only that the endpoints answer and the schema is unchanged post-transfer. | OBSERVED (envelope only) | `shard-funded/balance_all.json`, `shard-funded/balance_exchange_index_{0,1}.json` (200). | None. |
+| K-TR-OBS-24 | `GET /portfolio/target_balance_allocation` → **HTTP 200** `{"allocations": []}` — unchanged (K-TR-OBS-19). A one-off `intra_exchange_instance_transfer` does **not** create a standing allocation split. | OBSERVED | `shard-funded/target_balance_allocation.json` (200). | None. |
+| K-TR-OBS-25 | `GET /exchange/status` (unauth) → **HTTP 200**; all four demo shards + top-level still report `exchange_active` / `trading_active` / `intra_exchange_transfers_active` = `true`. Re-confirms K-TR-OBS-15 / K-TR-OBS-20. | OBSERVED | `shard-funded/exchange_status.json` (200, verbatim). | None. |
+
+**A-038 stays blocking.** What is now OBSERVED: a Kalshi **demo** cross-shard
+`intra_exchange_instance_transfer` can **complete** (K-TR-OBS-22), and the
+demo-funding + shard-transfer remediation steps work end-to-end up to *funded
+shard 1*. What is **still not tested**: whether an order on the now-funded
+shard 1 is accepted — `POST /portfolio/events/orders` was **not** re-attempted
+(K-TR-OBS-12's `404 user_not_found` is unretested). A-038's core blocker
+(OBSERVED create-order / cancel / status / fills, K-TR-05..10) is unresolved.
+
 ### Not verified / still open
 
 - Array **element** shapes for positions / fills / orders — demo account is
@@ -556,19 +582,18 @@ endpoint; no retry; no order.**
 - Whether an `exchange_index`-scoped `GET /portfolio/balance` returns a
   **different** `balance` / `portfolio_value` than the unscoped call — the
   scoped values are redacted in the fixtures (K-TR-OBS-14).
-- **Demo account funded state and shard-1 collateral allocation are still
-  unconfirmed** (K-TR-OBS-16). The read-only probe reached only the inspection
-  endpoints; `POST /portfolio/intra_exchange_instance_transfer` and `POST
-  /portfolio/target_balance_allocation` (K-TR-20) were **not** called by this
-  project, and no demo funds were added by this project. A-038 remains blocking.
-- **Why the manual demo-UI `Exchange 0 → Exchange 1` $10 transfer failed with
-  "Service unavailable" (K-TR-OBS-17..21) is UNKNOWN.** All documented,
-  read-only-observable preconditions were satisfied at probe time (shards
-  active, transfers active, GET endpoints 200, no standing allocation). Kalshi
-  documents no 503 / "Service unavailable" case for this `POST`. Not retried;
-  no `POST` was issued by this project. Could be a transient demo-service
-  outage, an undocumented precondition, or a demo-environment limitation —
-  **no evidence distinguishes these.**
+- **Order entry on the now-funded demo shard 1 is untested.** The operator
+  funded the demo account and completed an `Exchange 0 → Exchange 1` $10
+  transfer (`status = complete`, K-TR-OBS-22); dollar amounts are redacted in
+  the fixtures (K-TR-OBS-23), so the $90 / $10 split rests on operator UI
+  evidence only. `POST /portfolio/events/orders` has **not** been re-attempted
+  since funding — K-TR-OBS-12's `404 user_not_found` is unretested. A-038
+  remains blocking until an order round-trip (K-TR-05..10) is OBSERVED.
+- The earlier "Service unavailable" on the first demo-UI transfer
+  (K-TR-OBS-17..21) was **transient** — a later identical transfer completed
+  (K-TR-OBS-22). Its root cause is still undiagnosed but is no longer a
+  standing blocker for the transfer step itself. No `POST` was issued by this
+  project in either capture.
 - Single-transfer `GET /portfolio/intra_exchange_instance_transfers/{transfer_id}`
   — mentioned in the 2026-08-27 changelog but absent from the API-reference
   OpenAPI spec (K-TR-21). Not probed.
