@@ -1,0 +1,17 @@
+{
+  "body": {
+    "error": {
+      "code": "invalid_UUID",
+      "message": "invalid UUID"
+    }
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 06:37:04 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/orders/PMA-OBS-DOES-NOT-EXIST"
+  },
+  "status": 400
+}
