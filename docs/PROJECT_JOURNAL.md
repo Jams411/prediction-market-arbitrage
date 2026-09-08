@@ -714,6 +714,55 @@ Use this file as the concise chronological record of milestone progress, evidenc
   --all-files` all pass. Committed to `feat/paper-performance-report` and pushed
   for review (no PR, no merge to `main`).
 
+## 2026-09-07 — M3.4 Live-broker interface boundary
+
+- New package `src/prediction_market_arbitrage/live_broker/` — the **shape** of a
+  live path plus its non-bypassable safety machinery, and **nothing that can
+  place a real order**. Branch `feat/live-broker-interface` off `origin/main`
+  (M3.3 #16 merged). **No new runtime dependency.**
+- `errors.py`, `gate.py` (`LiveTradingGate`, `LIVE_TRADING_ENABLED = False`,
+  `REQUIRED_PHRASE`), `models.py` (venue-neutral `LiveOrderRequest` /
+  `CancelRequest` / `LiveOrderAck` / `LiveOrderStatus` / `LivePosition` /
+  `LiveOrderState`), `idempotency.py` (`IdempotencyGuard`), `interface.py`
+  (`LiveBroker` ABC), `credentials.py` (`Kalshi/PolymarketUsTradingCredentials`
+  + `*_from_env`), `kalshi.py` / `polymarket_us.py` (venue adapters).
+- `LiveBroker` defines `submit_order` / `cancel_order` / `get_order` /
+  `get_positions`. Every public method enforces, in order: input validation +
+  tz-aware `now` + venue match → `LiveTradingGate.assert_live_allowed` →
+  (`submit_order` only) `IdempotencyGuard.register(client_order_id)` → subclass
+  `_do_*` hook. A subclass cannot skip the gate or the dedupe check.
+- **`LIVE_TRADING` off by default, un-armable by accident:** `LiveTradingGate`
+  is a frozen dataclass; the default and `LIVE_TRADING_ENABLED` are `False`;
+  arming requires the exact literal
+  `I_UNDERSTAND_THIS_PLACES_REAL_ORDERS` (any other phrase raises in
+  `__post_init__`); `from_env` arms only when `PMA_LIVE_TRADING` equals that
+  string (`1` / `true` do nothing); there is no setter.
+- **Both venue adapters are explicitly unsupported.** `docs/API_SOURCES.md` has
+  primary evidence for market data only — no order-placement / cancel /
+  order-status / positions shape for either venue — so `KalshiLiveBroker` /
+  `PolymarketUsLiveBroker` raise `UnsupportedLiveOperationError` for every
+  operation, even with an armed gate + credentials. Nothing signs or sends.
+- **Idempotency guard is the local half only** (process memory); venue-side
+  dedupe is unverified. **Trading credentials are isolated** from the M2.1
+  market-data credentials (separate types + `KALSHI_TRADING_*` /
+  `POLYMARKET_US_TRADING_*` env vars) and redacted in `repr`.
+- Records: D-023; A-037. `docs/ROADMAP.md` M3.4 items ("Interface may exist",
+  "LIVE_TRADING remains false by default") are both now literally true;
+  checkboxes left unticked per precedent. No Real-money gate item is resolved.
+- Not implemented: real venue calls, automatic activation, strategy / dashboard
+  / risk changes, real-money order submission (including in tests), any guessed
+  venue behaviour.
+- Tests: `tests/test_live_broker.py` (39) + `tests/live_broker_support.py` —
+  gate off-by-default / phrase-arming / env-arming / frozen; wrapper enforces
+  gate + dedupe before any `_do_*` (proved with a venue-less `RecordingLiveBroker`
+  whose hooks only record); `LiveOrderRequest` validation; credential redaction
+  + env isolation; `KalshiLiveBroker` / `PolymarketUsLiveBroker` every op
+  `UnsupportedLiveOperationError` even when armed, and gated before that when
+  not. Suite 493 → 532.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Committed to `feat/live-broker-interface` and pushed
+  for review (no PR, no merge to `main`).
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
