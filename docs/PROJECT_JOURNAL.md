@@ -847,6 +847,33 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - No evidence classification changed (K-TR-OBS-* stay OBSERVED; new rows are
   VERIFIED (docs)). No `src/` change, no dependency, no `DECISIONS` change.
 
+## 2026-09-08 — A-038: demo shard-balance / exchange-status read-only probe
+
+- Docs (official Kalshi only): captured the self-service **demo-funding flow**
+  (K-TR-18: test debit card / Plaid sandbox / Google Pay / testnet crypto at
+  `demo.kalshi.co/sign-up`; no shard step in the funding flow itself), the exact
+  **`GET /portfolio/balance` `exchange_index` param** semantics (K-TR-19), and
+  the **collateral move / allocate** endpoints (K-TR-20:
+  `intra_exchange_instance_transfer` in centicents, `target_balance_allocation`
+  `allocations[]` %; **no GET** for the current split — corrects K-TR-15).
+  New sources K-TR-S15 / K-TR-S16.
+- Read-only probe: new `scripts/observe_kalshi_demo_shard_balance.py` (GET-only;
+  reuses `observe_kalshi_demo` signing + D-024 `sanitise_body`; signs path
+  without the query string; public `/exchange/status` body kept verbatim).
+  Fixtures `docs/evidence/kalshi-demo/shard-balance/*.json`. Test
+  `tests/test_observe_kalshi_demo_shard_balance.py`.
+- OBSERVED (`docs/API_SOURCES.md` **K-TR-OBS-14..16**): `GET
+  /portfolio/balance?exchange_index=N` live on demo for N=0..3 (200, full
+  4-entry `balance_breakdown` even when scoped); `GET /exchange/status`
+  unauthenticated → 4 demo shards, all `trading_active` /
+  `intra_exchange_transfers_active` true; the probe did **not** fund the account
+  or move collateral and the redacted fixtures cannot confirm funding /
+  shard-1 allocation.
+- **A-038 stays blocking** — direct confirmation of demo shard
+  funding/allocation is still outstanding. No Real-money gate item resolved;
+  K-TR-05..10 stay `VERIFIED (docs)`; A-037 / D-023 stand. No `src/` change, no
+  dependency, no `DECISIONS` change.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
