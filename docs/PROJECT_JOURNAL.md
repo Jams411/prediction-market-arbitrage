@@ -824,6 +824,29 @@ Use this file as the concise chronological record of milestone progress, evidenc
   resolved**; K-TR-05..10 stay `VERIFIED (docs)`; A-037 / D-023 stand, A-038
   added. No `src/` change, no dependency.
 
+## 2026-09-08 — A-038 investigation: Kalshi Exchange Sharding / demo trading provisioning (docs-only)
+
+- Official Kalshi sources only (`docs.kalshi.com`, `help.kalshi.com`); no
+  network calls to the API, no order submissions, no account changes.
+- Findings recorded as `docs/API_SOURCES.md` **K-TR-14..17** (VERIFIED (docs))
+  + a new gap bullet; **A-038 expanded** and kept **blocking**:
+  - The probe market was a `…-SHARD1-…` ticker and `exchange_index` was omitted,
+    so the order auto-routed to exchange shard 1 (K-TR-14).
+  - Sharded order entry requires **preallocating collateral on that shard first**
+    (K-TR-15); demo accounts are **not pre-funded** and this key's account is
+    unfunded (`portfolio_value = 0`, K-TR-17 / K-TR-OBS-10).
+  - Kalshi API keys are **self-service, unscoped, no approval step**, identical
+    demo/prod (K-TR-16) → not a key-permission issue.
+  - Remediation is self-service + documented (fund the demo account, then
+    `intra_exchange_instance_transfer` / `target_balance_allocation`, check
+    `GET /exchange/status`) — but requires funding + account configuration,
+    which is out of scope here.
+- **UNKNOWN kept:** `404` / `user_not_found` / "Exchange user not found" is
+  undocumented for create-order-v2; the precise cause and whether a *different*
+  demo account (vs the same one funded) is required are not stated by Kalshi.
+- No evidence classification changed (K-TR-OBS-* stay OBSERVED; new rows are
+  VERIFIED (docs)). No `src/` change, no dependency, no `DECISIONS` change.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
