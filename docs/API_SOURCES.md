@@ -365,7 +365,12 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 | K-TR-S6 | Get Fills — API reference | https://docs.kalshi.com/api-reference/portfolio/get-fills |
 | K-TR-S7 | Get Positions — API reference | https://docs.kalshi.com/api-reference/portfolio/get-positions |
 | K-TR-S8 | Rate Limits and Tiers | https://docs.kalshi.com/getting_started/rate_limits |
-| K-TR-S9 | API Changelog (legacy `/portfolio/orders` deprecation ≥ 2026-05-06) | https://docs.kalshi.com/changelog |
+| K-TR-S9 | API Changelog (legacy `/portfolio/orders` deprecation ≥ 2026-05-06; exchange-sharding rollout entries) | https://docs.kalshi.com/changelog |
+| K-TR-S10 | Exchange Sharding (getting started) | https://docs.kalshi.com/getting_started/exchange_sharding |
+| K-TR-S11 | Intra Account Transfer — API reference (`/portfolio/intra_exchange_instance_transfer`) | https://docs.kalshi.com/api-reference/portfolio/intra-account-transfer |
+| K-TR-S12 | Get Exchange Status — API reference (`/exchange/status`, `exchange_index_statuses`) | https://docs.kalshi.com/api-reference/exchange/get-exchange-status |
+| K-TR-S13 | API Keys (self-service key creation, demo == prod process) | https://docs.kalshi.com/getting_started/api_keys |
+| K-TR-S14 | Creating and using a demo account (Kalshi Help Center) | https://help.kalshi.com/account/demo-account |
 
 ### Claims
 
@@ -384,6 +389,10 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 | K-TR-11 | Positions: `GET /portfolio/positions`. Query: `cursor`, `limit` (1–1000, default 100), `count_filter`, `ticker`, `event_ticker`, `subaccount` (default 0), `exchange_index`. Response has `market_positions[]` (`ticker`, `exchange_index`, `total_traded_dollars`, `position_fp`, `market_exposure_dollars`, `realized_pnl_dollars`, `fees_paid_dollars`, `last_updated_ts`) and `event_positions[]` (`event_ticker`, `total_cost_dollars`, `total_cost_shares_fp`, `event_exposure_dollars`, `realized_pnl_dollars`, `fees_paid_dollars`). | VERIFIED (docs) | K-TR-S7 schema. `resting_orders_count` not present in the documented schema. | None. |
 | K-TR-12 | Rate limits: token-bucket per API key; bucket refills continuously at the tier's per-second budget up to capacity; request allowed when the bucket covers its cost, else **`429 Too Many Requests`** with body `{"error": "too many requests"}`. 429 responses **do not** currently include `Retry-After` or `X-RateLimit-*` headers; no extra cooldown penalty. Default request cost 10 tokens; create order 10, cancel order 2; authoritative per-endpoint costs at `GET /account/endpoint_costs`. Basic tier: read budget 200, write budget 100 tokens/s; Basic write bucket holds ~1 s of budget. Higher tiers (Advanced … Prestige) via `GET /account/limits`. | VERIFIED (docs) | K-TR-S8. | None. |
 | K-TR-13 | Documented HTTP error statuses on create order: 400, 401, 409, 429, 500 (no Kalshi-specific error-code enum listed on the V2 page beyond these). Cancel order lists 401, 404, 500. | VERIFIED (docs) | K-TR-S2, K-TR-S4. | None. |
+| K-TR-14 | **Exchange sharding.** Kalshi is "distributing trading across multiple matching engines by category", phased through September 2026 (changelog: combos → shard 1; crypto/commodities → shard 2; select sports → shard 3; shard 0 is the catch-all default). `exchange_index` on create-order is **optional**: "If omitted, auto-routes when ticker is provided; otherwise defaults to 0." So a `…-SHARD1-…` market ticker auto-routes to `exchange_index = 1`. | VERIFIED (docs) | K-TR-S10; K-TR-S2 (`exchange_index` field note); K-TR-S9 (dated rollout entries, 2026-06-18 … 2026-09-10). | Explains why the M-lifecycle probe (`…SHARD1…` ticker, no `exchange_index`) routed to shard 1. |
+| K-TR-15 | **Preallocating collateral is a prerequisite for sharded order entry.** "Programmatic traders must preallocate collateral on a given exchange shard before order placement." Funds are moved between shards by `POST /portfolio/intra_exchange_instance_transfer` (`source`/`destination` = `event_contract`\|`margined`, `amount` in centicents, `source_exchange_shard`/`destination_exchange_shard` 0–100 default 0). A target split can also be set via `POST`/`GET /portfolio/target_balance_allocation` "through the REST API and the clearing portal". Per-shard status: `GET /exchange/status` → `exchange_active`, `trading_active`, `intra_exchange_transfers_active`, `exchange_index_statuses[]`. Per-shard balance: `GET /portfolio/balance?exchange_index=N`. | VERIFIED (docs) | K-TR-S10; K-TR-S11; K-TR-S12; K-TR-S9 (2026-08-20 entries: cross-shard transfer, target-allocation endpoints, per-index exchange status). | None — informs A-038 remediation path only. |
+| K-TR-16 | **API keys are self-service and unscoped.** A key is created in Profile Settings → "API Keys" → "Create New API Key"; "This process is the same for the demo or production environment." The docs describe a single RSA key type with **no permission levels / roles** (no read-vs-trade scope) and **no approval, support ticket, or separate enablement** step after key generation. | VERIFIED (docs) | K-TR-S13. | Rules out an API-key-permission explanation for K-TR-OBS-12's 404. |
+| K-TR-17 | **Demo accounts are not pre-funded.** "Your demo account won't have funds preloaded, so follow the tutorial to add mock funds using a test payment method" (test debit cards / Plaid sandbox / testnet crypto). Adding demo funds is self-service; no account-type gate or verification for demo trading is documented. | VERIFIED (docs) | K-TR-S14. | The provisioned demo key's account shows `portfolio_value = 0` / all breakdown balances `0.0000` (K-TR-OBS-10) — i.e. never funded. |
 
 ### Not verified / gaps (pre-M4)
 
@@ -407,6 +416,16 @@ limits, and partial-fill reporting. **No adapter was implemented.**
   `/portfolio/fills`).
 - No mapping to the project's domain models was designed (out of scope: "Do not
   implement adapters").
+- **`404` / `user_not_found` / "Exchange user not found" on `POST
+  /portfolio/events/orders` is UNDOCUMENTED** (K-TR-OBS-12). `404` is not in the
+  create-order-v2 error list (K-TR-13); no official page defines the string
+  `user_not_found` or "Exchange user not found". The nearest documented analog is
+  FIX `OrdRejReason 15` "Unknown account" = "Subaccount or sub-trader does not
+  exist" (K-TR-S9 family / FIX error-handling). The evidence-consistent reading —
+  the demo account is unfunded (K-TR-17), so no collateral is allocated on shard
+  1 (K-TR-14/15) and no per-shard "exchange user" exists there when the order
+  auto-routes — is **inference, not verified**; Kalshi does not document that a
+  missing shard allocation yields `404 user_not_found`. See A-038.
 
 ---
 
