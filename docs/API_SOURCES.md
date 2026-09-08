@@ -410,6 +410,67 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 
 ---
 
+## Kalshi — demo authenticated read-only observation (2026-09-08)
+
+Observation date: **2026-09-08** (UTC per server `date` header, e.g.
+`Tue, 08 Sep 2026 06:37:02 GMT`). Environment: **Kalshi demo only**
+(`https://external-api.demo.kalshi.co/trade-api/v2`). Every request was an
+**authenticated GET** — no order was submitted, cancelled, or modified;
+`LIVE_TRADING` unchanged; no Polymarket US call. Credentials were read at
+runtime (demo API key id from macOS Keychain `pma-kalshi-demo-api-key-id`,
+RSA private key from `~/.config/pma/kalshi-demo-private-key.pem`) and never
+printed, logged, persisted, fixtured, or committed. The signature was produced
+by shelling out to `openssl dgst -sha256 -sign … -sigopt rsa_padding_mode:pss
+-sigopt rsa_pss_saltlen:digest` (no `cryptography` dependency added).
+
+Tool: `scripts/observe_kalshi_demo.py` (not part of the shipped package).
+Sanitised captures: `docs/evidence/kalshi-demo/*.json`. Sanitisation is
+**structure-first / fail-safe**: object/array structure, every field name, the
+request path, HTTP status and whitelisted headers are kept; **every** response-
+body scalar is replaced with a type token (`<number>` / `<redacted>`) unless it
+is on a short allowlist of fixed non-account API constants (empty cursor, the
+`authentication_error` envelope strings, `invalid_UUID`). Unknown / future
+fields are therefore redacted by default. The response-shape types recorded in
+the K-TR-OBS rows below were observed at capture time; the committed fixtures no
+longer carry per-scalar type detail. The demo account is **empty**, so array
+element shapes (`market_positions[]`, `fills[]`, `orders[]` rows) were **not**
+observed — only the response envelopes.
+
+### Official sources consulted
+
+Reuses K-TR-S1 (auth/signing), K-TR-S6 (fills), K-TR-S7 (positions). No new
+source pages.
+
+### Claims
+
+| # | Claim | Status | Evidence | Code impact |
+|---|-------|--------|----------|-------------|
+| K-TR-OBS-01 | The demo REST base `https://external-api.demo.kalshi.co/trade-api/v2` (K-TR-01) serves authenticated portfolio reads. | OBSERVED | `GET /portfolio/balance`, `/portfolio/positions`, `/portfolio/fills`, `/portfolio/orders` each → HTTP 200 (`balance.json`, `positions.json`, `fills.json`, `orders.json`). | None — observation only. |
+| K-TR-OBS-02 | The three `KALSHI-ACCESS-KEY` / `KALSHI-ACCESS-TIMESTAMP` (ms) / `KALSHI-ACCESS-SIGNATURE` (base64) headers (K-TR-02) authenticate a real demo request. Signed string = `timestamp_ms + "GET" + "/trade-api/v2" + path` **without** query params; RSA-PSS (MGF1-SHA256, salt = digest length) over SHA-256 (K-TR-03). | OBSERVED | With those headers + that signed string → 200; a deliberately wrong signed string → 401 `INCORRECT_API_KEY_SIGNATURE` (`auth_bad_signature.json`). | Confirms `livebook/ws_auth.kalshi_ws_sign_message` string form and the RSA-PSS `Signer` contract for a **REST** path. |
+| K-TR-OBS-03 | Authentication failure → **HTTP 401**, body `{"error":{"code":"authentication_error","message":"We could not authenticate your request","details":<ENUM>}}`. `details` = `INCORRECT_API_KEY_SIGNATURE` for a bad signature; `INVALID_PARAMETER` for an unknown `KALSHI-ACCESS-KEY`. | OBSERVED | `auth_bad_signature.json` (401, `INCORRECT_API_KEY_SIGNATURE`); `auth_bad_key.json` (401, `INVALID_PARAMETER`). Doc K-TR-13 lists 401 but no body shape. | Informs `live_broker` error mapping when a REST trading path is later implemented (still unimplemented — A-037). |
+| K-TR-OBS-04 | `GET /portfolio/positions` envelope: `{ "market_positions": [], "event_positions": [], "cursor": "" }`. Matches the K-TR-11 doc field names (`market_positions[]`, `event_positions[]`) and adds a top-level `cursor`. Per-row fields **not** observed (account empty). | OBSERVED (envelope only) | `positions.json` (200). | None. |
+| K-TR-OBS-05 | `GET /portfolio/fills` envelope: `{ "fills": [], "cursor": "" }` (K-TR-09 doc names the `fills` array). Per-fill fields **not** observed (account empty). | OBSERVED (envelope only) | `fills.json` (200). | None. |
+| K-TR-OBS-06 | The legacy `GET /portfolio/orders` list endpoint is **still live on demo** as of 2026-09-08 (K-TR-S9 deprecation date ≥ 2026-05-06 has not removed it). Envelope: `{ "orders": [], "cursor": "" }`. | OBSERVED | `orders.json` (200). | None. |
+| K-TR-OBS-07 | `GET /portfolio/events/orders` (the V2 events collection path) → **HTTP 404** with a `text/plain` body (not JSON). The V2 `/portfolio/events/orders` path is not a readable collection; partially closes the doc-gap "whether the V2 order object is readable under `/portfolio/events/orders/…`". Reading a single order at `/portfolio/events/orders/{id}` was **not** probed. | OBSERVED | `orders_events.json` (404, `content-type: text/plain`). | None. |
+| K-TR-OBS-08 | `GET /portfolio/orders/{order_id}` with a **non-UUID** `order_id` → **HTTP 400** `{"error":{"code":"invalid_UUID","message":"invalid UUID"}}` (not 404). Kalshi order ids are UUIDs; a malformed id is rejected before any lookup. A well-formed but unknown UUID was **not** probed, so the true not-found status/body for order-get stays **UNKNOWN**. | OBSERVED | `order_unknown.json` (400, `invalid_UUID`). | None. |
+| K-TR-OBS-09 | No rate-limit headers (`X-RateLimit-*`, `RateLimit-*`) and no `Retry-After` appeared on any **2xx** response. Consistent with K-TR-12 ("429 responses do not include `Retry-After` or `X-RateLimit-*`"); extends it to successful responses. No 429 was triggered, so 429 body/headers stay doc-only. | OBSERVED | `content-type` + `date` were the only headers of interest present in every capture. | None. |
+| K-TR-OBS-10 | Bonus (outside the K-TR rows): `GET /portfolio/balance` → 200 `{ "balance": <int cents>, "balance_dollars": <string>, "balance_breakdown": [ { "balance": <string>, "exchange_index": <int 0..3> } ], "portfolio_value": <int>, "updated_ts": <int unix s> }`. | OBSERVED | `balance.json` (values redacted). | None. |
+
+### Not verified / still open
+
+- Array **element** shapes for positions / fills / orders — demo account is
+  empty. Needs a demo account with activity (or a later capture) to move
+  K-TR-08 / K-TR-09 / K-TR-11 row-level fields to OBSERVED.
+- Order-get not-found behavior for a **well-formed unknown UUID**, and single
+  order read at `/portfolio/events/orders/{id}`.
+- The `409` duplicate-`client_order_id` behavior (K-TR-07) — cannot be observed
+  read-only (needs an order submission, which is out of scope).
+- `429` body and headers (K-TR-12) — not triggered.
+- Nothing here promotes a Real-money gate item. "Position/order reconciliation"
+  still needs element-level shapes plus a live round-trip; A-037 / D-023 stand.
+
+---
+
 ## Polymarket US — REST trading API (research only; pre-M4, no code)
 
 Verification date: **2026-09-08** (official docs read at `docs.polymarket.us`).
