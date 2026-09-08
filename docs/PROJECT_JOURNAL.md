@@ -874,6 +874,38 @@ Use this file as the concise chronological record of milestone progress, evidenc
   K-TR-05..10 stay `VERIFIED (docs)`; A-037 / D-023 stand. No `src/` change, no
   dependency, no `DECISIONS` change.
 
+## 2026-09-08 — A-038: manual demo-UI shard transfer failed; GET-only diagnosis
+
+- **Manual operator evidence** (official Kalshi demo web UI, not scripted): demo
+  account funded with $100 mock cash (UI: Exchange 0 $100 / Exchange 1–3 $0); a
+  manual **Exchange 0 → Exchange 1, $10** transfer returned **"Transfer failed:
+  Service unavailable, please try again later."** Not retried; no order placed.
+  **Cause treated as UNKNOWN** — not inferred to be funds/provisioning/capacity.
+- GET-only diagnosis: new `scripts/observe_kalshi_demo_shard_transfer.py`
+  (reuses `observe_kalshi_demo` signing + `observe_kalshi_demo_shard_balance._request`;
+  no `POST`). Fixtures `docs/evidence/kalshi-demo/shard-transfer/*.json`
+  (account bodies redacted; `/exchange/status` verbatim). Test
+  `tests/test_observe_kalshi_demo_shard_transfer.py`. `observe_kalshi_demo`
+  allowlist gained the transfer enum constants `pending` / `complete` /
+  `event_contract` / `margined` (shape evidence only; amounts/ids/timestamps
+  still redacted).
+- OBSERVED (`docs/API_SOURCES.md` **K-TR-OBS-17..21**, new docs rows
+  **K-TR-21** + source **K-TR-S17**): `GET /portfolio/intra_exchange_instance_transfers`
+  → 200 `{"transfers": []}` (no record from the failed UI attempt);
+  `GET /portfolio/target_balance_allocation` → 200 `{"allocations": []}`
+  (endpoint exists — **supersedes K-TR-20's "no GET documented"**; no standing
+  split); `GET /exchange/status` → all 4 demo shards + top-level
+  `trading_active` and `intra_exchange_transfers_active` = true, i.e.
+  **Exchange 1 reports trading and transfers active**.
+- **Comparison vs documented requirements:** every read-only-observable
+  precondition for an intra-exchange-instance transfer was satisfied; Kalshi
+  documents no 503 / "Service unavailable" case for the transfer `POST`. The
+  failure is **UNDOCUMENTED**; cause **UNKNOWN**.
+- **A-038 stays blocking** — demo shard collateral cannot currently be
+  allocated. No evidence classification changed (K-TR-OBS-* stay OBSERVED; new
+  rows VERIFIED (docs)). No `src/` change, no dependency, no `DECISIONS` change.
+  `LIVE_TRADING` untouched; no Polymarket US work.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
