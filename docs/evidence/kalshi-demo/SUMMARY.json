@@ -1,0 +1,74 @@
+[
+  {
+    "name": "balance",
+    "path": "/portfolio/balance",
+    "status": 200,
+    "body_keys": [
+      "balance",
+      "balance_breakdown",
+      "balance_dollars",
+      "portfolio_value",
+      "updated_ts"
+    ]
+  },
+  {
+    "name": "positions",
+    "path": "/portfolio/positions",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "event_positions",
+      "market_positions"
+    ]
+  },
+  {
+    "name": "fills",
+    "path": "/portfolio/fills",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "fills"
+    ]
+  },
+  {
+    "name": "orders",
+    "path": "/portfolio/orders",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "orders"
+    ]
+  },
+  {
+    "name": "orders_events",
+    "path": "/portfolio/events/orders",
+    "status": 404,
+    "body_keys": [
+      "<non-json-body-bytes>"
+    ]
+  },
+  {
+    "name": "order_unknown",
+    "path": "/portfolio/orders/PMA-OBS-DOES-NOT-EXIST",
+    "status": 400,
+    "body_keys": [
+      "error"
+    ]
+  },
+  {
+    "name": "auth_bad_signature",
+    "path": "/portfolio/balance",
+    "status": 401,
+    "body_keys": [
+      "error"
+    ]
+  },
+  {
+    "name": "auth_bad_key",
+    "path": "/portfolio/balance",
+    "status": 401,
+    "body_keys": [
+      "error"
+    ]
+  }
+]

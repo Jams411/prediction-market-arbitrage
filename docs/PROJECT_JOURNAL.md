@@ -763,6 +763,35 @@ Use this file as the concise chronological record of milestone progress, evidenc
   --all-files` all pass. Committed to `feat/live-broker-interface` and pushed
   for review (no PR, no merge to `main`).
 
+## 2026-09-08 — Kalshi demo authenticated read-only observation
+
+- **First authenticated calls in the project.** Kalshi **demo** environment
+  only, **GET-only** — no order submitted / cancelled / modified, `LIVE_TRADING`
+  untouched, no Polymarket US call. Credentials read at runtime (demo key id
+  from macOS Keychain, RSA key from `~/.config/pma/…`), never printed / logged /
+  persisted / fixtured / committed; not read from env vars. Signature via
+  `openssl` RSA-PSS shell-out — **no `cryptography` dependency added**.
+- Tool: `scripts/observe_kalshi_demo.py` (not shipped, ruff-clean). Sanitised
+  captures in `docs/evidence/kalshi-demo/*.json` (ids / balances redacted,
+  structure kept).
+- OBSERVED (see `docs/API_SOURCES.md` **K-TR-OBS-01..10**): demo REST base +
+  the three `KALSHI-ACCESS-*` headers + the `ts+GET+/trade-api/v2+path`
+  RSA-PSS(SHA-256, MGF1-SHA256, salt=digest) signed string authenticate a real
+  demo request; auth failure → **401** `{"error":{"code":"authentication_error",
+  "details":<ENUM>}}` (`INCORRECT_API_KEY_SIGNATURE` / `INVALID_PARAMETER`);
+  `GET /portfolio/positions` → `{market_positions:[],event_positions:[],
+  cursor:""}`, `/portfolio/fills` → `{fills:[],cursor:""}`, `/portfolio/orders`
+  (legacy, still live on demo) → `{orders:[],cursor:""}`;
+  `GET /portfolio/events/orders` → **404 text/plain**;
+  `GET /portfolio/orders/{non-uuid}` → **400 `invalid_UUID`**; no
+  `X-RateLimit-*` / `Retry-After` on 2xx.
+- Still open: array **element** shapes (demo account empty), well-formed-unknown
+  UUID order-get, `409` duplicate-`client_order_id` and `429` bodies (need an
+  order submission / load — out of scope). **No Real-money gate item resolved;
+  A-037 / D-023 stand.**
+- No `src/` change, no dependency, no `ASSUMPTIONS` / `DECISIONS` state change.
+  Not committed / pushed.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

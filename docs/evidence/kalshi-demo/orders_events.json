@@ -1,0 +1,14 @@
+{
+  "body": {
+    "<non-json-body-bytes>": 18
+  },
+  "headers": {
+    "content-type": "text/plain",
+    "date": "Tue, 08 Sep 2026 06:37:04 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/events/orders"
+  },
+  "status": 404
+}

@@ -1,0 +1,18 @@
+{
+  "body": {
+    "error": {
+      "code": "authentication_error",
+      "details": "INCORRECT_API_KEY_SIGNATURE",
+      "message": "We could not authenticate your request"
+    }
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 06:37:04 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/balance"
+  },
+  "status": 401
+}
