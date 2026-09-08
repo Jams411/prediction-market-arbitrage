@@ -1,0 +1,51 @@
+[
+  {
+    "name": "00_orders_before",
+    "method": "GET",
+    "path": "/portfolio/orders",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "orders"
+    ]
+  },
+  {
+    "name": "01_submit_v2_events_orders",
+    "method": "POST",
+    "path": "/portfolio/events/orders",
+    "status": 404,
+    "body_keys": [
+      "error"
+    ]
+  },
+  {
+    "name": "02_submit_legacy_orders",
+    "method": "POST",
+    "path": "/portfolio/orders",
+    "status": 410,
+    "body_keys": [
+      "error"
+    ]
+  },
+  {
+    "name": "10_positions",
+    "method": "GET",
+    "path": "/portfolio/positions",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "event_positions",
+      "market_positions"
+    ]
+  },
+  {
+    "name": "11_fills",
+    "method": "GET",
+    "path": "/portfolio/fills",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "fills"
+    ]
+  }
+]

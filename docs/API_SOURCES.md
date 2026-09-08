@@ -428,9 +428,10 @@ Sanitised captures: `docs/evidence/kalshi-demo/*.json`. Sanitisation is
 **structure-first / fail-safe**: object/array structure, every field name, the
 request path, HTTP status and whitelisted headers are kept; **every** response-
 body scalar is replaced with a type token (`<number>` / `<redacted>`) unless it
-is on a short allowlist of fixed non-account API constants (empty cursor, the
-`authentication_error` envelope strings, `invalid_UUID`). Unknown / future
-fields are therefore redacted by default. The response-shape types recorded in
+is on a short allowlist of fixed non-account API constants (empty cursor and
+fixed `error.code` / `error.message` strings — `authentication_error`,
+`invalid_UUID`, `deprecated_v1_order_endpoint`, `user_not_found`, …; never
+`error.details`). Unknown / future fields are therefore redacted by default. The response-shape types recorded in
 the K-TR-OBS rows below were observed at capture time; the committed fixtures no
 longer carry per-scalar type detail. The demo account is **empty**, so array
 element shapes (`market_positions[]`, `fills[]`, `orders[]` rows) were **not**
@@ -456,6 +457,21 @@ source pages.
 | K-TR-OBS-09 | No rate-limit headers (`X-RateLimit-*`, `RateLimit-*`) and no `Retry-After` appeared on any **2xx** response. Consistent with K-TR-12 ("429 responses do not include `Retry-After` or `X-RateLimit-*`"); extends it to successful responses. No 429 was triggered, so 429 body/headers stay doc-only. | OBSERVED | `content-type` + `date` were the only headers of interest present in every capture. | None. |
 | K-TR-OBS-10 | Bonus (outside the K-TR rows): `GET /portfolio/balance` → 200 `{ "balance": <int cents>, "balance_dollars": <string>, "balance_breakdown": [ { "balance": <string>, "exchange_index": <int 0..3> } ], "portfolio_value": <int>, "updated_ts": <int unix s> }`. | OBSERVED | `balance.json` (values redacted). | None. |
 
+#### 2026-09-08 (later) — controlled demo order-lifecycle attempt (blocked before any order)
+
+A single minimal `DEMO` order (1 contract, `yes` bid @ $0.01, `post_only`, on a
+market with an empty book — max notional $0.01) was attempted to move K-TR-06 /
+K-TR-07 / K-TR-08 / K-TR-09 / K-TR-10 to OBSERVED. **No order was created:** the
+demo API key is not provisioned for order entry. Portfolio reads still 200.
+Tool: `scripts/observe_kalshi_demo_order_lifecycle.py`; fixtures in
+`docs/evidence/kalshi-demo/lifecycle/*.json`.
+
+| # | Claim | Status | Evidence | Code impact |
+|---|-------|--------|----------|-------------|
+| K-TR-OBS-11 | `POST /portfolio/orders` (legacy V1 create) on demo → **HTTP 410 Gone** `{"error":{"code":"deprecated_v1_order_endpoint","message":"Please switch to the V2 endpoints","details":<link to create-order-v2 docs>}}`. Confirms K-TR-04's "legacy `POST /portfolio/orders` is deprecated" — it is now fully retired for **writes** (while `GET /portfolio/orders` still returns 200, K-TR-OBS-06). | OBSERVED | `lifecycle/02_submit_legacy_orders.json` (410). | Live-broker Kalshi order submission must target the V2 path only. |
+| K-TR-OBS-12 | `POST /portfolio/events/orders` (documented V2 create, K-TR-04) on demo with this key → **HTTP 404** `{"error":{"code":"user_not_found","message":"user not found","details":"Exchange user not found. For Predictions: reference … Exchange Sharding documentation."}}`. The 404 is an **account-provisioning** error, not path-not-found: the same key authenticates every portfolio **read** (K-TR-OBS-01) but is not resolvable as an "Exchange user" for order entry. | OBSERVED | `lifecycle/01_submit_v2_events_orders.json` (404). | Blocks OBSERVED evidence for K-TR-06/07/08/09/10; see A-038. |
+| K-TR-OBS-13 | After both failed create attempts, `GET /portfolio/positions` and `GET /portfolio/fills` were **unchanged** (`{…: [], "cursor": ""}`). No order, position, or fill was created. Re-confirms K-TR-OBS-04 / K-TR-OBS-05 envelopes on a second same-day capture. | OBSERVED (envelope only) | `lifecycle/10_positions.json`, `lifecycle/11_fills.json` (200). | None. |
+
 ### Not verified / still open
 
 - Array **element** shapes for positions / fills / orders — demo account is
@@ -463,8 +479,11 @@ source pages.
   K-TR-08 / K-TR-09 / K-TR-11 row-level fields to OBSERVED.
 - Order-get not-found behavior for a **well-formed unknown UUID**, and single
   order read at `/portfolio/events/orders/{id}`.
-- The `409` duplicate-`client_order_id` behavior (K-TR-07) — cannot be observed
-  read-only (needs an order submission, which is out of scope).
+- **Create-order request/response shape (K-TR-05/06), idempotency 409 (K-TR-07),
+  order-status (K-TR-08), fills (K-TR-09), cancel (K-TR-10)** — still
+  `VERIFIED (docs)` only. Blocked: the demo key is not order-entry provisioned
+  (K-TR-OBS-12 / A-038). Needs an Exchange-sharded demo account (account
+  configuration — out of scope) or a later capture.
 - `429` body and headers (K-TR-12) — not triggered.
 - Nothing here promotes a Real-money gate item. "Position/order reconciliation"
   still needs element-level shapes plus a live round-trip; A-037 / D-023 stand.

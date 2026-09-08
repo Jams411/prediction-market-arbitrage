@@ -799,6 +799,31 @@ Use this file as the concise chronological record of milestone progress, evidenc
   Kalshi demo fixtures re-reduced by hand (no new network calls); deterministic
   sanitiser tests added. Evidence classifications unchanged.
 
+## 2026-09-08 — Kalshi demo order-lifecycle observation (blocked: account not order-entry provisioned)
+
+- Branch `obs/kalshi-demo-order-lifecycle` (from `main` after #19). Goal: place
+  **one** minimal `DEMO` order to move K-TR-06..10 to OBSERVED.
+- Market selected via the verified read-only `KalshiClient` (demo base): an
+  `active` binary market with a **completely empty** order book, so the probe
+  order (**1 contract, `yes` bid @ $0.01, `post_only`**, synthetic
+  `client_order_id`, max notional $0.01) could not cross. DEMO only; production
+  never called; no Polymarket US; `LIVE_TRADING` untouched; demo credentials via
+  the existing Keychain + `~/.config/pma/…` pattern.
+- **No order was placed.** `POST /portfolio/events/orders` → **404
+  `user_not_found`** ("Exchange user not found … Exchange Sharding");
+  `POST /portfolio/orders` (legacy) → **410 `deprecated_v1_order_endpoint`**.
+  Every `GET /portfolio/*` on the same key still 200; positions/fills unchanged
+  and empty. The demo key is read-only-provisioned — see **A-038**.
+- New: `scripts/observe_kalshi_demo_order_lifecycle.py` (not shipped; reuses
+  `observe_kalshi_demo` signing + D-024 `sanitise_body`; at most two create
+  attempts, no schema-guess iteration, always cancels any `order_id` it
+  receives). Fixtures: `docs/evidence/kalshi-demo/lifecycle/*.json`.
+  `_ALLOWED_BODY_SCALARS` gained four fixed order-endpoint `error.code` /
+  `error.message` constants (never `error.details`).
+- OBSERVED: `docs/API_SOURCES.md` **K-TR-OBS-11..13**. **No Real-money gate item
+  resolved**; K-TR-05..10 stay `VERIFIED (docs)`; A-037 / D-023 stand, A-038
+  added. No `src/` change, no dependency.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
