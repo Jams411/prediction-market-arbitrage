@@ -1,0 +1,28 @@
+{
+  "body": {
+    "error": {
+      "code": "deprecated_v1_order_endpoint",
+      "details": "<redacted>",
+      "message": "Please switch to the V2 endpoints"
+    }
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 15:29:08 GMT"
+  },
+  "request": {
+    "body": {
+      "client_order_id": "<demo-synthetic-client-order-id>",
+      "count": "1",
+      "post_only": true,
+      "price": "0.01",
+      "self_trade_prevention_type": "maker",
+      "side": "bid",
+      "ticker": "KXMVECROSSCATEGORY-SHARD1-S2026030E5B5B57A-4D92EB7E9AA",
+      "time_in_force": "good_till_canceled"
+    },
+    "method": "POST",
+    "path": "/portfolio/orders"
+  },
+  "status": 410
+}

@@ -73,12 +73,18 @@ _ALLOWED_BODY_SCALARS: frozenset[object] = frozenset(
     {
         "",  # empty pagination cursor / empty string field
         # Kalshi error-envelope constants (fixed server strings, OBSERVED).
+        # `error.code` / `error.message` values only — never `error.details`,
+        # which can carry request-specific context.
         "authentication_error",
         "INVALID_PARAMETER",
         "INCORRECT_API_KEY_SIGNATURE",
         "invalid_UUID",
         "invalid UUID",
         "We could not authenticate your request",
+        "deprecated_v1_order_endpoint",
+        "Please switch to the V2 endpoints",
+        "user_not_found",
+        "user not found",
     }
 )
 

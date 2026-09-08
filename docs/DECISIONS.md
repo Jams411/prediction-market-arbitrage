@@ -1138,12 +1138,17 @@ would have persisted account-sensitive scalars.
 keeps object/array structure, every field *name*, the request path, HTTP
 status and the whitelisted headers, and replaces **every** body scalar leaf
 with a type token (`<number>` / `<redacted>`) unless its exact value is on a
-short explicit allowlist of fixed non-account API constants (`_ALLOWED_BODY_SCALARS`:
-empty cursor, the `authentication_error` envelope strings, `invalid_UUID`).
+short explicit allowlist of fixed non-account API constants
+(`_ALLOWED_BODY_SCALARS`: the empty-string cursor plus fixed `error.code` /
+`error.message` strings — `authentication_error`, `invalid_UUID`,
+`deprecated_v1_order_endpoint`, `user_not_found`, … — but never
+`error.details`, which can carry request-specific context).
 `None` and booleans are treated as structural and kept. Unknown / future
 fields are redacted by default. The committed Kalshi demo fixtures were
 re-reduced by hand to this rule (no new network calls; no raw capture
-retained).
+retained). The allowlist is appended to as new fixed error constants are
+actually OBSERVED (e.g. the 2026-09-08 order-lifecycle attempt added the two
+create-endpoint error codes/messages).
 
 **Alternatives considered:** extend the denylist (rejected — still fails open
 on any unanticipated field, which is the exact defect); drop bodies entirely
@@ -1163,7 +1168,9 @@ are unchanged (K-TR-OBS rows stay OBSERVED).
 **Evidence:** `scripts/observe_kalshi_demo.py` (`_ALLOWED_BODY_SCALARS`,
 `_redact_scalar`, `sanitise_body`),
 `tests/test_observe_kalshi_demo_sanitiser.py`,
-`docs/evidence/kalshi-demo/*.json`.
+`docs/evidence/kalshi-demo/*.json`,
+`scripts/observe_kalshi_demo_order_lifecycle.py` +
+`docs/evidence/kalshi-demo/lifecycle/*.json` (reuses `sanitise_body`).
 
 ## Documentation rule going forward
 

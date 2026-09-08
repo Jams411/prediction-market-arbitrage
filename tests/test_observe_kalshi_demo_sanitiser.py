@@ -25,6 +25,18 @@ def test_allowlisted_constants_pass_through() -> None:
     assert obs.sanitise_body(body) == body
 
 
+def test_order_endpoint_error_constants_pass_through() -> None:
+    # Added after the 2026-09-08 demo order-lifecycle attempt (K-TR-OBS-11/12).
+    for code, message in (
+        ("deprecated_v1_order_endpoint", "Please switch to the V2 endpoints"),
+        ("user_not_found", "user not found"),
+    ):
+        body = {"error": {"code": code, "message": message, "details": "context-specific"}}
+        assert obs.sanitise_body(body) == {
+            "error": {"code": code, "message": message, "details": "<redacted>"}
+        }
+
+
 def test_empty_containers_and_structure_preserved() -> None:
     body = {"cursor": "", "fills": [], "market_positions": [], "meta": {}}
     assert obs.sanitise_body(body) == body
