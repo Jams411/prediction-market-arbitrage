@@ -1,6 +1,6 @@
 {
   "body": {
-    "<non-json-body-bytes>": 18
+    "<non-json-body-bytes>": "<number>"
   },
   "headers": {
     "content-type": "text/plain",

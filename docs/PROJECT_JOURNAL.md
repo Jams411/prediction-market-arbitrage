@@ -772,8 +772,12 @@ Use this file as the concise chronological record of milestone progress, evidenc
   persisted / fixtured / committed; not read from env vars. Signature via
   `openssl` RSA-PSS shell-out — **no `cryptography` dependency added**.
 - Tool: `scripts/observe_kalshi_demo.py` (not shipped, ruff-clean). Sanitised
-  captures in `docs/evidence/kalshi-demo/*.json` (ids / balances redacted,
-  structure kept).
+  captures in `docs/evidence/kalshi-demo/*.json`. Sanitisation is
+  **structure-first / fail-safe** (D-024): structure + field names + path +
+  status kept; every body scalar → `<number>` / `<redacted>` unless on a short
+  allowlist of fixed API constants; unknown/future fields redacted by default.
+  `tests/test_observe_kalshi_demo_sanitiser.py` covers nested objects/lists and
+  unexpected sensitive fields.
 - OBSERVED (see `docs/API_SOURCES.md` **K-TR-OBS-01..10**): demo REST base +
   the three `KALSHI-ACCESS-*` headers + the `ts+GET+/trade-api/v2+path`
   RSA-PSS(SHA-256, MGF1-SHA256, salt=digest) signed string authenticate a real
@@ -789,8 +793,11 @@ Use this file as the concise chronological record of milestone progress, evidenc
   UUID order-get, `409` duplicate-`client_order_id` and `429` bodies (need an
   order submission / load — out of scope). **No Real-money gate item resolved;
   A-037 / D-023 stand.**
-- No `src/` change, no dependency, no `ASSUMPTIONS` / `DECISIONS` state change.
-  Not committed / pushed.
+- No `src/` change, no dependency, no `ASSUMPTIONS` state change.
+- Follow-up (PR #19 security review): fixture sanitiser reworked from a
+  key-name denylist to the structure-first allowlist above (D-024); committed
+  Kalshi demo fixtures re-reduced by hand (no new network calls); deterministic
+  sanitiser tests added. Evidence classifications unchanged.
 
 ## Journal rules
 

@@ -1123,6 +1123,48 @@ trading API and a live reconciliation run.
 `docs/API_SOURCES.md` (absence of any order-endpoint entry),
 `docs/ASSUMPTIONS.md` A-037.
 
+### D-024 — Observation fixtures are sanitised structure-first (allowlist), not key-name denylist
+
+**Context:** the first cut of `scripts/observe_kalshi_demo.py` sanitised
+captured responses with a **denylist**: it redacted a scalar only when its
+*key name* was in a hard-coded set (`member_id`, `email`, …) or matched a
+monetary-key heuristic. Everything else — numeric strings, portfolio values,
+timestamps, tickers, client-order ids, and any field name not thought of in
+advance — was written to `docs/evidence/kalshi-demo/*.json` verbatim. The demo
+account was empty so nothing leaked, but a later non-empty account response
+would have persisted account-sensitive scalars.
+
+**Decision:** sanitisation is **structure-first / fail-safe**. `sanitise_body`
+keeps object/array structure, every field *name*, the request path, HTTP
+status and the whitelisted headers, and replaces **every** body scalar leaf
+with a type token (`<number>` / `<redacted>`) unless its exact value is on a
+short explicit allowlist of fixed non-account API constants (`_ALLOWED_BODY_SCALARS`:
+empty cursor, the `authentication_error` envelope strings, `invalid_UUID`).
+`None` and booleans are treated as structural and kept. Unknown / future
+fields are redacted by default. The committed Kalshi demo fixtures were
+re-reduced by hand to this rule (no new network calls; no raw capture
+retained).
+
+**Alternatives considered:** extend the denylist (rejected — still fails open
+on any unanticipated field, which is the exact defect); drop bodies entirely
+and keep only key lists (rejected — loses the envelope/error-shape evidence the
+K-TR-OBS rows depend on); allowlist by key *name* within known objects
+(rejected — re-introduces name-based trust; a renamed or wrapper field slips
+through).
+
+**Trade-offs / consequences:** fixtures no longer show per-scalar types
+(int vs string); the response-shape types stay recorded in the K-TR-OBS-10
+prose row, observed at capture time. Any genuinely useful constant in a future
+response must be added to the allowlist deliberately. Evidence classifications
+are unchanged (K-TR-OBS rows stay OBSERVED).
+
+**Status:** ACTIVE.
+
+**Evidence:** `scripts/observe_kalshi_demo.py` (`_ALLOWED_BODY_SCALARS`,
+`_redact_scalar`, `sanitise_body`),
+`tests/test_observe_kalshi_demo_sanitiser.py`,
+`docs/evidence/kalshi-demo/*.json`.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

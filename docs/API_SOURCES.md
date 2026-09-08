@@ -424,11 +424,17 @@ by shelling out to `openssl dgst -sha256 -sign … -sigopt rsa_padding_mode:pss
 -sigopt rsa_pss_saltlen:digest` (no `cryptography` dependency added).
 
 Tool: `scripts/observe_kalshi_demo.py` (not part of the shipped package).
-Sanitised captures: `docs/evidence/kalshi-demo/*.json` (account-identifying
-scalars and monetary balances replaced with `<redacted>` / `<number>`;
-structure preserved). The demo account is **empty**, so array element shapes
-(`market_positions[]`, `fills[]`, `orders[]` rows) were **not** observed — only
-the response envelopes.
+Sanitised captures: `docs/evidence/kalshi-demo/*.json`. Sanitisation is
+**structure-first / fail-safe**: object/array structure, every field name, the
+request path, HTTP status and whitelisted headers are kept; **every** response-
+body scalar is replaced with a type token (`<number>` / `<redacted>`) unless it
+is on a short allowlist of fixed non-account API constants (empty cursor, the
+`authentication_error` envelope strings, `invalid_UUID`). Unknown / future
+fields are therefore redacted by default. The response-shape types recorded in
+the K-TR-OBS rows below were observed at capture time; the committed fixtures no
+longer carry per-scalar type detail. The demo account is **empty**, so array
+element shapes (`market_positions[]`, `fills[]`, `orders[]` rows) were **not**
+observed — only the response envelopes.
 
 ### Official sources consulted
 

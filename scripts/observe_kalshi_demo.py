@@ -20,10 +20,16 @@ query); RSA-PSS, MGF1-SHA256, salt length = digest length, over SHA-256;
 base64. Done by shelling out to ``openssl`` so this repo keeps its
 zero-runtime-dependency posture (no ``cryptography`` import).
 
-Sanitisation: every captured fixture is passed through :func:`sanitise`, which
-drops account-identifying scalars (ids, emails, names) and numeric monetary
-balances but keeps the JSON structure. The API key id and signature are never
-written anywhere.
+Sanitisation (structure-first / fail-safe): only the response *body* is
+rewritten, by :func:`sanitise_body`. It keeps object/array structure, every
+field *name*, the request path, the HTTP status and the whitelisted response
+headers, but replaces **every** body scalar leaf with a type token
+(``"<number>"`` / ``"<redacted>"``) unless that exact value is on a short
+explicit allowlist of non-sensitive API constants
+(:data:`_ALLOWED_BODY_SCALARS`). Redaction is therefore by default: a later
+non-empty account response cannot persist balances, portfolio values, ids,
+timestamps, tickers, client-order ids, numeric strings or unknown future
+fields. The API key id and signature are never written anywhere.
 """
 
 from __future__ import annotations
@@ -61,20 +67,20 @@ HEADERS_OF_INTEREST = (
     "ratelimit-reset",
 )
 
-# Keys whose *values* identify the account/holder — replaced with "<redacted>".
-_REDACT_KEYS = {
-    "member_id",
-    "user_id",
-    "account_id",
-    "subaccount_id",
-    "email",
-    "name",
-    "first_name",
-    "last_name",
-    "username",
-    "api_key_id",
-    "access_key",
-}
+# The *only* body scalar values kept verbatim: fixed, non-account API constants
+# that carry response-shape evidence. Everything else in a body is redacted.
+_ALLOWED_BODY_SCALARS: frozenset[object] = frozenset(
+    {
+        "",  # empty pagination cursor / empty string field
+        # Kalshi error-envelope constants (fixed server strings, OBSERVED).
+        "authentication_error",
+        "INVALID_PARAMETER",
+        "INCORRECT_API_KEY_SIGNATURE",
+        "invalid_UUID",
+        "invalid UUID",
+        "We could not authenticate your request",
+    }
+)
 
 
 def _whoami() -> str:
@@ -168,27 +174,35 @@ def get(
     return _http_get(path, send_key if send_key is not None else key_id, sign(message), ts)
 
 
-def _is_money_key(key: str) -> bool:
-    key = key.lower()
-    return key == "balance" or key.endswith(("_dollars", "_cents", "_pnl"))
+def _redact_scalar(value: object) -> object:
+    """One scalar leaf → itself if explicitly allowed, else a type token.
+
+    ``None`` and booleans are structural (field presence / shape) and kept.
+    Numbers collapse to ``"<number>"``; every other value (strings, numeric
+    strings, ids, timestamps, tickers, client-order ids) to ``"<redacted>"``.
+    """
+    if value is None or isinstance(value, bool):
+        return value
+    if value in _ALLOWED_BODY_SCALARS:
+        return value
+    if isinstance(value, (int, float)):
+        return "<number>"
+    return "<redacted>"
 
 
-def sanitise(value: Any) -> Any:
-    """Recursively replace account-identifying scalars with ``"<redacted>"`` and
-    numeric monetary balances with ``"<number>"``; keep all structure."""
+def sanitise_body(value: Any) -> Any:
+    """Structure-first, fail-safe redaction of a response *body*.
+
+    Keeps object/array structure and every field *name*; replaces each scalar
+    leaf via :func:`_redact_scalar`. Unknown / future fields are redacted by
+    default, so a later non-empty account response cannot leak sensitive
+    scalars.
+    """
     if isinstance(value, dict):
-        out: dict[str, Any] = {}
-        for k, v in value.items():
-            if k in _REDACT_KEYS and isinstance(v, (str, int, float)):
-                out[k] = "<redacted>"
-            elif isinstance(v, (int, float)) and not isinstance(v, bool) and _is_money_key(k):
-                out[k] = "<number>"
-            else:
-                out[k] = sanitise(v)
-        return out
+        return {k: sanitise_body(v) for k, v in value.items()}
     if isinstance(value, list):
-        return [sanitise(v) for v in value]
-    return value
+        return [sanitise_body(v) for v in value]
+    return _redact_scalar(value)
 
 
 def observe() -> int:
@@ -225,7 +239,14 @@ def observe() -> int:
 
     summary: list[dict[str, Any]] = []
     for name, result in probes:
-        clean = sanitise(result)
+        # Only the body is rewritten; request path, status and the whitelisted
+        # headers are already controlled by this script.
+        clean = {
+            "request": result["request"],
+            "status": result["status"],
+            "headers": result["headers"],
+            "body": sanitise_body(result["body"]),
+        }
         (OUT_DIR / f"{name}.json").write_text(
             json.dumps(clean, indent=2, sort_keys=True) + "\n"
         )
