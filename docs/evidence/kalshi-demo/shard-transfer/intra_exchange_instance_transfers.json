@@ -1,0 +1,15 @@
+{
+  "body": {
+    "transfers": []
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 20:52:36 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/intra_exchange_instance_transfers",
+    "query": {}
+  },
+  "status": 200
+}
