@@ -906,6 +906,29 @@ Use this file as the concise chronological record of milestone progress, evidenc
   rows VERIFIED (docs)). No `src/` change, no dependency, no `DECISIONS` change.
   `LIVE_TRADING` untouched; no Polymarket US work.
 
+## 2026-09-08 — A-038: demo shard transfer succeeded; GET-only confirmation
+
+- **Manual operator evidence** (official Kalshi demo web UI): the operator
+  re-attempted the `Exchange 0 → Exchange 1` **$10** transfer and it
+  **succeeded**; UI then showed **Exchange 0 $90 / Exchange 1 $10**. No order
+  placed; transfer not repeated.
+- GET-only confirmation via `scripts/observe_kalshi_demo_shard_transfer.py`
+  (now takes an optional evidence-subdir arg; run as `… shard-funded`).
+  Fixtures `docs/evidence/kalshi-demo/shard-funded/*.json`.
+- OBSERVED (`docs/API_SOURCES.md` **K-TR-OBS-22..25**): `GET
+  /portfolio/intra_exchange_instance_transfers` now returns **one** record,
+  `status = "complete"`, `source`/`destination` = `event_contract` (was `[]` at
+  K-TR-OBS-18) — the retried cross-shard transfer settled, so the earlier
+  "Service unavailable" was **transient**. Balances still 200 but redacted (the
+  $90/$10 split rests on operator UI evidence). `target_balance_allocation`
+  still `{"allocations": []}`; `/exchange/status` unchanged (all shards active).
+- **A-038 stays blocking.** Demo-funding + cross-shard-transfer remediation now
+  works end-to-end up to *funded shard 1*, but no order round-trip is OBSERVED
+  and `POST /portfolio/events/orders` was not re-attempted since funding
+  (K-TR-OBS-12's `404` unretested). K-TR-05..10 stay `VERIFIED (docs)`; A-037 /
+  D-023 stand. No `src/` change, no dependency, no `DECISIONS` change.
+  `LIVE_TRADING` untouched; no Polymarket US work.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
