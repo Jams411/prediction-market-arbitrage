@@ -1,0 +1,38 @@
+{
+  "body": {
+    "balance": "<number>",
+    "balance_breakdown": [
+      {
+        "balance": "<redacted>",
+        "exchange_index": "<number>"
+      },
+      {
+        "balance": "<redacted>",
+        "exchange_index": "<number>"
+      },
+      {
+        "balance": "<redacted>",
+        "exchange_index": "<number>"
+      },
+      {
+        "balance": "<redacted>",
+        "exchange_index": "<number>"
+      }
+    ],
+    "balance_dollars": "<redacted>",
+    "portfolio_value": "<number>",
+    "updated_ts": "<number>"
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Tue, 08 Sep 2026 20:23:37 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/balance",
+    "query": {
+      "exchange_index": 3
+    }
+  },
+  "status": 200
+}
