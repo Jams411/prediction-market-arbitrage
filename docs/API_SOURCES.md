@@ -335,3 +335,161 @@ no networked transport implemented** — see the blocker below.
 - Polymarket US `X-PM-Signature` construction uses `path` with no documented
   query-strip rule (there are no query params on the WS path, so this does not
   bite here).
+
+---
+
+## Kalshi — REST trading API (research only; pre-M4, no code)
+
+Verification date: **2026-09-08** (official docs read at `docs.kalshi.com`).
+**No authenticated request was made**, no account, no API key, no signature
+generated, no fixture captured. Every row below is **doc-only**: `VERIFIED
+(docs)` means an official page states it; nothing here is `OBSERVED` or
+`TESTED`. This section resolves **no** Real-money gate item — see the gate note
+at the end. It exists to satisfy the *research* half of ROADMAP "Real-money
+gate → Official API behavior"; the *observation* half remains open.
+
+Purpose: primary-evidence survey for the first real-money blocker (official
+trading API behavior) covering authentication/signing, submit order, cancel
+order, order status, positions, idempotency / client order IDs, errors / rate
+limits, and partial-fill reporting. **No adapter was implemented.**
+
+### Official sources consulted
+
+| # | Source | URL |
+|---|---|---|
+| K-TR-S1 | Quick Start: Authenticated Requests (request signing) | https://docs.kalshi.com/getting_started/quick_start_authenticated_requests |
+| K-TR-S2 | Create Order (V2) — API reference | https://docs.kalshi.com/api-reference/orders/create-order-v2 |
+| K-TR-S3 | Quick Start: Create your first order | https://docs.kalshi.com/getting_started/quick_start_create_order |
+| K-TR-S4 | Cancel Order (V2) — API reference | https://docs.kalshi.com/api-reference/orders/cancel-order-v2 |
+| K-TR-S5 | Get Order — API reference | https://docs.kalshi.com/api-reference/orders/get-order |
+| K-TR-S6 | Get Fills — API reference | https://docs.kalshi.com/api-reference/portfolio/get-fills |
+| K-TR-S7 | Get Positions — API reference | https://docs.kalshi.com/api-reference/portfolio/get-positions |
+| K-TR-S8 | Rate Limits and Tiers | https://docs.kalshi.com/getting_started/rate_limits |
+| K-TR-S9 | API Changelog (legacy `/portfolio/orders` deprecation ≥ 2026-05-06) | https://docs.kalshi.com/changelog |
+
+### Claims
+
+| ID | Claim | Evidence status | Source / observation | Used in code |
+|---|---|---|---|---|
+| K-TR-01 | Authenticated REST base is the same host as market data: `https://external-api.kalshi.com/trade-api/v2` (prod) / `https://external-api.demo.kalshi.co/trade-api/v2` (demo). | VERIFIED (docs) | K-TR-S1 "Base URLs". | None — evidence only. |
+| K-TR-02 | Auth uses three headers: `KALSHI-ACCESS-KEY` (API key id), `KALSHI-ACCESS-TIMESTAMP` (current time in **milliseconds**, integer string), `KALSHI-ACCESS-SIGNATURE` (base64). | VERIFIED (docs) | K-TR-S1 "Required Headers". Matches WS-A-S2 / K-WS-AUTH-02. | None. |
+| K-TR-03 | Signed string = `timestamp + HTTP_METHOD + path`, path **excluding** query params (example `1703123456789GET/trade-api/v2/portfolio/balance`). Signature = RSA-PSS, MGF1-SHA256, `salt_length = PSS.DIGEST_LENGTH`, over SHA-256 of the message; result base64-encoded. | VERIFIED (docs) | K-TR-S1 "String to Sign" + "Signature Algorithm". Matches K-WS-AUTH-03. | None. |
+| K-TR-04 | Submit order: **`POST /portfolio/events/orders`** (Create Order V2). The legacy `POST /portfolio/orders` is deprecated no earlier than 2026-05-06 (K-TR-S9). | VERIFIED (docs) | K-TR-S2 method+path; K-TR-S9. | None. |
+| K-TR-05 | Create-order request body (V2): `ticker` (string, req), `side` (string, req — `bid`\|`ask`), `count` (fixed-point string, req, 0–2 dp, min 0.01), `price` (fixed-point **dollars** string, req, 2–4 dp), `time_in_force` (string, req — `fill_or_kill`\|`good_till_canceled`\|`immediate_or_cancel`), `self_trade_prevention_type` (string, req — `taker_at_cross`\|`maker`), `client_order_id` (string, opt), `expiration_time` (integer Unix seconds, opt), `post_only` (bool, opt), `cancel_order_on_pause` (bool, opt), `reduce_only` (bool, opt), `subaccount` (int ≥ 0, opt), `order_group_id` (string, opt), `exchange_index` (int, opt). | VERIFIED (docs) | K-TR-S2 request schema. Field set not cross-checked against `openapi.yaml` in this pass — see gaps. | None. |
+| K-TR-06 | Create-order 201 response: `order_id` (string, always), `client_order_id` (string, if supplied), `fill_count` (string, always), `remaining_count` (string, always), `average_fill_price` (string, only when `fill_count` > 0), `average_fee_paid` (string, only when `fill_count` > 0), `ts_ms` (integer). No order-lifecycle `status` field on the create response. | VERIFIED (docs) | K-TR-S2 response schema; K-TR-S3 (create response shows `order_id` / `client_order_id` / `remaining_count`). | None. |
+| K-TR-07 | Idempotency: `client_order_id` is a **server-enforced** dedupe key. Resubmitting the same `client_order_id` returns **`409 Conflict`** ("Order with this `client_order_id` already exists"); the field is optional but "strongly recommended". | VERIFIED (docs) | K-TR-S3 ("The API will reject duplicate submissions with the same `client_order_id`"; 409 listed). Not OBSERVED against a live account. | Informs `live_broker.IdempotencyGuard` design intent (local half only); no venue call. |
+| K-TR-08 | Order status / partial fills: `GET /portfolio/orders/{order_id}` returns an order object with `status` ∈ {`resting`, `canceled`, `executed`} plus fixed-point `initial_count_fp`, `fill_count_fp`, `remaining_count_fp`, and cost/fee fields (`taker_fees_dollars`, `maker_fees_dollars`, `taker_fill_cost_dollars`, `maker_fill_cost_dollars`). A **partial fill** is represented as `status = resting` with `fill_count_fp` > 0 and `remaining_count_fp` > 0 — there is **no distinct `partially_filled` status**. No `average_fill_price` on this schema. | VERIFIED (docs) | K-TR-S5 response schema. | None. |
+| K-TR-09 | Per-fill reporting: `GET /portfolio/fills` returns a `fills` array; each fill has `fill_id` (a.k.a. legacy `trade_id`), `order_id`, `ticker`/`market_ticker`, `outcome_side` (`yes`\|`no`), `book_side` (`bid`\|`ask`), `count_fp`, `yes_price_dollars`, `no_price_dollars`, `is_taker` (bool), `fee_cost`, `created_time`. One row per matched execution — the granular partial-fill record. | VERIFIED (docs) | K-TR-S6 response schema. | None. |
+| K-TR-10 | Cancel order: **`DELETE /portfolio/events/orders/{order_id}`**. Cancellation is by **`order_id` only** (path param); `client_order_id` is echoed in the response but cannot be used to cancel. Response: `order_id`, `client_order_id`, `reduced_by` (fixed-point string — contracts canceled), `ts_ms` (int). | VERIFIED (docs) | K-TR-S4 method+path+response. | None. |
+| K-TR-11 | Positions: `GET /portfolio/positions`. Query: `cursor`, `limit` (1–1000, default 100), `count_filter`, `ticker`, `event_ticker`, `subaccount` (default 0), `exchange_index`. Response has `market_positions[]` (`ticker`, `exchange_index`, `total_traded_dollars`, `position_fp`, `market_exposure_dollars`, `realized_pnl_dollars`, `fees_paid_dollars`, `last_updated_ts`) and `event_positions[]` (`event_ticker`, `total_cost_dollars`, `total_cost_shares_fp`, `event_exposure_dollars`, `realized_pnl_dollars`, `fees_paid_dollars`). | VERIFIED (docs) | K-TR-S7 schema. `resting_orders_count` not present in the documented schema. | None. |
+| K-TR-12 | Rate limits: token-bucket per API key; bucket refills continuously at the tier's per-second budget up to capacity; request allowed when the bucket covers its cost, else **`429 Too Many Requests`** with body `{"error": "too many requests"}`. 429 responses **do not** currently include `Retry-After` or `X-RateLimit-*` headers; no extra cooldown penalty. Default request cost 10 tokens; create order 10, cancel order 2; authoritative per-endpoint costs at `GET /account/endpoint_costs`. Basic tier: read budget 200, write budget 100 tokens/s; Basic write bucket holds ~1 s of budget. Higher tiers (Advanced … Prestige) via `GET /account/limits`. | VERIFIED (docs) | K-TR-S8. | None. |
+| K-TR-13 | Documented HTTP error statuses on create order: 400, 401, 409, 429, 500 (no Kalshi-specific error-code enum listed on the V2 page beyond these). Cancel order lists 401, 404, 500. | VERIFIED (docs) | K-TR-S2, K-TR-S4. | None. |
+
+### Not verified / gaps (pre-M4)
+
+- **No live authenticated call, no capture, no fixture.** Nothing here is
+  `OBSERVED` or `TESTED`. Signing-string bytes, header names, request/response
+  field names, and the 409-on-duplicate behavior are doc-only.
+- Create-order body/response **not cross-checked against `docs.kalshi.com/openapi.yaml`**
+  in this pass; the V2 reference page was the sole source for K-TR-05 / K-TR-06.
+- Path inconsistency in Kalshi's own docs: create/cancel V2 use
+  `/portfolio/events/orders[...]`, while get-order/fills/positions use
+  `/portfolio/orders/{id}`, `/portfolio/fills`, `/portfolio/positions`. Whether
+  the V2 order object is also readable at `/portfolio/events/orders/{id}` is
+  **UNKNOWN**.
+- Exact semantics of `self_trade_prevention_type` (`taker_at_cross` vs `maker`),
+  `reduce_only`, `order_group_id`, and subaccount routing — **UNKNOWN**, not read.
+- Whether a `429` can occur mid-batch and how a partially-accepted batch is
+  reported — **UNKNOWN** (batch endpoints not surveyed here).
+- `average_fill_price` appears on the **create** response but not on the
+  **get-order** schema; the field to use for realized average price on a resting
+  partially-filled order is therefore **UNKNOWN** (likely derive from
+  `/portfolio/fills`).
+- No mapping to the project's domain models was designed (out of scope: "Do not
+  implement adapters").
+
+---
+
+## Polymarket US — REST trading API (research only; pre-M4, no code)
+
+Verification date: **2026-09-08** (official docs read at `docs.polymarket.us`).
+**No authenticated request was made**, no key, no signature, no fixture.
+Every row is **doc-only** (`VERIFIED (docs)`); nothing is `OBSERVED` or
+`TESTED`. International (non-US) Polymarket behavior was **not** used as
+evidence — no official page establishing US/international equivalence was found,
+so none is assumed (carries A-013's caveat forward). Resolves **no** Real-money
+gate item.
+
+### Official sources consulted
+
+| # | Source | URL |
+|---|---|---|
+| P-TR-S1 | Authentication | https://docs.polymarket.us/api-reference/authentication |
+| P-TR-S2 | Orders API Overview | https://docs.polymarket.us/api-reference/orders/overview |
+| P-TR-S3 | Create Order — API reference | https://docs.polymarket.us/api-reference/orders/create-order |
+| P-TR-S4 | Cancel Order — API reference | https://docs.polymarket.us/api-reference/orders/cancel-order |
+| P-TR-S5 | Get Order — API reference | https://docs.polymarket.us/api-reference/orders/get-order |
+| P-TR-S6 | Get User Positions — API reference | https://docs.polymarket.us/api-reference/portfolio/get-user-positions |
+| P-TR-S7 | Error Handling (trader guide) | https://docs.polymarket.us/trader-guide/error-handling |
+| P-TR-S8 | Partners — Reconciliation / funded-order idempotency (EP3) | https://docs.polymarket.us/partners/reconciliation |
+
+### Claims
+
+| ID | Claim | Evidence status | Source / observation | Used in code |
+|---|---|---|---|---|
+| P-TR-01 | Authenticated REST base is `https://api.polymarket.us/v1` (example: `GET https://api.polymarket.us/v1/portfolio/positions`). This differs from the market-data host `gateway.polymarket.us` (P-01). | VERIFIED (docs) | P-TR-S1 example. Whether market data is also served from `api.polymarket.us` (or trading from `gateway.`) is not stated — **UNKNOWN**. | None — evidence only. |
+| P-TR-02 | Auth headers: `X-PM-Access-Key` (Key ID), `X-PM-Timestamp` (current time in **milliseconds**), `X-PM-Signature` (base64). Signed message = `"{timestamp}{method}{path}"` in that order, **body not included**. Signature = **Ed25519** over the message, base64-encoded. Timestamp must be within **30 s** of server time. | VERIFIED (docs) | P-TR-S1. Matches WS-A-S5 / P-WS-AUTH-02. Query-string handling in `path` not specified — **UNKNOWN**. | None. |
+| P-TR-03 | Submit order: **`POST /v1/orders`** (single); `POST /v1/orders/batched` (≤ 20). Async by default; `synchronousExecution: true` blocks up to ~10 s for final state and is **discouraged** in favor of async submit + poll `GET /v1/order/{orderId}`. | VERIFIED (docs) | P-TR-S2 endpoint list; P-TR-S2 execution guidance. | None. |
+| P-TR-04 | Create-order request body: `marketSlug` (string, **req**); `type` (`ORDER_TYPE_LIMIT`\|`ORDER_TYPE_MARKET`); `price` (Amount `{value: decimal-string, currency}` — required for limit); `quantity` (double, contracts); `tif` (`TIME_IN_FORCE_DAY`\|`GOOD_TILL_CANCEL`\|`GOOD_TILL_DATE`\|`IMMEDIATE_OR_CANCEL`\|`FILL_OR_KILL`); `goodTillTime` (date-time, GTD); `intent` (`ORDER_INTENT_BUY_LONG`\|`SELL_LONG`\|`BUY_SHORT`\|`SELL_SHORT`); `outcomeSide` (`OUTCOME_SIDE_YES`\|`OUTCOME_SIDE_NO`); `action` (`ORDER_ACTION_BUY`\|`ORDER_ACTION_SELL`); `participateDontInitiate` (bool, maker-only); `cashOrderQty` (Amount, market orders); `manualOrderIndicator`; `synchronousExecution` (bool); `maxBlockTime` (int64 string, s); `slippageTolerance` (`{currentPrice, bips, ticks}`). All fields **except `marketSlug` are marked optional** in the schema (server-side conditional requirements not fully documented). | VERIFIED (docs) | P-TR-S3 request schema. The `intent` vs `action`+`outcomeSide` precedence is **UNKNOWN**. | None. |
+| P-TR-05 | Create-order response `CreateOrderResponse`: `id` (string — exchange-assigned order id), `executions[]` (present only if `synchronousExecution` was requested). Each `Execution`: `id`, `tradeId`, `type` (ExecutionType), `order` (full Order), `lastShares`, `lastPx` (Amount), `orderRejectReason` (OrdRejectReason if rejected), `transactTime`, `aggressor` (bool), `commissionNotionalCollected` (Amount). | VERIFIED (docs) | P-TR-S3 response schema. | None. |
+| P-TR-06 | Order object / status: `state` (OrderState) ∈ {`ORDER_STATE_NEW`, `PENDING_NEW`, `PARTIALLY_FILLED`, `FILLED`, `CANCELED`, `REPLACED`, `REJECTED`, `EXPIRED`, `PENDING_REPLACE`, `PENDING_CANCEL`, `PENDING_RISK`}. Quantities: `quantity` (original), `cumQuantity` (cumulative filled), `leavesQuantity` (remaining unfilled) — all doubles; `avgPx` (Amount — average fill price). Timestamps `createTime`, `insertTime`. **Explicit `ORDER_STATE_PARTIALLY_FILLED`** — unlike Kalshi. | VERIFIED (docs) | P-TR-S3, P-TR-S5 schemas. | None. |
+| P-TR-07 | Order status read: `GET /v1/order/{orderId}` returns the Order object above. The get-order schema has **no `executions`/`fills` array** — partial-fill detail is only `cumQuantity` / `leavesQuantity` / `avgPx`, or the Private WebSocket stream (fills/cancels), or an `activities`/trades endpoint (not surveyed). List open orders: `GET /v1/orders/open`. | VERIFIED (docs) | P-TR-S5; P-TR-S2 (recommends Private WS for real-time fills). | None. |
+| P-TR-08 | Cancel order: **`POST /v1/order/{orderId}/cancel`** (single); also `POST /v1/orders/batched/cancel` (≤ 20) and `POST /v1/orders/open/cancel` (all, optional market filter) per P-TR-S2. Single-cancel request body: `marketSlug` (string). Response `CancelOrderResponse` is **empty on success** (no fields). Cancellation is by **exchange `orderId` only**. | VERIFIED (docs) | P-TR-S4 (single); P-TR-S2 (batch/all). P-TR-S4 page itself showed only the single endpoint — batch/all come from the overview. | None. |
+| P-TR-09 | Positions: **`GET /v1/portfolio/positions`**. Query: `market` (slug filter), `limit` (default 100), `cursor`. Response `GetUserPositionsResponse`: `positions` (object keyed by market slug → `UserPosition`), `nextCursor` (string), `eof` (bool), `availablePositions[]` (deprecated). `UserPosition`: `netPositionDecimal`, `qtyBoughtDecimal`, `qtySoldDecimal`, `bodPositionDecimal`, `qtyAvailableDecimal` (nullable) — all decimal strings; `cost` (Amount — total cost basis), `realized` (Amount — realized PnL), `cashValue` (Amount — labeled "Unrealized PnL for the position"), `marketMetadata`, `expired` (bool), `updateTime` (date-time). | VERIFIED (docs) | P-TR-S6 schema. The `cashValue` label ("Unrealized PnL") vs name (suggests market value) is **ambiguous — UNKNOWN**. | None. |
+| P-TR-10 | Idempotency / client order id on the **standard** `POST /v1/orders`: **no request-body field for a client order id / idempotency key is documented** (P-TR-S2 overview and P-TR-S3 schema have none). However P-TR-S7 (error handling) lists a `409 Conflict` cause "Duplicate order with same **ClOrdID**", implying a `ClOrdID` exists somewhere in the order path. This is a **documentation conflict — UNKNOWN** how a retail REST caller sets `ClOrdID`. | VERIFIED (docs, conflicting) | P-TR-S2 + P-TR-S3 (absent) vs P-TR-S7 (409 "same ClOrdID"). | Motivates keeping `live_broker.IdempotencyGuard` as **local-only** for this venue. |
+| P-TR-11 | Idempotency in the **partner / funded-order (EP3)** flow only: `CreateFundedOrder` takes `idempotency_key` **and** `clord_id`; retrying with the same pair "can never double-fund or double-place"; changing `clord_id` under the same key is rejected as an idempotency conflict; `clord_id` is echoed as `clOrdID` on Drop Copy / FIX drop-copy execution reports. This is a **separate API surface** from `POST /v1/orders`; do not assume it applies to the retail REST endpoint. | VERIFIED (docs) | P-TR-S8. | None. |
+| P-TR-12 | Rate limits: **global 20 requests/second per API key across all endpoints**; over-limit → `429 Too Many Requests`. P-TR-S7 says "for 429 errors, use the `Retry-After` header value"; P-TR-S2 does **not** mention a `Retry-After` header or a 429 body shape — **partial conflict; presence of `Retry-After` UNKNOWN**. Recommended retry: exponential backoff on 429/500/502/503/504, 3–5 attempts. | VERIFIED (docs, partially conflicting) | P-TR-S2 (20 rps, 429) + P-TR-S7 (Retry-After, backoff). | None. |
+| P-TR-13 | Documented HTTP error statuses on create/cancel: 400, 401, 500 (P-TR-S3/S4). `OrdRejectReason` enum: `ORD_REJECT_REASON_{EXCHANGE_OPTION, UNKNOWN_MARKET, EXCHANGE_CLOSED, INCORRECT_QUANTITY, INVALID_PRICE_INCREMENT, INCORRECT_ORDER_TYPE, PRICE_OUT_OF_BOUNDS, NO_LIQUIDITY}` (returned on a rejected execution, not as an HTTP status). 409 Conflict documented only in the trader-guide (P-TR-S7), not on the reference pages. | VERIFIED (docs) | P-TR-S3, P-TR-S7. | None. |
+
+### Not verified / gaps (pre-M4)
+
+- **No live authenticated call, no capture, no fixture.** Nothing is `OBSERVED`
+  or `TESTED`.
+- **International Polymarket was not used as evidence.** No official page
+  establishing US ↔ international trading-API equivalence was located; the
+  CLOB/EIP-712 signing scheme of international Polymarket is **not** assumed here.
+- Retail client-order-id mechanism (P-TR-10) is a genuine documentation
+  conflict — `ClOrdID` is referenced for 409 handling but has no documented
+  request field. **Blocking-level UNKNOWN** for "Duplicate-order prevention".
+- `Retry-After` header presence on 429 (P-TR-12) is contradicted between two
+  doc pages — **UNKNOWN**.
+- `cashValue` semantics on `UserPosition` (P-TR-09) — name vs description
+  disagree — **UNKNOWN**.
+- `intent` vs `action` + `outcomeSide` precedence, and which of
+  `quantity`/`cashOrderQty`/`cashOrderQty` applies per order type — **UNKNOWN**.
+- The `activities` / trades endpoint and Private WebSocket stream schemas
+  (real-time fill reporting) were **not** surveyed.
+- No `openapi.yaml` / SDK-source cross-check for Polymarket US trading in this
+  pass — reference pages only.
+- No mapping to the project's domain models (out of scope).
+
+---
+
+## Real-money gate status after this research pass (2026-09-08)
+
+ROADMAP "Real-money gate → **Official API behavior**" has two halves:
+
+1. **Research the documented behavior** — done for both venues above
+   (authentication/signing, submit, cancel, order status, positions,
+   idempotency, errors/rate limits, partial fills). Recorded as `VERIFIED
+   (docs)` with explicit `UNKNOWN` gaps.
+2. **Confirm it against a real venue** (`OBSERVED` + a `TESTED` offline pin) —
+   **NOT done.** No authenticated request, capture, or fixture exists for any
+   trading endpoint on either venue.
+
+Therefore the gate item stays **unchecked**. Blocking `UNKNOWN`s that must close
+before live use: Kalshi `openapi.yaml` cross-check + a live `409`-on-duplicate
+observation; Polymarket US retail client-order-id / `ClOrdID` mechanism (P-TR-10)
+and `Retry-After` behavior (P-TR-12). Real-money trading stays disabled (D-002;
+`live_broker` still raises `UnsupportedLiveOperationError`, A-037). No adapter
+was implemented and `LIVE_TRADING` remains `False`.
