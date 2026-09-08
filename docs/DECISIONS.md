@@ -1048,6 +1048,81 @@ realised profit (ARBITRAGE_METHODOLOGY). Real-money trading stays disabled
 `tests/test_perf_report.py`, `tests/perf_report_support.py`,
 `docs/ASSUMPTIONS.md` "M3.3 notes".
 
+### D-023 — The live-broker interface is a boundary + safety wrapper only; no venue operation is implemented (no primary evidence)
+
+**Date:** 2026-09-07
+
+**Decision:** M3.4 ships `prediction_market_arbitrage.live_broker` — the *shape*
+of a live path plus its non-bypassable safety machinery, and **nothing that can
+place a real order**. No new runtime dependency.
+
+- **Venue-agnostic interface.** `LiveBroker` (ABC) defines `submit_order`,
+  `cancel_order`, `get_order`, `get_positions` over venue-neutral value objects
+  (`LiveOrderRequest` / `CancelRequest` / `LiveOrderAck` / `LiveOrderStatus` /
+  `LivePosition` / `LiveOrderState`), deliberately close to the M2.4
+  paper-broker types so a future live path is a drop-in behind the same
+  strategy code. Every public method runs, in order: (1) input validation +
+  `now` tz-check + venue-match; (2) `LiveTradingGate.assert_live_allowed`;
+  (3) for `submit_order`, `IdempotencyGuard.register(client_order_id)`; then it
+  delegates to a subclass `_do_*` hook. A subclass cannot skip the gate or the
+  dedupe check.
+- **The gate is off by default and cannot be armed by accident.**
+  `LiveTradingGate` is a frozen dataclass; the default is disabled; the module
+  constant `LIVE_TRADING_ENABLED` is `False`. Arming requires
+  `LiveTradingGate(enabled=True, confirmation_phrase="I_UNDERSTAND_THIS_PLACES_REAL_ORDERS")`
+  — any other phrase (including `""`, `"1"`, `"true"`) raises
+  `LiveTradingDisabledError` in `__post_init__`. `LiveTradingGate.from_env`
+  arms **only** when `PMA_LIVE_TRADING` equals that exact string. There is no
+  setter and no runtime toggle.
+- **Idempotency safeguard at the boundary.** `IdempotencyGuard` is an
+  in-memory, per-process record of submitted `client_order_id`s; a repeat raises
+  `DuplicateOrderError` *before* any `_do_submit`. This is the **local** half of
+  duplicate-order prevention only — whether a venue honours a client order key
+  is unverified (no order-endpoint evidence), so a real deployment still needs
+  venue-side dedupe.
+- **Credentials are isolated + redacted.** `KalshiTradingCredentials` /
+  `PolymarketUsTradingCredentials` are separate types with their **own** env
+  vars (`KALSHI_TRADING_*` / `POLYMARKET_US_TRADING_*`), distinct from the M2.1
+  market-data credentials; `repr` / `str` redact the secret.
+- **Both venue adapters are explicitly unsupported.** `docs/API_SOURCES.md` has
+  primary evidence for market data only (K-* / P-* are `/markets*` GETs + the
+  market-data WebSocket). There is **no** captured or documented
+  request/response shape for order placement, cancellation, order status, or
+  positions on either venue. So `KalshiLiveBroker` / `PolymarketUsLiveBroker`
+  raise `UnsupportedLiveOperationError` (naming the evidence gap and
+  A-037/D-023) for every operation — even with an armed gate and credentials
+  present. Nothing signs or sends.
+
+**Rationale:** the ROADMAP M3.4 items are "Interface may exist" and
+"LIVE_TRADING remains false by default". Both are now literally true, and the
+grounding rule ("leave an operation explicitly unsupported/blocking rather than
+inventing behavior") is honoured — the interface is ready to receive a
+real implementation the day a venue's trading API is captured, without any
+guessed paths, bodies, or field names in the repo now.
+
+**Alternatives considered:** implement the venue REST calls from third-party
+write-ups / SDK source (rejected — not primary evidence; violates the
+anti-hallucination rule); a boolean `LIVE_TRADING` env flag (rejected — a bare
+`=1` is exactly the "accidental activation" the milestone forbids; the awkward
+phrase + frozen gate makes it deliberate); fold the gate into the M2.5 risk
+manager (rejected — "no new risk logic"; the gate is an authorization boundary,
+not a risk check, and the risk manager stays untouched).
+
+**Trade-offs / consequences:** the package is non-functional by design — it
+adds surface area for a capability that cannot yet be used. The idempotency
+guard is process-local and does not survive a restart. Real-money trading stays
+disabled (D-002); the Real-money gate items ("Live mode cannot activate
+accidentally", "Duplicate-order prevention", "Credential isolation") are
+*supported* by this boundary but not *verified* — verification needs a captured
+trading API and a live reconciliation run.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/live_broker/`,
+`tests/test_live_broker.py`, `tests/live_broker_support.py`,
+`docs/API_SOURCES.md` (absence of any order-endpoint entry),
+`docs/ASSUMPTIONS.md` A-037.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

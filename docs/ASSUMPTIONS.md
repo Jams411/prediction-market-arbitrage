@@ -55,6 +55,7 @@ Every unverified project assumption must be recorded here before implementation 
 | A-034 | The M2.5 risk manager fails **closed**: a limit that is set but whose required input is missing (`positions`, `opportunity`, `health`, `leg`) or unhealthy (`FeedHealth.trading_enabled == False`, future-dated health timestamp) produces `allowed = False` with a reason, never a skipped check. `RiskManager.evaluate_order` / `observe_leg_risk` update the per-pair "unhedged since" timer as a deliberate side effect (it must remember when a pair first went unhedged); portfolio exposure is valued at each contract's `PositionRow.avg_price` (cost basis) only as a deterministic fallback approximation when no explicit `marks` are supplied. | ACCEPTED (design) — deterministic given (limits, injected `now`, the supplied inputs, and `RiskState`); no wall-clock, no RNG. The manager only vetoes — it emits no orders and contains no strategy logic. Explicit current `marks` are the preferred exposure valuation. Cost basis is **not** a conservative bound: it can understate current exposure after an adverse price move, so for live-use semantics `max_exposure` must not be treated as safely enforced when exposure is valued from cost-basis / stale inputs alone — a live caller must supply current `marks`. (The check still fails closed when a contract cannot be valued at all.) Kill switch, error streak, daily-PnL ledger, and unhedged timers are the only state it owns. | Yes |
 | A-035 | The M3.1 operational dashboard is a **read-only, deterministic projection**: `build_dashboard(*, now, ...)` inspects the objects the pipeline already produces (M1.4 registry, M1.5 `OpportunityEvaluation`, M2.1 `LiveBookFeed` / `FeedHealth`, M2.4 `Order` / `Fill` / `PositionRow` / `LegRiskSnapshot`, M2.2 `PnlRow`, M2.5 `RiskManager`) and returns an immutable `DashboardView`; it mutates nothing, reads no wall-clock, opens no socket, and does not read the recorder DuckDB. "WebSocket state" is **derived from `FeedHealth.status`** (livebook exposes no separate socket-state accessor). Alert severity: `ALERT` = kill switch / a hard-unhealthy feed / any stale feed; `WARN` = resyncing or market-not-open feed, consecutive errors, realized daily loss, unhedged pair/leg, rejected paper order, stale opportunity/position, rejected last `RiskDecision`. Dashboard exposure reuses the A-034 mark fallback (explicit `marks` → cost basis → none) and cost-basis exposure is labelled approximate. | ACCEPTED (design) — deterministic given (`now`, supplied objects); no wall-clock, no RNG, no I/O. Display-only: no alert is escalated, paged, or emailed anywhere. The dashboard is a strict observer and cannot perturb the pipeline. Real-money trading stays disabled (D-002). See `docs/DECISIONS.md` D-020. | No |
 | A-036 | The M3.3 paper-performance report (`prediction_market_arbitrage.perf_report.build_report`) is a **pure read-only projection of one recording**, read through the M2.3 `ReplaySession` (no DuckDB access, no wall-clock, no writes). **Opportunity duration is derived, not recorded**: the recorder stores discrete `OpportunityEvaluation` rows, so an "episode" is a maximal run of consecutive positive-edge evaluations for one `pair_id` (time-ordered) and its duration is `last_eval_time − first_eval_time`; a single-observation episode has no duration and is counted separately, never as `0`. **Leg-risk events are not persisted** (the M2.2 schema has no leg-risk table) and are reported as unavailable, not as `0` events. Every numeric aggregate is `None` (rendered `n/a`, with the reason listed in `PerfReport.unavailable`) when the recording does not support it — kept distinct from a real `0`. | ACCEPTED (design) — deterministic given the recording; no wall-clock, no RNG, no I/O beyond the read-only replay connection. Report describes **paper** results only; positive paper PnL is not proof of realised profit. Drawdown is computed on recorded PnL samples, not a continuous curve; an episode still open at end-of-recording is measured only to its last positive eval. Real-money trading stays disabled (D-002). See `docs/DECISIONS.md` D-022. | No |
+| A-037 | The M3.4 `prediction_market_arbitrage.live_broker` package is an **interface boundary only**. There is **no primary evidence** in `docs/API_SOURCES.md` for any order-placement, cancellation, order-status, or positions endpoint on Kalshi or Polymarket US (every K-* / P-* entry is market-data), so `KalshiLiveBroker` / `PolymarketUsLiveBroker` implement **no** operation — each raises `UnsupportedLiveOperationError` naming the evidence gap, even with an armed gate and credentials present. Nothing signs or sends a request. `LIVE_TRADING` is `False` by default and can only be armed with the exact literal phrase `I_UNDERSTAND_THIS_PLACES_REAL_ORDERS` (frozen `LiveTradingGate`; `PMA_LIVE_TRADING=1` / `true` do nothing). The `IdempotencyGuard` is the **local** (process-memory) half of duplicate-order prevention only — venue-side idempotency behaviour is unverified. Trading credentials are isolated from the M2.1 market-data credentials (separate types + `KALSHI_TRADING_*` / `POLYMARKET_US_TRADING_*` env vars) and redacted in `repr`. | ACCEPTED (design) — deterministic; no network, no venue, no real order. This does **not** resolve any Real-money gate item; "Live mode cannot activate accidentally", "Duplicate-order prevention", "Credential isolation", and "Position/order reconciliation" all still require a captured trading API and a live run. Real-money trading stays disabled (D-002). See `docs/DECISIONS.md` D-023. | Yes |
 
 ## M1.1 notes
 
@@ -356,6 +357,31 @@ Every unverified project assumption must be recorded here before implementation 
 - Not implemented: leg-risk persistence + reporting (no recorder table),
   live broker, dashboard changes, strategy changes, real-money activation.
   Report covers **paper** results only.
+
+## M3.4 notes (live-broker interface boundary)
+
+- Work lives on `feat/live-broker-interface` (branched from `origin/main` after
+  M3.3 #16 merged); see `docs/DECISIONS.md` D-023. **No new runtime
+  dependency.**
+- A-037 introduced here (interface boundary only; both venues explicitly
+  unsupported for lack of primary evidence; `LIVE_TRADING` off by default and
+  phrase-armed; local-only idempotency; isolated redacted trading credentials).
+- `prediction_market_arbitrage.live_broker`: `LiveBroker` ABC (`submit_order` /
+  `cancel_order` / `get_order` / `get_positions`) over venue-neutral value
+  objects; `LiveTradingGate` (frozen, default disabled, arm phrase
+  `I_UNDERSTAND_THIS_PLACES_REAL_ORDERS`, `PMA_LIVE_TRADING` env); constant
+  `LIVE_TRADING_ENABLED = False`; `IdempotencyGuard`;
+  `Kalshi/PolymarketUsTradingCredentials` (+ `*_from_env`);
+  `KalshiLiveBroker` / `PolymarketUsLiveBroker` — every op raises
+  `UnsupportedLiveOperationError`.
+- Every public `LiveBroker` method enforces, in order: validation + tz-aware
+  `now` + venue match → gate check → (submit only) idempotency register →
+  subclass `_do_*` hook. The gate / dedupe cannot be bypassed by a subclass.
+- No venue request is built or sent — no guessed endpoint, path, body, or field
+  name. Kalshi trading and Polymarket US trading (incl. A-015 slug routing)
+  stay UNVERIFIED and block real-money use.
+- Not implemented: real venue calls, automatic activation, strategy / dashboard
+  / risk changes, real-money order submission (including in tests).
 
 ### Live-execution gate (M1.3)
 
