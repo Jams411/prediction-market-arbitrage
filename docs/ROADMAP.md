@@ -81,7 +81,7 @@ Gate: pytest, ruff, mypy, and CI must pass before Day 1 implementation.
 - [x] Cross-venue YES/NO logic
 - [x] Fees
 - [x] Depth
-- [ ] Slippage reserve — engine has an injected per-unit `execution_buffer_per_unit`; no artifact names a distinct "slippage reserve" and slippage modelling is deferred to M2.4 (`docs/ARBITRAGE_METHODOLOGY.md`)
+- [x] Slippage reserve
 - [x] Data freshness
 - [x] Executable quantity
 - [x] Expected profit
