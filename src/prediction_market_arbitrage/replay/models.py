@@ -124,10 +124,40 @@ class RecordedHealthEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordedLegRiskEvent:
+    """A reconstructed one-legged-exposure event (recorder ``leg_risk_events``)."""
+
+    row_id: int
+    order_a_id: str
+    order_b_id: str
+    a_filled_quantity: Decimal
+    b_filled_quantity: Decimal
+    unhedged_quantity: Decimal
+    a_average_price: Decimal
+    b_average_price: Decimal
+    hedge_completion_price: Decimal | None
+    unhedged_notional: Decimal | None
+    both_terminal: bool
+    as_of: datetime
+    recorded_at: datetime
+
+    @property
+    def temporary(self) -> bool:
+        """A leg is still working — the exposure may still resolve."""
+        return not self.both_terminal
+
+    @property
+    def unresolved(self) -> bool:
+        """Both orders are terminal, so the one-leg imbalance is permanent."""
+        return self.both_terminal
+
+
+@dataclass(frozen=True, slots=True)
 class ReplayEvent:
     """One item on the merged, time-ordered replay timeline."""
 
-    #: 'order_book' | 'opportunity' | 'order_event' | 'fill' | 'position' | 'pnl' | 'health'
+    #: 'order_book' | 'opportunity' | 'order_event' | 'fill' | 'position' | 'pnl'
+    #: | 'health' | 'leg_risk'
     kind: str
     recorded_at: datetime
     row_id: int
@@ -139,4 +169,5 @@ class ReplayEvent:
         | RecordedPosition
         | RecordedPnl
         | RecordedHealthEvent
+        | RecordedLegRiskEvent
     )

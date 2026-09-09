@@ -48,6 +48,7 @@ from .errors import ReplayError
 from .models import (
     RecordedFill,
     RecordedHealthEvent,
+    RecordedLegRiskEvent,
     RecordedOpportunity,
     RecordedOrderBook,
     RecordedOrderEvent,
@@ -70,6 +71,7 @@ _KIND_RANK: dict[str, int] = {
     "position": 4,
     "pnl": 5,
     "health": 6,
+    "leg_risk": 7,
 }
 
 
@@ -138,7 +140,10 @@ class ReplaySession:
         ]
 
     def counts(self) -> dict[str, int]:
-        """Row count per stream for this session (order of ``_KIND_RANK``)."""
+        """Row count per stream for this session (order of ``_KIND_RANK``).
+
+        ``leg_risk`` is ``0`` for a recording written before that table existed
+        (see :meth:`has_leg_risk_stream`)."""
         tables = {
             "order_book": "order_book_snapshots",
             "opportunity": "opportunities",
@@ -147,14 +152,27 @@ class ReplaySession:
             "position": "positions",
             "pnl": "pnl",
             "health": "health_events",
+            "leg_risk": "leg_risk_events",
         }
         out: dict[str, int] = {}
         for kind, table in tables.items():
+            if kind == "leg_risk" and not self.has_leg_risk_stream():
+                out[kind] = 0
+                continue
             row = self._conn.execute(
                 f"SELECT count(*) FROM {table} WHERE session_id = ?", [self._session_id]
             ).fetchone()
             out[kind] = int(row[0]) if row is not None else 0
         return out
+
+    def has_leg_risk_stream(self) -> bool:
+        """``True`` when this recording's database has the ``leg_risk_events``
+        table. A recording written before the table existed returns ``False`` —
+        its leg-risk data is genuinely absent, not "zero events"."""
+        row = self._conn.execute(
+            "SELECT 1 FROM information_schema.tables WHERE table_name = 'leg_risk_events'"
+        ).fetchone()
+        return row is not None
 
     # -- streams (each ordered by the recorder's monotonic id) --------- #
 
@@ -328,6 +346,42 @@ class ReplaySession:
                 recorded_at=to_utc(r[9]),
             )
 
+    def leg_risk_events(self) -> Iterator[RecordedLegRiskEvent]:
+        """One-legged-exposure events (recorder ``leg_risk_events``), append order.
+
+        Yields nothing for a recording whose database predates the table
+        (``has_leg_risk_stream()`` is ``False``)."""
+        if not self.has_leg_risk_stream():
+            return
+        rows = self._conn.execute(
+            """
+            SELECT id, order_a_id, order_b_id, a_filled_quantity, b_filled_quantity,
+                   unhedged_quantity, a_average_price, b_average_price,
+                   hedge_completion_price, unhedged_notional, both_terminal,
+                   as_of, recorded_at
+            FROM leg_risk_events WHERE session_id = ? ORDER BY id
+            """,
+            [self._session_id],
+        ).fetchall()
+        for r in rows:
+            yield RecordedLegRiskEvent(
+                row_id=int(r[0]),
+                order_a_id=r[1],
+                order_b_id=r[2],
+                a_filled_quantity=to_decimal(r[3], field="a_filled_quantity"),
+                b_filled_quantity=to_decimal(r[4], field="b_filled_quantity"),
+                unhedged_quantity=to_decimal(r[5], field="unhedged_quantity"),
+                a_average_price=to_decimal(r[6], field="a_average_price"),
+                b_average_price=to_decimal(r[7], field="b_average_price"),
+                hedge_completion_price=opt_to_decimal(
+                    r[8], field="hedge_completion_price"
+                ),
+                unhedged_notional=opt_to_decimal(r[9], field="unhedged_notional"),
+                both_terminal=bool(r[10]),
+                as_of=to_utc(r[11]),
+                recorded_at=to_utc(r[12]),
+            )
+
     # -- merged timeline + pacing ------------------------------------ #
 
     def timeline(self) -> list[ReplayEvent]:
@@ -341,6 +395,7 @@ class ReplaySession:
             ("position", self.positions()),
             ("pnl", self.pnl()),
             ("health", self.health_events()),
+            ("leg_risk", self.leg_risk_events()),
         )
         for kind, stream in streams:
             for payload in stream:

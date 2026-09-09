@@ -1014,10 +1014,11 @@ runtime dependency.
   evaluation time; its duration is `last_eval_time − first_eval_time`. A
   single-observation episode carries no duration information and is counted
   separately (`single_observation_episodes`), never as duration `0`.
-- **Leg-risk events are not persisted.** The M2.2 schema has no leg-risk table
-  (`LegRiskSnapshot` is an in-memory M2.4/M2.5 object). `LegRiskStats.recorded`
-  is always `False`; the report lists `leg_risk_events` under `unavailable` —
-  not `0` events.
+- **Leg-risk events are not persisted.** *(Superseded 2026-09-09 by D-027 — the
+  recorder now has a `leg_risk_events` table and the report aggregates it.)* As
+  originally shipped: the M2.2 schema had no leg-risk table (`LegRiskSnapshot`
+  is an in-memory M2.4/M2.5 object), so `LegRiskStats.recorded` was always
+  `False` and the report listed it under `unavailable`.
 - Pure: no wall-clock, no persistence write, no order submission; imports the
   replay / recorder types only; nothing imports `perf_report`. `pnl_scope` is
   validated against `recorder.PNL_SCOPES` (bad scope → `PerfReportError`).
@@ -1283,6 +1284,93 @@ broker, or any execution behaviour.
 types, both `evaluate*` methods), `tests/test_arbitrage_engine.py` +
 `tests/test_arbitrage_complete_set.py` (slippage-reserve sections),
 `docs/ARBITRAGE_METHODOLOGY.md` §2.
+
+### D-027 — Leg-risk events are recorder-backed via an additive table (no schema-version bump)
+
+**Date:** 2026-09-09
+
+**Context:** the last unchecked ROADMAP M3.3 item was "Leg-risk events". D-022
+deferred it because the M2.2 recorder had no table for one-legged exposure, so
+`build_report` reported it as permanently unavailable (D-022 / A-036). The
+paper broker already *produces* the measurement: `PaperBroker.leg_risk(a, b, …)`
+returns a `LegRiskSnapshot` with `unhedged_quantity = a_filled − b_filled`; when
+that is non-zero the pair is one-legged (temporary if a leg is still working,
+unresolved if both orders are terminal).
+
+**Decision:**
+
+1. **Recorder** — a new append-only `leg_risk_events` table + `seq_leg_risk_events`
+   sequence, a `LegRiskEventRow` value-object, and
+   `Recorder.record_leg_risk_event(row, *, recorded_at)`. `LegRiskEventRow`
+   **fails closed**: `unhedged_quantity == 0` raises — a balanced measurement is
+   not an event, so the metric can never be padded with synthetic zeros.
+   `LegRiskSnapshot.to_leg_risk_event_row()` (guarded by
+   `LegRiskSnapshot.is_leg_risk_event`) is the producer bridge; the recorder
+   imports no paper-broker code (dependency stays paper_broker → recorder).
+   `record_leg_risk_event` is **idempotent per transition**: the new table has
+   `UNIQUE (session_id, order_a_id, order_b_id, as_of)` and the insert is
+   `ON CONFLICT DO NOTHING`, so a paper-run loop that samples the same
+   `leg_risk(a, b, as_of=…)` snapshot twice records one row and gets the stored
+   id back — a re-observation cannot inflate the report's event counts. (A
+   later `as_of` for the same pair is a genuinely new observation and a new
+   row.) This is the only recorder stream with a natural-key constraint,
+   because it is the only one that is *counted as discrete events* by a
+   downstream report and whose producer (`leg_risk`) is a re-callable query,
+   not a per-object emit like fills / order events.
+
+   **No automatic orchestration.** As with every other M2.4 → M2.2 artifact
+   (order events, fills, positions — D-016 / D-018), nothing in `src/` wires a
+   `PaperBroker` to a `Recorder`; `PaperBroker` holds no recorder and emits no
+   rows. The integration is the standard pair of a conversion helper on the
+   producer object (`Fill.to_row()`, `Order.event_rows()`, and now
+   `LegRiskSnapshot.to_leg_risk_event_row()`) plus a `record_*` method the
+   caller's run loop invokes. Adding an auto-recording runtime for leg risk
+   alone would be inconsistent and a new runtime component — out of M3.3 scope;
+   M3.3 "Leg-risk events" is satisfied on the same basis as the checked
+   "Paper trades" / "Paper PnL" items: the report deterministically aggregates
+   the recorded stream when it is present.
+2. **`SCHEMA_VERSION` stays `1`.** Every table is `CREATE TABLE IF NOT EXISTS`,
+   so re-opening an older recording with the new build additively creates the
+   missing table; the version number tracks the *column shape of existing
+   tables*, which is unchanged. A read-only consumer (`ReplaySession`) that
+   opens a recording written before the table existed detects its absence
+   (`has_leg_risk_stream()` → `False`) and yields an empty `leg_risk_events()`
+   stream; `build_report` then lists leg-risk under `unavailable` (unchanged
+   "missing ≠ zero" behaviour). A modern recording with the table but no rows
+   reports `recorded=True, events=0` — a **real** zero.
+3. **Replay / report** — `ReplaySession.leg_risk_events()` +
+   `RecordedLegRiskEvent` + a `leg_risk` timeline kind; `perf_report`'s
+   `LegRiskStats` gains `events` / `temporary_events` / `unresolved_events` /
+   `order_pairs_affected` / `max_abs_unhedged_quantity` / `unhedged_notional`
+   (a `Stats` over the priced events), all exact `Decimal`.
+
+**Alternatives considered:** bump `SCHEMA_VERSION` to 2 (rejected — the recorder
+has *no* migration path, so every existing v1 recording would be refused by both
+`Recorder` and `ReplaySession`; the task requires preserving existing-data
+compatibility, and `IF NOT EXISTS` already *is* the project's additive-change
+mechanism); write leg-risk events into an existing table such as `health_events`
+(rejected — different entity, wrong columns); have `build_report` recompute leg
+risk from recorded fills/orders (rejected — the broker's `leg_risk` pairing is
+caller-driven and not recoverable from fills alone; that would invent events).
+
+**Trade-offs / consequences:** the recorder is **not** redesigned — one new
+table, one new writer, following every existing convention (append-only,
+`str(Decimal)` VARCHAR, naive-UTC `TIMESTAMP`, per-table sequence id,
+`isinstance` guard). A recording is only as complete as the caller's decision
+to *call* `leg_risk` and record the result; the recorder does not sample
+exposure on its own. D-022's "leg-risk unavailable" and A-036's "not persisted"
+are superseded for a recording made by this build; a pre-D-027 recording is
+still read correctly (unavailable, not an error).
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/recorder/` (`schema.py`
+`leg_risk_events`, `models.LegRiskEventRow`, `recorder.record_leg_risk_event`),
+`paper_broker/models.py` (`LegRiskSnapshot.is_leg_risk_event` /
+`to_leg_risk_event_row`), `replay/` (`RecordedLegRiskEvent`,
+`ReplaySession.leg_risk_events` / `has_leg_risk_stream`), `perf_report/`
+(`LegRiskStats`, `_leg_risk_stats`), `tests/test_leg_risk_events.py`,
+`tests/test_recorder.py`, `tests/test_paper_broker.py`, `tests/test_perf_report.py`.
 
 ## Documentation rule going forward
 
