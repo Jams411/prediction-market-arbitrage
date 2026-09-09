@@ -9,6 +9,7 @@ Kalshi / Polymarket US server accepts our handshake (A-030 stays unresolved).
 from __future__ import annotations
 
 import json
+import socket
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -116,6 +117,109 @@ def test_receive_times_out_into_transport_closed() -> None:
         with pytest.raises(TransportClosed, match="recv_timeout"):
             transport.receive()
         transport.close()
+
+
+def test_closed_connection_is_released_so_reconnect_works() -> None:
+    """After a server close surfaces as ``TransportClosed`` the transport frees
+    its handle, so a subsequent ``connect`` does not raise "already connected"
+    (the reconnect path ``LiveBookConnection.reconnect`` depends on)."""
+
+    def handler(conn: object) -> None:
+        conn.recv()  # type: ignore[attr-defined]
+        conn.send('{"frame": 1}')  # type: ignore[attr-defined]
+        conn.close()  # type: ignore[attr-defined]
+
+    with local_server(handler) as url:
+        transport = WebsocketsTransport(recv_timeout=5.0)
+        transport.connect(Handshake(url=url, headers={}))
+        transport.send("subscribe")
+        assert transport.receive() == '{"frame": 1}'
+        with pytest.raises(TransportClosed):
+            transport.receive()  # server closed -> releases the handle
+        transport.connect(Handshake(url=url, headers={}))  # no "already connected"
+        transport.send("subscribe")
+        assert transport.receive() == '{"frame": 1}'
+        transport.close()
+
+
+def test_abrupt_underlying_socket_drop_surfaces_as_transport_closed_and_releases() -> None:
+    """Mirrors the observation harness's induced disconnect: kill the raw socket
+    under the connection (not a graceful WS close). The next ``receive`` must
+    raise ``TransportClosed`` and release the handle so ``connect`` works again."""
+
+    def handler(conn: object) -> None:
+        try:
+            conn.recv()  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001 - client vanished
+            pass
+
+    with local_server(handler) as url:
+        transport = WebsocketsTransport(recv_timeout=5.0)
+        transport.connect(Handshake(url=url, headers={}))
+        raw = transport._conn.socket  # type: ignore[union-attr]  # noqa: SLF001
+        try:
+            raw.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        raw.close()
+        with pytest.raises(TransportClosed):
+            transport.receive()
+        assert transport._conn is None  # noqa: SLF001 - handle released
+        transport.connect(Handshake(url=url, headers={}))  # no "already connected"
+        transport.close()
+
+
+def test_live_book_connection_reconnects_and_resyncs_over_real_transport() -> None:
+    """The full recovery path against a real socket: server drop -> DISCONNECTED
+    -> reconnect -> REST resync -> HEALTHY."""
+    snap_frame = kalshi_snapshot_frame(seq=2, yes_fp=[("0.20", "100")], no_fp=[("0.50", "40")])
+
+    def handler(conn: object) -> None:
+        conn.recv()  # type: ignore[attr-defined]  # subscribe
+        conn.send(json.dumps({"type": "ok", "id": 1}))  # type: ignore[attr-defined]
+        conn.send(json.dumps(snap_frame))  # type: ignore[attr-defined]
+        conn.close()  # type: ignore[attr-defined]
+
+    with local_server(handler) as url:
+        yes = LiveBookFeed(contract=kalshi_contract("YES"), venue="kalshi", max_staleness=STALE)
+        no = LiveBookFeed(contract=kalshi_contract("NO"), venue="kalshi", max_staleness=STALE)
+        resync = {
+            "LIVEBOOK-TEST-T1:YES": BookSnapshot(
+                venue="kalshi", contract_id="LIVEBOOK-TEST-T1:YES",
+                bids=levels([("0.21", "9")]), asks=levels([("0.41", "9")]),
+                sequence=None, source_time=None,
+            ),
+            "LIVEBOOK-TEST-T1:NO": BookSnapshot(
+                venue="kalshi", contract_id="LIVEBOOK-TEST-T1:NO",
+                bids=levels([("0.59", "9")]), asks=levels([("0.79", "9")]),
+                sequence=None, source_time=None,
+            ),
+        }
+        conn = LiveBookConnection(
+            venue="kalshi",
+            feeds=[yes, no],
+            transport=WebsocketsTransport(recv_timeout=5.0),
+            handshake_factory=lambda: Handshake(url=url, headers={"KALSHI-ACCESS-KEY": "k"}),
+            subscribe_command=kalshi_subscribe_command(
+                command_id=1, market_tickers=["LIVEBOOK-TEST-T1"]
+            ),
+            decode=kalshi_frame_decoder,
+            snapshot_source=_typed_source(_StaticSnapshots(resync)),
+            clock=lambda: T0,
+            backoff=BackoffPolicy(base_seconds=0.01, max_attempts=3),
+        )
+        conn.connect_and_subscribe()
+        conn.pump_one()  # ok ack
+        conn.pump_one()  # snapshot
+        assert conn.all_healthy() is True
+        with pytest.raises(TransportClosed):
+            conn.pump_one()  # server closed
+        conn.handle_disconnect()
+        assert conn.all_healthy() is False
+        conn.reconnect(lambda _s: None)  # no "already connected"
+        assert conn.all_healthy() is False  # not healthy until the fresh snapshot
+        conn.resync()
+        assert conn.all_healthy() is True
 
 
 def test_use_before_connect_and_double_connect_raise() -> None:
