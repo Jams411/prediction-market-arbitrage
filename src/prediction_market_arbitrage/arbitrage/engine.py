@@ -2,8 +2,9 @@
 
 Consumes **already normalized** :class:`OrderBook`s and an **already verified**
 :class:`MarketPairRecord` and computes whether buying both complementary
-outcomes costs less than their combined $1 settlement, after explicit fees and an
-explicit execution buffer, at a depth-walked executable size.
+outcomes costs less than their combined $1 settlement, after explicit fees, an
+explicit execution buffer, and an explicit slippage reserve, at a depth-walked
+executable size.
 
 Boundaries (see ``docs/ARBITRAGE_METHODOLOGY.md`` and D-012):
 - It does **not** decide equivalence — that is the M1.4 registry's job. The
@@ -81,7 +82,14 @@ class EngineConfig:
     """Deterministic knobs. Every monetary value is an exact ``Decimal``."""
 
     fee_model: FeeModel = field(default_factory=ZeroFeeModel)
+    #: A general per-matched-set safety margin (fixed costs, fee/rounding
+    #: uncertainty). Subtracted from the edge.
     execution_buffer_per_unit: Decimal = _ZERO
+    #: An **explicit slippage reserve**: the assumed adverse price movement per
+    #: matched set between the depth-walked decision price and the real fill.
+    #: Subtracted from the edge in addition to fees and the execution buffer.
+    #: ``0`` (the default) reproduces the pre-reserve behaviour exactly.
+    slippage_reserve_per_unit: Decimal = _ZERO
     max_quantity: Decimal | None = None
     #: Optional freshness guard: max age of each book vs. the injected
     #: ``evaluation_time``. ``None`` disables the check.
@@ -94,11 +102,14 @@ class EngineConfig:
     require_full_fill: bool = False
 
     def __post_init__(self) -> None:
-        buffer = self.execution_buffer_per_unit
-        if not isinstance(buffer, Decimal) or not buffer.is_finite() or buffer < _ZERO:
-            raise ArbitrageError(
-                "EngineConfig.execution_buffer_per_unit must be a finite Decimal >= 0"
-            )
+        for value, name in (
+            (self.execution_buffer_per_unit, "execution_buffer_per_unit"),
+            (self.slippage_reserve_per_unit, "slippage_reserve_per_unit"),
+        ):
+            if not isinstance(value, Decimal) or not value.is_finite() or value < _ZERO:
+                raise ArbitrageError(
+                    f"EngineConfig.{name} must be a finite Decimal >= 0"
+                )
         if self.max_quantity is not None:
             mq = self.max_quantity
             if not isinstance(mq, Decimal) or not mq.is_finite() or mq <= _ZERO:
@@ -166,6 +177,7 @@ class OpportunityEvaluation:
     gross_edge: Decimal
     fees: Decimal
     execution_buffer: Decimal
+    slippage_reserve: Decimal
     net_total_cost: Decimal
     net_edge: Decimal
     has_opportunity: bool
@@ -242,6 +254,7 @@ class CompleteSetEvaluation:
     gross_edge: Decimal
     fees: Decimal
     execution_buffer: Decimal
+    slippage_reserve: Decimal
     net_total_cost: Decimal
     net_edge: Decimal
     has_opportunity: bool
@@ -387,6 +400,7 @@ class ArbitrageEngine:
             gross_edge: Decimal,
             fees: Decimal,
             execution_buffer: Decimal,
+            slippage_reserve: Decimal,
             net_total_cost: Decimal,
             net_edge: Decimal,
             has_opportunity: bool,
@@ -407,6 +421,7 @@ class ArbitrageEngine:
                 gross_edge=gross_edge,
                 fees=fees,
                 execution_buffer=execution_buffer,
+                slippage_reserve=slippage_reserve,
                 net_total_cost=net_total_cost,
                 net_edge=net_edge,
                 has_opportunity=has_opportunity,
@@ -426,6 +441,7 @@ class ArbitrageEngine:
                 gross_edge=_ZERO,
                 fees=_ZERO,
                 execution_buffer=_ZERO,
+                slippage_reserve=_ZERO,
                 net_total_cost=_ZERO,
                 net_edge=_ZERO,
                 has_opportunity=False,
@@ -519,11 +535,12 @@ class ArbitrageEngine:
                 )
         fees = fee_a + fee_b
         execution_buffer = self._config.execution_buffer_per_unit * size
+        slippage_reserve = self._config.slippage_reserve_per_unit * size
 
         gross_total_cost = a_cost + b_cost
         # A matched set of both complementary outcomes pays exactly `size` at settlement.
         gross_edge = size - gross_total_cost
-        net_total_cost = gross_total_cost + fees + execution_buffer
+        net_total_cost = gross_total_cost + fees + execution_buffer + slippage_reserve
         net_edge = size - net_total_cost
 
         has_opportunity = net_edge > _ZERO
@@ -532,7 +549,7 @@ class ArbitrageEngine:
         elif net_edge == _ZERO:
             reason = "net edge is exactly zero (break-even is not an opportunity)"
         else:
-            reason = "net edge is negative after fees and execution buffer"
+            reason = "net edge is negative after fees, execution buffer, and slippage reserve"
 
         return _result(
             executable_quantity=size,
@@ -543,6 +560,7 @@ class ArbitrageEngine:
             gross_edge=gross_edge,
             fees=fees,
             execution_buffer=execution_buffer,
+            slippage_reserve=slippage_reserve,
             net_total_cost=net_total_cost,
             net_edge=net_edge,
             has_opportunity=has_opportunity,
@@ -587,9 +605,9 @@ class ArbitrageEngine:
         exclusive* outcome set (A-039) — the engine verifies only that the books
         share a venue+market and name distinct contracts. A matched set then
         pays exactly ``executable_quantity`` at settlement, so the same
-        gross/net-edge arithmetic as :meth:`evaluate` applies (fees +
-        ``execution_buffer_per_unit`` are the only subtracted frictions; exact
-        break-even is not an opportunity).
+        gross/net-edge arithmetic as :meth:`evaluate` applies (fees, the
+        ``execution_buffer_per_unit`` and the ``slippage_reserve_per_unit`` are
+        the subtracted frictions; exact break-even is not an opportunity).
 
         Raises :class:`ArbitrageError` on misuse (fewer than two books, a
         non-``OrderBook``, a mixed venue/market, a duplicate contract, a bad
@@ -649,6 +667,7 @@ class ArbitrageEngine:
                 gross_edge=_ZERO,
                 fees=_ZERO,
                 execution_buffer=_ZERO,
+                slippage_reserve=_ZERO,
                 net_total_cost=_ZERO,
                 net_edge=_ZERO,
                 has_opportunity=False,
@@ -725,8 +744,9 @@ class ArbitrageEngine:
         # 6. Economics — exact Decimal, no internal rounding. One matched set of
         #    every outcome pays exactly `size` at settlement.
         execution_buffer = self._config.execution_buffer_per_unit * size
+        slippage_reserve = self._config.slippage_reserve_per_unit * size
         gross_edge = size - gross_total_cost
-        net_total_cost = gross_total_cost + fees_total + execution_buffer
+        net_total_cost = gross_total_cost + fees_total + execution_buffer + slippage_reserve
         net_edge = size - net_total_cost
 
         has_opportunity = net_edge > _ZERO
@@ -735,7 +755,7 @@ class ArbitrageEngine:
         elif net_edge == _ZERO:
             reason = "net edge is exactly zero (break-even is not an opportunity)"
         else:
-            reason = "net edge is negative after fees and execution buffer"
+            reason = "net edge is negative after fees, execution buffer, and slippage reserve"
 
         return CompleteSetEvaluation(
             market_id=market_id,
@@ -750,6 +770,7 @@ class ArbitrageEngine:
             gross_edge=gross_edge,
             fees=fees_total,
             execution_buffer=execution_buffer,
+            slippage_reserve=slippage_reserve,
             net_total_cost=net_total_cost,
             net_edge=net_edge,
             has_opportunity=has_opportunity,

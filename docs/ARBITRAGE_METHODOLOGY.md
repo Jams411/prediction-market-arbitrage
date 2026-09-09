@@ -25,9 +25,8 @@ opportunity** for `IDENTICAL` records, with a reason. This is a limitation of
 the current engine, **not** a claim that identical contracts cannot be
 arbitraged; support is deferred to execution/broker work.
 
-Also **not** in M1.5: a slippage reserve (only a generic
-`execution_buffer_per_unit` knob exists), live trading, order submission,
-positions, and any use of wall-clock time.
+Also **not** in M1.5: live trading, order submission, positions, and any use of
+wall-clock time.
 
 ## 1. Why buying complementary outcomes below total payout is arbitrage
 
@@ -65,8 +64,9 @@ categorical market it is `1 - (ask_A + ask_B + ask_C + …)`.
 of the one market the caller chose; the engine only checks that the books share
 a venue+market, name distinct contracts, and number at least two (A-039). The
 net-edge arithmetic, depth-walking, executable-quantity cap, injected
-`FeeModel` (summed per outcome), freshness guards, and `execution_buffer` are
-all identical to §2–§4. Exact break-even is not an opportunity.
+`FeeModel` (summed per outcome), freshness guards, the `execution_buffer` and
+the `slippage_reserve` are all identical to §2–§4. Exact break-even is not an
+opportunity.
 
 The result is a `CompleteSetEvaluation`; `to_opportunity()` maps a **binary**
 set to the domain `Opportunity` container (a categorical set has no two-contract
@@ -75,16 +75,28 @@ set to the domain `Opportunity` container (a categorical set has no two-contract
 ## 2. Gross edge vs. net edge
 
 Gross edge ignores the frictions of actually acquiring the position. The engine
-subtracts two **explicit** costs:
+subtracts three **explicit** costs:
 
     net_edge_per_unit
       = 1
         - acquisition_cost_leg_A      (depth-weighted, per unit)
         - acquisition_cost_leg_B      (depth-weighted, per unit)
         - fees_per_unit               (from the injected FeeModel)
-        - execution_buffer_per_unit   (an explicit Decimal input)
+        - execution_buffer_per_unit   (an explicit Decimal input — a general
+                                       safety margin)
+        - slippage_reserve_per_unit   (an explicit Decimal input — the assumed
+                                       adverse price move between the
+                                       depth-walked decision price and the real
+                                       fill)
 
     expected_total_profit = net_edge_per_unit * executable_quantity
+
+Both reserves default to `0`, which reproduces the pre-reserve result exactly;
+each is a caller-chosen parameter, not derived from venue microstructure (A-040).
+They are kept as **separate** knobs and separate result fields
+(`execution_buffer`, `slippage_reserve`) so the audit trail shows which friction
+consumed the edge. Both apply identically to the same-market complete-set path
+(`slippage_reserve = slippage_reserve_per_unit * executable_quantity`).
 
 An opportunity exists **only if `net_edge > 0`**. Exact break-even
 (`net_edge == 0`) is *not* an opportunity — there is no margin to absorb

@@ -241,6 +241,66 @@ def test_execution_buffer_reduces_but_can_leave_an_edge() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Slippage reserve on the complete-set path
+# --------------------------------------------------------------------------- #
+
+
+def test_zero_slippage_reserve_leaves_the_complete_set_result_unchanged() -> None:
+    baseline = _evaluate(_binary("0.40", "0.55"))
+    with_zero = _evaluate(
+        _binary("0.40", "0.55"),
+        config=EngineConfig(slippage_reserve_per_unit=D("0")),
+    )
+    assert with_zero.slippage_reserve == D("0")
+    assert with_zero.net_edge == baseline.net_edge == D("5.00")
+    assert with_zero.has_opportunity is True
+
+
+def test_positive_slippage_reserve_reduces_complete_set_net_edge() -> None:
+    result = _evaluate(
+        _binary("0.40", "0.55"),
+        config=EngineConfig(slippage_reserve_per_unit=D("0.02")),
+    )
+    assert result.slippage_reserve == D("2.00")  # 0.02 * 100 matched sets
+    assert result.net_total_cost == D("95.00") + D("2.00")
+    assert result.net_edge == D("3.00")
+    assert result.has_opportunity is True
+
+
+def test_slippage_reserve_can_zero_out_a_complete_set_edge() -> None:
+    result = _evaluate(
+        _binary("0.40", "0.55"),
+        config=EngineConfig(slippage_reserve_per_unit=D("0.05")),
+    )
+    assert result.slippage_reserve == D("5.00")
+    assert result.net_edge == D("0.00")
+    assert result.has_opportunity is False
+    assert "break-even" in result.rejection_reason
+
+
+def test_slippage_reserve_can_make_a_complete_set_unprofitable() -> None:
+    result = _evaluate(
+        _binary("0.40", "0.55"),
+        config=EngineConfig(slippage_reserve_per_unit=D("0.06")),
+    )
+    assert result.net_edge == D("-1.00")
+    assert result.has_opportunity is False
+    assert "negative" in result.rejection_reason
+
+
+def test_slippage_reserve_applies_to_a_categorical_complete_set() -> None:
+    books = [
+        outcome_book("A", [("0.30", "100")]),
+        outcome_book("B", [("0.30", "100")]),
+        outcome_book("C", [("0.35", "100")]),
+    ]
+    result = _evaluate(books, config=EngineConfig(slippage_reserve_per_unit=D("0.02")))
+    assert result.slippage_reserve == D("2.00")
+    assert result.net_edge == D("3.00")
+    assert result.has_opportunity is True
+
+
+# --------------------------------------------------------------------------- #
 # Categorical (N > 2) outcome sets
 # --------------------------------------------------------------------------- #
 
