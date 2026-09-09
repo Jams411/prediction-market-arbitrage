@@ -12,6 +12,13 @@ naive-UTC ``TIMESTAMP`` (``_convert.utc_naive``).
 
 ``initialize`` is idempotent (``CREATE ... IF NOT EXISTS``) and refuses to touch
 a database written by a different ``SCHEMA_VERSION``.
+
+``SCHEMA_VERSION`` is **not** bumped when a *new table* is added: every table
+uses ``CREATE TABLE IF NOT EXISTS``, so re-opening an older recording with a
+newer build additively creates the missing table, and the version number tracks
+the *column shape of existing tables* (which is unchanged). A read-only consumer
+(replay) that opens a recording written before a table existed simply sees an
+empty stream for it (see ``ReplaySession.has_leg_risk_stream``). See D-027.
 """
 
 from __future__ import annotations
@@ -33,6 +40,7 @@ _SEQUENCES = (
     "seq_positions",
     "seq_pnl",
     "seq_health_events",
+    "seq_leg_risk_events",
 )
 
 _TABLES: tuple[str, ...] = (
@@ -165,6 +173,32 @@ _TABLES: tuple[str, ...] = (
         last_update      TIMESTAMP,
         last_sequence    BIGINT,
         recorded_at      TIMESTAMP NOT NULL
+    )
+    """,
+    # Additive (D-027): one row per observed one-legged exposure between two
+    # orders that should fill together — recorded only when
+    # ``unhedged_quantity != 0`` (see LegRiskEventRow). Append-only like the
+    # rest. ``UNIQUE (session_id, order_a_id, order_b_id, as_of)`` makes a
+    # re-record of the *same* transition (a caller sampling the same
+    # ``leg_risk(a, b, as_of=…)`` twice) a no-op — see
+    # ``Recorder.record_leg_risk_event``.
+    """
+    CREATE TABLE IF NOT EXISTS leg_risk_events (
+        id                     BIGINT PRIMARY KEY DEFAULT nextval('seq_leg_risk_events'),
+        session_id             VARCHAR NOT NULL,
+        order_a_id             VARCHAR NOT NULL,
+        order_b_id             VARCHAR NOT NULL,
+        a_filled_quantity      VARCHAR NOT NULL,
+        b_filled_quantity      VARCHAR NOT NULL,
+        unhedged_quantity      VARCHAR NOT NULL,   -- signed
+        a_average_price        VARCHAR NOT NULL,
+        b_average_price        VARCHAR NOT NULL,
+        hedge_completion_price VARCHAR,            -- NULL when no book was supplied
+        unhedged_notional      VARCHAR,            -- NULL when no completion price
+        both_terminal          BOOLEAN NOT NULL,   -- True => unresolved (permanent) one-leg fill
+        as_of                  TIMESTAMP NOT NULL,
+        recorded_at            TIMESTAMP NOT NULL,
+        UNIQUE (session_id, order_a_id, order_b_id, as_of)
     )
     """,
 )

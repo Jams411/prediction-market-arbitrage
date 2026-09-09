@@ -18,6 +18,7 @@ from prediction_market_arbitrage.paper_broker import (
     PaperBrokerError,
     PerLevelSlippage,
 )
+from prediction_market_arbitrage.recorder import LegRiskEventRow
 
 D = Decimal
 
@@ -297,6 +298,88 @@ def test_leg_risk_reports_one_legged_exposure() -> None:
     assert risk.hedge_completion_price == (D("0.46") + D("0.48")) / D("2")
     assert risk.unhedged_notional == D("7") * ((D("0.46") + D("0.48")) / D("2"))
     assert risk.both_terminal is False
+
+
+def test_no_leg_risk_event_when_both_legs_fill_as_intended() -> None:
+    broker = PaperBroker()
+    broker.submit(request("legA", quantity="10", limit_price="0.50"), at=at(0))
+    broker.submit(
+        request("legB", quantity="10", limit_price="0.50", contract_id="PB-T2:YES"), at=at(0)
+    )
+    broker.advance(
+        at=at(1),
+        books={
+            CONTRACT_ID: book(asks=[("0.44", "10")], timestamp=at(1)),
+            "PB-T2:YES": book(asks=[("0.44", "10")], timestamp=at(1), ticker="PB-T2"),
+        },
+    )
+    assert broker.order("legA").status is OrderStatus.FILLED
+    assert broker.order("legB").status is OrderStatus.FILLED
+
+    risk = broker.leg_risk("legA", "legB", as_of=at(1))
+    assert risk.unhedged_quantity == D("0")
+    assert risk.is_leg_risk_event is False
+    with pytest.raises(PaperBrokerError, match="no leg-risk event"):
+        risk.to_leg_risk_event_row()
+
+
+def test_temporary_leg_risk_snapshot_converts_to_a_recorder_row() -> None:
+    broker = PaperBroker()
+    broker.submit(request("legA", quantity="10", limit_price="0.50"), at=at(0))
+    broker.submit(
+        request("legB", quantity="10", limit_price="0.50", contract_id="PB-T2:YES"), at=at(0)
+    )
+    a_book = book(asks=[("0.44", "10")], timestamp=at(1))
+    b_book = book(
+        bids=[("0.46", "5")], asks=[("0.48", "3"), ("0.55", "20")], timestamp=at(1), ticker="PB-T2"
+    )
+    broker.advance(at=at(1), books={CONTRACT_ID: a_book, "PB-T2:YES": b_book})
+    assert broker.order("legB").status is OrderStatus.PARTIALLY_FILLED  # still working
+
+    risk = broker.leg_risk(
+        "legA", "legB", as_of=at(1), books={CONTRACT_ID: a_book, "PB-T2:YES": b_book}
+    )
+    assert risk.is_leg_risk_event is True
+    assert risk.both_terminal is False  # temporary — legB may still fill
+
+    row = risk.to_leg_risk_event_row()
+    assert isinstance(row, LegRiskEventRow)
+    assert row.order_a_id == "legA"
+    assert row.order_b_id == "legB"
+    assert row.unhedged_quantity == D("7")
+    assert row.both_terminal is False
+    assert row.hedge_completion_price == risk.hedge_completion_price
+    assert row.unhedged_notional == risk.unhedged_notional
+
+
+def test_unresolved_leg_risk_when_the_paired_leg_ends_terminal_underfilled() -> None:
+    broker = PaperBroker()
+    broker.submit(request("legA", quantity="10", limit_price="0.50"), at=at(0))
+    broker.submit(
+        request(
+            "legB",
+            quantity="10",
+            limit_price="0.50",
+            immediate_or_cancel=True,
+            contract_id="PB-T2:YES",
+        ),
+        at=at(0),
+    )
+    broker.advance(
+        at=at(1),
+        books={
+            CONTRACT_ID: book(asks=[("0.44", "10")], timestamp=at(1)),
+            "PB-T2:YES": book(asks=[("0.48", "4")], timestamp=at(1), ticker="PB-T2"),
+        },
+    )
+    assert broker.order("legA").status is OrderStatus.FILLED
+    assert broker.order("legB").status is OrderStatus.CANCELED  # IOC remainder cancelled
+
+    risk = broker.leg_risk("legA", "legB", as_of=at(2))
+    assert risk.unhedged_quantity == D("6")
+    assert risk.both_terminal is True  # unresolved — permanent one-leg imbalance
+    assert risk.is_leg_risk_event is True
+    assert risk.to_leg_risk_event_row().both_terminal is True
 
 
 # --------------------------------------------------------------------------- #

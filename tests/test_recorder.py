@@ -26,6 +26,7 @@ from prediction_market_arbitrage.arbitrage import (
 from prediction_market_arbitrage.livebook import HealthStatus
 from prediction_market_arbitrage.recorder import (
     FillRow,
+    LegRiskEventRow,
     OrderEventRow,
     PnlRow,
     PositionRow,
@@ -156,6 +157,122 @@ def test_record_opportunity_stores_exact_engine_totals() -> None:
     assert row[5] == evaluation.has_opportunity
     assert row[6] == evaluation.evaluation_time.replace(tzinfo=None)
     rec.close()
+
+
+# --------------------------------------------------------------------------- #
+# leg-risk events
+# --------------------------------------------------------------------------- #
+
+
+def _leg_risk_row(*, unhedged: str = "7", both_terminal: bool = False) -> LegRiskEventRow:
+    return LegRiskEventRow(
+        order_a_id="legA",
+        order_b_id="legB",
+        a_filled_quantity=D("10"),
+        b_filled_quantity=D("10") - D(unhedged),
+        unhedged_quantity=D(unhedged),
+        a_average_price=D("0.4400"),
+        b_average_price=D("0.4800"),
+        both_terminal=both_terminal,
+        as_of=REC_TS + timedelta(seconds=1),
+        hedge_completion_price=D("0.4700"),
+        unhedged_notional=D(unhedged) * D("0.4700"),
+    )
+
+
+def test_record_leg_risk_event_stores_exact_values() -> None:
+    rec = _recorder()
+    row = _leg_risk_row(unhedged="7", both_terminal=True)
+    assert rec.record_leg_risk_event(row, recorded_at=REC_AT) == 1
+
+    stored = rec.connection.execute(
+        "SELECT order_a_id, order_b_id, unhedged_quantity, a_average_price, "
+        "b_average_price, hedge_completion_price, unhedged_notional, both_terminal, "
+        "as_of, recorded_at FROM leg_risk_events WHERE id = 1"
+    ).fetchone()
+    assert stored is not None
+    assert stored[0] == "legA"
+    assert stored[1] == "legB"
+    assert Decimal(stored[2]) == D("7")
+    assert Decimal(stored[3]) == D("0.4400")
+    assert Decimal(stored[4]) == D("0.4800")
+    assert Decimal(stored[5]) == D("0.4700")
+    assert Decimal(stored[6]) == D("7") * D("0.4700")
+    assert stored[7] is True
+    assert stored[8] == (REC_TS + timedelta(seconds=1)).replace(tzinfo=None)
+    assert stored[9] == REC_AT.replace(tzinfo=None)
+    rec.close()
+
+
+def test_record_leg_risk_event_allows_null_optionals() -> None:
+    rec = _recorder()
+    row = LegRiskEventRow(
+        order_a_id="legA",
+        order_b_id="legB",
+        a_filled_quantity=D("4"),
+        b_filled_quantity=D("0"),
+        unhedged_quantity=D("4"),
+        a_average_price=D("0.40"),
+        b_average_price=D("0"),
+        both_terminal=False,
+        as_of=REC_TS,
+    )
+    rec.record_leg_risk_event(row, recorded_at=REC_AT)
+    got = rec.connection.execute(
+        "SELECT hedge_completion_price, unhedged_notional FROM leg_risk_events WHERE id = 1"
+    ).fetchone()
+    assert got == (None, None)
+    rec.close()
+
+
+def test_record_leg_risk_event_is_idempotent_per_transition() -> None:
+    rec = _recorder()
+    row = _leg_risk_row(unhedged="7", both_terminal=False)
+
+    first = rec.record_leg_risk_event(row, recorded_at=REC_AT)
+    # same (session, order_a_id, order_b_id, as_of) => no-op, same id back
+    again = rec.record_leg_risk_event(row, recorded_at=REC_AT + timedelta(seconds=5))
+    assert again == first
+    assert rec.connection.execute("SELECT count(*) FROM leg_risk_events").fetchone() == (1,)
+
+    # a genuinely new observation of the same pair (later as_of) is a new row
+    later = LegRiskEventRow(
+        order_a_id="legA",
+        order_b_id="legB",
+        a_filled_quantity=D("10"),
+        b_filled_quantity=D("5"),
+        unhedged_quantity=D("5"),
+        a_average_price=D("0.44"),
+        b_average_price=D("0.48"),
+        both_terminal=True,
+        as_of=REC_TS + timedelta(seconds=2),
+    )
+    third = rec.record_leg_risk_event(later, recorded_at=REC_AT)
+    assert third != first
+    assert rec.connection.execute("SELECT count(*) FROM leg_risk_events").fetchone() == (2,)
+    rec.close()
+
+
+def test_record_leg_risk_event_rejects_a_non_row() -> None:
+    rec = _recorder()
+    with pytest.raises(RecorderError, match="expected a LegRiskEventRow"):
+        rec.record_leg_risk_event(object(), recorded_at=REC_AT)  # type: ignore[arg-type]
+    rec.close()
+
+
+def test_leg_risk_event_row_rejects_zero_unhedged_exposure() -> None:
+    with pytest.raises(RecorderError, match="non-zero unhedged_quantity"):
+        LegRiskEventRow(
+            order_a_id="legA",
+            order_b_id="legB",
+            a_filled_quantity=D("10"),
+            b_filled_quantity=D("10"),
+            unhedged_quantity=D("0"),
+            a_average_price=D("0.44"),
+            b_average_price=D("0.44"),
+            both_terminal=True,
+            as_of=REC_TS,
+        )
 
 
 # --------------------------------------------------------------------------- #

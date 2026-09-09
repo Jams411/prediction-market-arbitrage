@@ -17,6 +17,7 @@ from .errors import ReplayError
 from .models import (
     RecordedFill,
     RecordedHealthEvent,
+    RecordedLegRiskEvent,
     RecordedOpportunity,
     RecordedOrderBook,
     RecordedOrderEvent,
@@ -29,6 +30,7 @@ from .session import ReplaySession, no_sleep, realtime
 __all__ = [
     "RecordedFill",
     "RecordedHealthEvent",
+    "RecordedLegRiskEvent",
     "RecordedOpportunity",
     "RecordedOrderBook",
     "RecordedOrderEvent",

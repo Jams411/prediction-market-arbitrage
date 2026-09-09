@@ -185,9 +185,14 @@ def test_invalid_pnl_scope_is_rejected() -> None:
 # -- missing vs zero ------------------------------------------ #
 
 
-def test_leg_risk_is_reported_unavailable_not_zero(report: PerfReport) -> None:
-    assert report.leg_risk.recorded is False
-    assert any("leg_risk" in u for u in report.unavailable)
+def test_leg_risk_zero_events_is_a_real_zero_not_unavailable(report: PerfReport) -> None:
+    # The perf recording is written by the current Recorder, so the
+    # leg_risk_events table exists — no exposure was recorded, which is a real 0.
+    assert report.leg_risk.recorded is True
+    assert report.leg_risk.events == 0
+    assert report.leg_risk.temporary_events == 0
+    assert report.leg_risk.unresolved_events == 0
+    assert not any("leg-risk" in u for u in report.unavailable)
 
 
 def test_empty_session_reports_missing_metrics_as_none_not_zero(
@@ -231,7 +236,9 @@ def test_render_is_deterministic_and_distinguishes_na_from_zero(
     b = render_text(report)
     assert a == b
     assert "depth-capped:        1" in a
-    assert "n/a — the M2.2 recorder has no leg-risk table" in a
+    # leg-risk section prints a real zero as a number, not n/a
+    assert "LEG RISK  (one-legged exposure events)" in a
+    assert "events:              0" in a
     # a real zero is printed as a number, not n/a
     assert "rejected:        2" in a
 

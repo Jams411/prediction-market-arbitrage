@@ -25,9 +25,9 @@ from prediction_market_arbitrage.domain import OrderBook
 from prediction_market_arbitrage.livebook import FeedHealth
 
 from . import schema
-from ._convert import dec_text, opt_utc_naive, require_text, utc_naive
+from ._convert import dec_text, opt_dec_text, opt_utc_naive, require_text, utc_naive
 from .errors import RecorderError
-from .models import FillRow, OrderEventRow, PnlRow, PositionRow
+from .models import FillRow, LegRiskEventRow, OrderEventRow, PnlRow, PositionRow
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -270,6 +270,66 @@ class Recorder:
                 utc_naive(recorded_at, field="recorded_at"),
             ],
         )
+
+    def record_leg_risk_event(
+        self, row: LegRiskEventRow, *, recorded_at: datetime
+    ) -> int:
+        """Append one observed one-legged exposure (a paper-broker
+        ``LegRiskSnapshot`` with ``unhedged_quantity != 0``, converted via
+        ``LegRiskSnapshot.to_leg_risk_event_row``).
+
+        **Idempotent per transition:** a leg-risk observation is keyed by
+        ``(session_id, order_a_id, order_b_id, as_of)``. Recording the same
+        transition again — e.g. a paper-run loop that samples the same
+        ``leg_risk(a, b, as_of=…)`` twice — is a no-op that returns the id of
+        the row already stored, so a duplicated observation cannot inflate the
+        M3.3 report's event counts. A genuinely new observation of the same
+        pair (a later ``as_of``) is a new row.
+        """
+        if not isinstance(row, LegRiskEventRow):
+            raise RecorderError("record_leg_risk_event: expected a LegRiskEventRow")
+        as_of = utc_naive(row.as_of, field="row.as_of")
+        inserted = self._conn.execute(
+            """
+            INSERT INTO leg_risk_events
+                (session_id, order_a_id, order_b_id, a_filled_quantity,
+                 b_filled_quantity, unhedged_quantity, a_average_price,
+                 b_average_price, hedge_completion_price, unhedged_notional,
+                 both_terminal, as_of, recorded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
+            RETURNING id
+            """,
+            [
+                self._session_id,
+                row.order_a_id,
+                row.order_b_id,
+                dec_text(row.a_filled_quantity, field="a_filled_quantity"),
+                dec_text(row.b_filled_quantity, field="b_filled_quantity"),
+                dec_text(row.unhedged_quantity, field="unhedged_quantity"),
+                dec_text(row.a_average_price, field="a_average_price"),
+                dec_text(row.b_average_price, field="b_average_price"),
+                opt_dec_text(
+                    row.hedge_completion_price, field="hedge_completion_price"
+                ),
+                opt_dec_text(row.unhedged_notional, field="unhedged_notional"),
+                bool(row.both_terminal),
+                as_of,
+                utc_naive(recorded_at, field="recorded_at"),
+            ],
+        ).fetchone()
+        if inserted is not None:
+            return int(inserted[0])
+        existing = self._conn.execute(
+            """
+            SELECT id FROM leg_risk_events
+            WHERE session_id = ? AND order_a_id = ? AND order_b_id = ? AND as_of = ?
+            """,
+            [self._session_id, row.order_a_id, row.order_b_id, as_of],
+        ).fetchone()
+        if existing is None:  # pragma: no cover - a conflict implies a prior row
+            raise RecorderError("record_leg_risk_event: conflict without a stored row")
+        return int(existing[0])
 
     def record_health_event(
         self,
