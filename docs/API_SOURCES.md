@@ -276,6 +276,14 @@ the live feed. Gate #8 (disconnect/reconnect): the resubscribe/resync
 close**, not an unexpected drop, and captured **no** `HEALTHY → DISCONNECTED →
 RESYNCING → HEALTHY` transition — so **#8 remains unchecked**.
 
+> **SUPERSEDED 2026-09-09 by the live-book runtime observation
+> (K-LB-OBS-01..12, section below).** A later same-day session run through the
+> shipped `LiveBookConnection` / `LiveBookFeed` collected 30 sequential deltas
+> over ~14 s of continuous consumption (0 desyncs, monotone `seq`, `HEALTHY`
+> throughout) plus the `HEALTHY → STALE → DISCONNECTED → RESYNCING → HEALTHY`
+> transitions. **Gate #2 is now CHECKED.** #7 and #8 stay unchecked (staleness
+> and the disconnect were harness-induced). See that section's verdict.
+
 ### Kalshi — production authenticated WS: auth re-verified + observation path prepared (2026-09-09)
 
 Docs re-checked against the official Kalshi sources (WS-A-S1 `quick_start_websockets`,
@@ -326,7 +334,68 @@ K-WS-AUTH-06). Credentials were read from the Keychain + PEM file at run time an
 never printed, logged, persisted, or fixtured. **A-030 is now resolved for the
 Kalshi half** (handshake / subscribe / snapshot / delta formats match the live
 production server); the **Polymarket US half of A-030 stays UNVERIFIED**.
-**A-028 stays UNVERIFIED.**
+(K-WS-OBS-08's "not observed" list and the "gate #2/#7/#8 stay unchecked" note
+are **partly superseded** by the runtime observation below — K-LB-OBS-01..12.)
+
+### Kalshi — production live-book *runtime* observation (OBSERVED 2026-09-09, gate #2)
+
+One bounded session through the **shipped runtime**
+(`livebook.LiveBookConnection` + `livebook.LiveBookFeed` +
+`livebook.ws_transport.WebsocketsTransport` + a REST `SnapshotSource` over
+`KalshiMarketDataAdapter`), not the standalone WS script. Read-only market data
+only. Tool: `scripts/observe_kalshi_livebook_runtime.py --observe 30 240`.
+Session `2026-09-09T21:12:25.085Z … 21:13:32.948Z` (67.9 s wall), a BTC-daily
+binary market (ticker redacted in evidence). Sanitised evidence:
+`docs/evidence/kalshi-live/livebook-runtime/SUMMARY.json` — a phase timeline with
+UTC timestamps + offsets, per-feed `HealthStatus` / `trading_enabled` /
+`last_sequence`, `DeltaOutcome` tallies, per-subscription `seq` epochs, value-free
+book fingerprints, and an additive-delta (A-028) relationship check. **No** raw
+prices / sizes / tickers / ids; no `/portfolio`, order, balance/position/fill
+access; `LIVE_TRADING` never read or set; no Polymarket US.
+
+| # | Claim | Status | Evidence | Gate impact |
+|---|-------|--------|----------|-------------|
+| K-LB-OBS-01 | **Initial REST snapshot / live-book initialization.** `RestSnapshotSource.fetch` (public prod REST) → `LiveBookFeed.apply_snapshot` for the YES and NO contracts; both feeds `UNINITIALIZED → HEALTHY` (`trading_enabled` false → true) at t≈0.4 s. | OBSERVED (production) | `SUMMARY.json` timeline `A_init/rest_snapshot_applied` (`books`: YES 26 bid/13 ask, NO 13 bid/26 ask levels, initialized). | Part of #2 "REST snapshot initialization" — now via the real runtime, not a bespoke script. |
+| K-LB-OBS-02 | **WS subscription success through the runtime.** `LiveBookConnection.connect_and_subscribe()` opened `wss://external-api-ws.kalshi.com/trade-api/ws/v2` with the RSA-PSS handshake and the K-WS-AUTH-04 subscribe body; delta frames began flowing immediately. | OBSERVED (production) | timeline `B_steady/ws_connect_and_subscribe` then `pumped_30_deltas`. | #2. |
+| K-LB-OBS-03 | **Sustained applied deltas.** **30** `orderbook_delta` messages applied via `LiveBookFeed.apply_delta` over a **~14 s continuous consumption window** (t 0.7→14.5 s), `delta_outcomes = {applied: 30}` — **no** `DUPLICATE` / `STALE_SEQUENCE` / `SEQUENCE_GAP` / `NEGATIVE_QUANTITY` / `CROSSED_RESULT`. A further **17** buffered deltas applied cleanly during the phase-D drain (`last_sequence` 16→33). Both feeds `HEALTHY` throughout. | OBSERVED (production) | `applied_delta_count = 34` (30 in B + 4 in F), `delta_outcomes`, timeline health at `pumped_30_deltas` (`healthy`, seq 16); `buffered_frames_drained_before_detection = 17`. | #2 "stable live feed" — a real sustained `seq`-ordered stream through the runtime. |
+| K-LB-OBS-04 | **Monotonic per-subscription `seq`.** `seq_monotonic_violations_within_subscription = 0`. Epoch 1 (first subscription) `seq` ran 2→16; epoch 2 (post-resubscribe) 2→3. `seq_reset_on_resubscribe = true` — the new subscription restarts the counter (matches K-WS-OBS-06 / K-WS-02). | OBSERVED (production) | `seq_monotonic_violations_within_subscription`, `seq_epochs_first_last = [[2,16],[2,3]]`, `seq_reset_on_resubscribe`. | #2. |
+| K-LB-OBS-05 | **Book mutation from applied deltas.** A value-free digest of each feed's book changed **32** times across the applied deltas — the deltas move the book, they are not no-ops. | OBSERVED (production) | `book_fingerprint_changes = 32`. | #2. |
+| K-LB-OBS-06 | **A-028 additive delta semantics hold on the live feed.** For every APPLIED delta the harness compared the feed's book immediately before and after: `qty_after == qty_before + delta_fp`, and the level was **removed when the sum reached 0** (`level_removed_on_zero = 6`). **34 / 34** checked deltas matched, **0** mismatches, **0** `NEGATIVE_QUANTITY` / `CROSSED` / `SEQUENCE_GAP`. Raw quantities never persisted. | OBSERVED (production) — one market, one session (~51 real deltas incl. 6 level removals) | `additive_delta_check` (`checked 34, matches 34, mismatches 0, level_removed_on_zero 6, desyncs 0`). | Moves **A-028** from UNVERIFIED to **OBSERVED** (narrow: one market/session). |
+| K-LB-OBS-07 | **Staleness verdict from the runtime on a real feed.** After consumption was paused for 35 s (> the 30 s `max_staleness`), `LiveBookFeed.health()` returned `STALE` with `trading_enabled = false` for both feeds — computed from the real `_last_update` timestamp of the live feed. | OBSERVED (production), staleness **induced by pausing consumption** (not a naturally quiet market) | timeline `C_stale/health_after_pause` (`stale`, false, seq 16). | Supports #7 but does **not** complete it — see verdict. |
+| K-LB-OBS-08 | **Disconnect detection.** The underlying socket was dropped abruptly (`socket.shutdown` + `close`, not a graceful WS close). The runtime handed back 17 buffered frames, then `LiveBookConnection.pump_one()` raised `TransportClosed` (`transport_closed_raised = true`). | OBSERVED (production), disconnect **induced by the harness** (not a server/network drop) | timeline `D_disconnect/socket_dropped` → `handle_disconnect` (`buffered_frames_drained_before_detection = 17`). | Supports #8 but does **not** complete it — see verdict. |
+| K-LB-OBS-09 | **Unhealthy while disconnected.** `LiveBookConnection.handle_disconnect()` → both feeds `DISCONNECTED`, `trading_enabled = false`. | OBSERVED (production) | timeline `D_disconnect/handle_disconnect` (`disconnected`, false). | #8. |
+| K-LB-OBS-10 | **Reconnect + resubscribe.** `LiveBookConnection.reconnect(sleep)` re-ran `connect_and_subscribe()` and succeeded on the **first attempt** (`reconnect_attempts = 0`). *(This required a fix to `WebsocketsTransport` — see K-LB-OBS-12.)* | OBSERVED (production) | timeline `E_recover/reconnected` (`reconnect_attempts: 0`). | #8. |
+| K-LB-OBS-11 | **Fresh post-reconnect snapshot; healthy restored ONLY after resync.** Right after `reconnect()` both feeds were still `DISCONNECTED` (`healthy_before_resync = false`). `LiveBookConnection.resync()` then `begin_resync` (→ `RESYNCING`) → a fresh REST `apply_snapshot` → both feeds `HEALTHY`, `trading_enabled = true`. The fresh snapshot differs from the init snapshot (fingerprints changed on both feeds — the book moved during the outage). Full observed path: `UNINITIALIZED → HEALTHY → STALE → DISCONNECTED → (reconnect, still DISCONNECTED) → RESYNCING → HEALTHY`. | OBSERVED (production) | timeline `E_recover/resynced` (`healthy_before_resync: false`, `post_resync` both `healthy`, `books` fingerprints vs `A_init`); `health_statuses_seen`. | #8 recovery behaviour — fully observed; only the disconnect **trigger** was induced. |
+| K-LB-OBS-12 | **Bug found + fixed: `WebsocketsTransport` did not release its connection handle when a connection surfaced as `TransportClosed`**, so `LiveBookConnection.reconnect()` → `connect()` raised `WebsocketsTransport.connect called while already connected`. Smallest fix (transport only, D-028): a new `_release()` clears `_conn`/`_cm`; `receive()` calls it on its `ConnectionClosed` and recv-`TimeoutError` paths, `send()` on its `ConnectionClosed` path, and `close()` delegates to it. No `OSError` broadening — a raw-socket-kill test confirms `websockets` `recv()` surfaces the drop as `ConnectionClosed`. Targeted tests: release-then-reconnect (pins the pre-fix failure gone), raw-socket-drop, and a full `LiveBookConnection` drop → reconnect → resync over the loopback server. | TESTED (offline) + exercised in this production run | `src/prediction_market_arbitrage/livebook/ws_transport.py`; `tests/test_livebook_ws_transport.py`; `docs/DECISIONS.md` D-028. | Without this, the runtime's reconnect path was broken against any real socket. |
+
+**Real-money gate reassessment (2026-09-09, live-book runtime):**
+
+- **#2 "Stable live market data" — NOW CHECKED.** The shipped runtime initialised
+  from a REST snapshot, subscribed over the authenticated production WebSocket,
+  and consumed **30 sequential `orderbook_delta` messages over ~14 s of
+  continuous consumption** with **zero** non-`APPLIED` outcomes, **zero**
+  desyncs, strictly monotone per-subscription `seq`, both feeds `HEALTHY`
+  throughout, and the book demonstrably mutating (32 fingerprint changes,
+  6 level removals; K-LB-OBS-01..06); a further 17 buffered deltas applied
+  cleanly. This is a real, stable live market-data feed through the actual code
+  path — the earlier "REST polling is not the feed" caveat is resolved.
+- **#7 "Stale-data handling" — STAYS UNCHECKED.** `LiveBookFeed.health()`
+  correctly returned `STALE` / `trading_enabled = false` from the live feed's
+  real `_last_update` (K-LB-OBS-07), but the staleness was **induced by pausing
+  consumption**, not by a naturally quiet market. What remains: observe a live
+  market crossing `max_staleness` on its own, and the `STALE → HEALTHY` recovery
+  when data resumes.
+- **#8 "Disconnect/reconnect behavior" — STAYS UNCHECKED.** The full
+  recovery cycle — detection (`TransportClosed`), `DISCONNECTED` + trading
+  disabled, `reconnect()` (first attempt), `RESYNCING`, fresh REST snapshot,
+  `HEALTHY` **only after** resync — is OBSERVED against production through the
+  runtime (K-LB-OBS-08..11), and a real transport bug was fixed (K-LB-OBS-12).
+  But the disconnect **trigger was induced by the harness** (socket dropped
+  locally), not a server-side or network drop. What remains: the same cycle from
+  an unplanned disconnect, ideally with `BackoffPolicy` retries > 0.
+- **A-028** → **OBSERVED** (K-LB-OBS-06): additive `delta_fp` application matched
+  the live feed for 34/34 checked deltas with 0 desyncs — narrow (one market,
+  one session) but real. Still not `VERIFIED`.
 
 ---
 
@@ -406,9 +475,11 @@ no networked transport implemented** — see the blocker below.
   dependency, `websockets>=13`). `connect(handshake)` opens
   `websockets.sync.client.connect(url, additional_headers=headers)`; `send` /
   `receive` / `close` map to `recv` / `send` / context-manager exit;
-  `ConnectionClosed` and recv-timeout both surface as `TransportClosed`. Server
-  Ping/Pong keepalive is handled by the library. It plugs into the unchanged
-  `LiveBookConnection`.
+  `ConnectionClosed` and recv-timeout both surface as `TransportClosed`, **and
+  clear the connection handle** (`_release()`, added 2026-09-09 — K-LB-OBS-12 /
+  D-028) so `LiveBookConnection.reconnect()` → `connect()` does not raise
+  "already connected". Server Ping/Pong keepalive is handled by the library. It
+  plugs into the unchanged `LiveBookConnection`.
 - **RSA-PSS / Ed25519 signing is still injected** (`Signer`) — the framework
   imports no `cryptography`. A caller supplies the signer for a real connection.
   A reusable Kalshi signer now exists outside the package:
@@ -424,6 +495,16 @@ no networked transport implemented** — see the blocker below.
   `livebook.kalshi_ws` decoders directly — **not** `LiveBookConnection` /
   `LiveBookFeed`, so no `HealthStatus` transition was exercised (K-WS-OBS-08).
   **Kalshi half of A-030 resolved; Polymarket US half still not verified.**
+- **Kalshi: full-runtime OBSERVED session (2026-09-09, K-LB-OBS-01..12).** A
+  later run wired one production market through
+  `LiveBookConnection` + `LiveBookFeed` + `WebsocketsTransport` + a REST
+  `SnapshotSource`: REST-snapshot init → WS subscribe → 30 sequential deltas in
+  ~10 s (0 desyncs, monotone `seq`, `HEALTHY` throughout, 34/34 additive-delta
+  checks → **A-028 OBSERVED**) → induced staleness (`STALE`) → induced socket
+  drop (`DISCONNECTED`, `TransportClosed` detected) → `reconnect()` →
+  `RESYNCING` → fresh REST snapshot → `HEALTHY`. **Gate #2 CHECKED**; #7/#8
+  unchecked (staleness and disconnect were harness-induced). Fixed a real
+  reconnect bug in `WebsocketsTransport` (K-LB-OBS-12).
 - **Polymarket US: still no live OBSERVED handshake or frame.** The transport is
   tested against a **local `websockets` server on loopback** (a real socket
   round-trip, but the local server accepts any headers). No authenticated

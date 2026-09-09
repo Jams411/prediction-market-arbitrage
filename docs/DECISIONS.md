@@ -1372,6 +1372,73 @@ still read correctly (unavailable, not an error).
 (`LegRiskStats`, `_leg_risk_stats`), `tests/test_leg_risk_events.py`,
 `tests/test_recorder.py`, `tests/test_paper_broker.py`, `tests/test_perf_report.py`.
 
+### D-028 — `WebsocketsTransport` releases its connection handle when a connection surfaces as `TransportClosed`, so the runtime's reconnect path works against a real socket
+
+**Date:** 2026-09-09
+
+**Context — the exact defect:** the first production run of the live-book
+runtime (`scripts/observe_kalshi_livebook_runtime.py`, driving the shipped
+`LiveBookConnection` + `LiveBookFeed` + `WebsocketsTransport`) crashed in
+`LiveBookConnection.reconnect()`. Sequence:
+
+1. The socket dropped; the next `LiveBookConnection.pump_one()` →
+   `WebsocketsTransport.receive()` → `websockets` `recv()` raised
+   `ConnectionClosed`, which `receive()` re-raised as `TransportClosed`.
+2. `receive()` did **not** clear `self._conn` / `self._cm` on that path — only
+   `close()` cleared them, and the manager's recovery loop
+   (`handle_disconnect()` → `reconnect()`) never calls `close()`.
+3. `reconnect()` → `connect_and_subscribe()` → `WebsocketsTransport.connect()`,
+   whose first line is `if self._conn is not None: raise LiveBookError(
+   "WebsocketsTransport.connect called while already connected")`. → crash.
+
+The `reconnect()` path over the concrete transport had never been exercised —
+the M2.1 loopback test stopped at `handle_disconnect()`.
+
+**Decision (smallest fix — transport only):**
+
+1. Add a private `WebsocketsTransport._release()` that clears `_conn` / `_cm`
+   (best-effort `cm.__exit__`, swallowing `ConnectionClosed` / `OSError` /
+   `TimeoutError` — the abrupt-drop cleanup was observed to raise
+   `TimeoutError: timed out while closing connection`). `close()` now delegates
+   to it (behaviour unchanged).
+2. `receive()` calls `_release()` on the two paths that already raised
+   `TransportClosed` — `ConnectionClosed` (the observed defect) and
+   `TimeoutError` (the class docstring already says a recv timeout means "the
+   connection is then unusable and the manager reconnects", i.e. the same
+   defect, second trigger). `send()` calls `_release()` on its `ConnectionClosed`
+   path for the same reason (`connect_and_subscribe` calls `send` right after
+   `connect`, inside the reconnect retry loop). `TimeoutError` is caught before
+   `ConnectionClosed` and keeps its distinct `recv_timeout` message.
+3. **Not** broadened: `receive()` / `send()` do **not** catch bare `OSError`.
+   An earlier draft did; a deterministic test that kills the raw socket under a
+   real loopback connection
+   (`test_abrupt_underlying_socket_drop_surfaces_as_transport_closed_and_releases`)
+   confirms `websockets` `recv()` surfaces the drop as `ConnectionClosed` (the
+   socket I/O is on its background reader thread), so `OSError` was dead code
+   beyond the observed defect and was removed.
+4. `LiveBookConnection` is **unchanged** — once a connection has surfaced as
+   `TransportClosed` the socket is unusable, so the handle must be dropped and a
+   later `connect()` allowed to open a fresh one. This is the transport half of
+   the connect → subscribe → pump → `mark_disconnected` → reconnect → REST
+   resync flow the manager already implements. No credential, execution, order,
+   balance, or fund-moving behaviour is touched.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/livebook/ws_transport.py`
+(`_release`, `_release()` calls on `ConnectionClosed` / `TimeoutError`);
+`tests/test_livebook_ws_transport.py`
+(`test_closed_connection_is_released_so_reconnect_works` — pins the pre-fix
+"already connected" failure is gone;
+`test_abrupt_underlying_socket_drop_surfaces_as_transport_closed_and_releases` —
+the raw-socket-kill path the harness uses;
+`test_live_book_connection_reconnects_and_resyncs_over_real_transport` — the full
+drop → `DISCONNECTED` → reconnect → resync → `HEALTHY` lifecycle over a real
+socket, healthy only after resync); production run
+`docs/evidence/kalshi-live/livebook-runtime/SUMMARY.json`
+(`E_recover/reconnected`, `reconnect_attempts: 0`); `docs/API_SOURCES.md`
+K-LB-OBS-12.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

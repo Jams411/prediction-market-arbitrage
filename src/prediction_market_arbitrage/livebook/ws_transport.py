@@ -75,26 +75,37 @@ class WebsocketsTransport:
         try:
             conn.send(text)
         except ConnectionClosed as exc:
+            self._release()
             raise TransportClosed(f"send after close: {exc!r}") from exc
 
     def receive(self) -> str:
         conn = self._require_conn()
         try:
             message = conn.recv(timeout=self._recv_timeout)
-        except ConnectionClosed as exc:
-            raise TransportClosed(f"connection closed: {exc!r}") from exc
         except TimeoutError as exc:
+            self._release()
             raise TransportClosed(f"no frame within recv_timeout: {exc!r}") from exc
+        except ConnectionClosed as exc:
+            self._release()
+            raise TransportClosed(f"connection closed: {exc!r}") from exc
         if isinstance(message, bytes):
             return message.decode("utf-8")
         return message
 
     def close(self) -> None:
+        self._release()
+
+    def _release(self) -> None:
+        """Drop the connection handle (idempotent). After a closed / timed-out
+        connection surfaces as :class:`TransportClosed`, the socket is unusable
+        and :class:`~.transport.LiveBookConnection` reconnects — which calls
+        :meth:`connect` again, so ``_conn`` must be cleared here or that raises
+        "already connected"."""
         cm, self._cm, self._conn = self._cm, None, None
         if cm is not None:
             try:
                 cm.__exit__(None, None, None)
-            except (ConnectionClosed, OSError):  # pragma: no cover - already gone
+            except (ConnectionClosed, OSError, TimeoutError):  # pragma: no cover - already gone
                 pass
 
     def _require_conn(self) -> ClientConnection:

@@ -174,7 +174,7 @@ Day 2 gate: real market data -> arbitrage detector -> paper broker -> positions/
 Real money remains locked until all are verified:
 
 - [ ] Official API behavior
-- [ ] Stable live market data
+- [x] Stable live market data
 - [ ] Successful paper execution
 - [ ] Fee reconciliation
 - [ ] Contract equivalence

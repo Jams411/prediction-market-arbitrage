@@ -1309,6 +1309,69 @@ no `LIVE_TRADING` change.
   change → no new tests; existing gate still green from the prior pass. Not
   committed.
 
+## 2026-09-09 — Kalshi production live-book *runtime* observation: gate #2 CHECKED; #7/#8 stay unchecked; A-028 → OBSERVED
+
+- **Goal:** advance real-money gates #2/#7/#8 by running a bounded production
+  read-only observation through the **shipped runtime**
+  (`livebook.LiveBookConnection` + `LiveBookFeed` + `WebsocketsTransport` + a
+  REST `SnapshotSource` over `KalshiMarketDataAdapter`), not the standalone WS
+  script. One market wired through; read-only market data only.
+- **New:** `scripts/observe_kalshi_livebook_runtime.py` (`--check` preflight /
+  `--observe` env-guarded). Phases: A REST-snapshot init → B WS subscribe +
+  sustained delta consumption → C staleness probe (pause consumption
+  > `max_staleness`) → D one induced socket drop + detection → E reconnect +
+  resync → F resume. Sanitised evidence
+  `docs/evidence/kalshi-live/livebook-runtime/SUMMARY.json` (phase timeline with
+  UTC timestamps, per-feed `HealthStatus`/`trading_enabled`/`last_sequence`,
+  `DeltaOutcome` tallies, per-subscription `seq` epochs, value-free book
+  fingerprints, A-028 additive check). No `/portfolio`, order, balance/position/
+  fill; `LIVE_TRADING` untouched; no Polymarket US.
+- **Bug found + fixed (D-028 / K-LB-OBS-12):** `WebsocketsTransport` did not
+  release `_conn`/`_cm` when a socket closed, so `LiveBookConnection.reconnect()`
+  → `connect()` raised "already connected" — the reconnect path was broken
+  against any real socket. Fix: `receive()`/`send()` also catch `OSError` and
+  call a new `_release()`; `close()` delegates to it. Targeted tests added
+  (`test_livebook_ws_transport.py`: release-then-reconnect; full
+  `LiveBookConnection` drop→reconnect→resync over the loopback server).
+- **OBSERVED (production, session 2026-09-09T21:04:53Z…21:05:57Z, ~64 s, market
+  `KXBTCD-…`) — K-LB-OBS-01..12 in `API_SOURCES.md`:**
+  - REST-snapshot init → both feeds `UNINITIALIZED → HEALTHY`.
+  - WS subscribe via the runtime → **30** `orderbook_delta` applied over **~14 s
+    of continuous consumption**, `delta_outcomes = {applied: 30}` (no other
+    outcome), **0** desyncs, per-subscription `seq` strictly monotone 2→16,
+    both feeds `HEALTHY` throughout; **17** more buffered deltas applied cleanly
+    later. Book fingerprint changed **32** times.
+  - **A-028:** for every APPLIED delta, `qty_after == qty_before + delta_fp`,
+    with the level removed when the sum hit 0 (**6** removals) — **34/34**
+    checked, 0 mismatches, 0 desyncs across ~51 real deltas. Raw quantities not
+    persisted. **A-028 → OBSERVED** (narrow: one market/session).
+  - **Staleness:** consumption paused 35 s → `LiveBookFeed.health()` = `STALE`,
+    `trading_enabled = false` on both feeds, from the feed's real `_last_update`.
+  - **Disconnect:** socket dropped abruptly → 17 buffered frames drained, then
+    `pump_one()` raised `TransportClosed`; `handle_disconnect()` → both feeds
+    `DISCONNECTED`, `trading_enabled = false`.
+  - **Recovery:** `reconnect()` succeeded first attempt → still `DISCONNECTED`
+    (`healthy_before_resync = false`) → `resync()`: `RESYNCING` → fresh REST
+    snapshot (fingerprints differ from init — book moved) → both feeds
+    `HEALTHY`. Full path `UNINITIALIZED→HEALTHY→STALE→DISCONNECTED→RESYNCING→HEALTHY`.
+- **Gate reassessment:**
+  - **#2 "Stable live market data" → CHECKED (ROADMAP updated).** A real,
+    stable live feed through the actual runtime: sustained `seq`-ordered delta
+    stream, 0 desyncs, `HEALTHY` throughout, book mutating. Resolves the earlier
+    "REST polling is not the feed" caveat.
+  - **#7 "Stale-data handling" → stays unchecked.** The `STALE` verdict is real
+    but was **induced by pausing consumption**, not a naturally quiet market;
+    `STALE → HEALTHY` recovery not observed.
+  - **#8 "Disconnect/reconnect behavior" → stays unchecked.** The full
+    detection → unhealthy → reconnect → resync → healthy-only-after-resync cycle
+    is OBSERVED through the runtime, but the disconnect **trigger was
+    harness-induced** (local socket drop), not a server/network drop; reconnect
+    used 0 backoff retries.
+- **Not done:** no orders, no cancel/modify, no balances/positions/fills, no
+  funds, no `LIVE_TRADING`, no credential change, no production execution
+  wiring, no Polymarket US, no broadening of signer use. Full local gate green
+  (657 tests). Not committed.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
