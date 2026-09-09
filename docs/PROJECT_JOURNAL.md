@@ -1100,6 +1100,57 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
   --all-files` all pass. Not committed — awaiting request.
 
+## 2026-09-09 — Real-money gate audit (audit only; no checkboxes changed)
+
+Reviewed all 15 unchecked `docs/ROADMAP.md` Real-money gate items against
+repository evidence. **Result: 0 / 15 legitimately checkable** under "Real money
+remains locked until all are verified." Every item needs live/production
+exchange evidence (not demo), an OBSERVED fill, an integration that does not
+exist, a manual pair review, or resolution of a Polymarket US doc conflict.
+Classification + smallest next action per item (DEMO evidence flagged as such):
+
+| # | Item | Class | Evidence | Checkable? |
+|---|------|-------|----------|-----------|
+| 1 | Official API behavior | OBSERVED (Kalshi **demo** only) / UNKNOWN (Polymarket US, prod Kalshi) | K-TR-OBS-26..33 (demo create/cancel/dup-409/reads); all P-TR-* = `VERIFIED (docs)` with open UNKNOWNs; A-038 "RESOLVED demo scope — does NOT lift the gate" | No |
+| 2 | Stable live market data | OBSERVED REST snapshots (prod+demo) / ASSUMPTION+UNKNOWN for the sustained WS feed | M1.2/M1.3 live unauth REST verification; **A-030** (no live WS handshake, loopback only), **A-028** (Kalshi delta semantics UNVERIFIED) | No |
+| 3 | Successful paper execution | TESTED (sim) / ASSUMPTION | `tests/test_paper_broker.py`; **A-003** UNVERIFIED; no live-data→engine→broker→recorder session ever run | No |
+| 4 | Fee reconciliation | VERIFIED (docs) formula / UNKNOWN reconciliation | M1.6 `arbitrage/fees.py`, A-024/A-025/A-026; ASSUMPTIONS "models do not resolve fee reconciliation"; no OBSERVED fee-vs-computed (demo produced no fill) | No |
+| 5 | Contract equivalence | TESTED (gate mechanism) / ASSUMPTION | `tests/test_market_pair_registry.py`; `registry/data/market_pairs.toml` has **zero** records; **A-001** UNVERIFIED | No |
+| 6 | Partial-fill behavior | TESTED (paper) + VERIFIED (docs both venues) / UNKNOWN OBSERVED | `test_paper_broker.py`; K-TR-08 / P-TR-06 (docs); K-TR-OBS-32 — no fill produced | No |
+| 7 | Stale-data handling | TESTED / residual UNKNOWN (live feed) | `test_livebook_state.py`, `test_failure_scenarios.py`; depends on A-028/A-030 for the real trigger | No |
+| 8 | Disconnect/reconnect | TESTED (incl. real socket on loopback) / UNKNOWN (real venue) | `test_livebook_transport.py`, `test_livebook_ws_transport.py`, `test_failure_scenarios.py`; **A-030** | No |
+| 9 | Duplicate-order prevention | TESTED (local) + OBSERVED (Kalshi **demo** 409) / UNKNOWN (Polymarket US, prod) | `IdempotencyGuard` `test_live_broker.py`; K-TR-OBS-29; **P-TR-10** doc conflict (no retail `ClOrdID` field documented) | No |
+| 10 | Position/order reconciliation | OBSERVED (Kalshi **demo**, cancelled-order path only) / UNKNOWN (filled position, Polymarket US) | K-TR-OBS-31/32/33; `live_broker.get_order`/`get_positions` raise `UnsupportedLiveOperationError` (A-037) | No |
+| 11 | Kill switch | TESTED (mechanism) / not integrated | `risk/manager.py`, `test_risk_manager.py`, A-034; `live_broker/` does **not** import `risk` — no live order path to stop | No |
+| 12 | Position limits | TESTED (mechanism) / not integrated | `risk/limits.py` `max_position`; same non-integration as #11 | No |
+| 13 | Daily loss limits | TESTED (mechanism) / not integrated + needs real PnL feed | `risk/state.py` per-UTC-day ledger; same non-integration as #11 | No |
+| 14 | Credential isolation | TESTED (types/env/redaction) / isolated trading-cred path never authenticated a call | `live_broker/credentials.py`, `test_live_broker.py`, A-037; the demo lifecycle used the market-data Keychain key, not `KalshiTradingCredentials` | No |
+| 15 | Live mode cannot activate accidentally | TESTED (comprehensively) / A-037 records it as still-blocking | `live_broker/gate.py` frozen, phrase-only, env ignores `1`/`true`; `test_live_broker.py` (39); every adapter raises `UnsupportedLiveOperationError`. **A-037 explicitly lists this item as still requiring a live run.** | No (per A-037; closest to checkable — needs a decision) |
+
+**Smallest next action per item:** 1 → prod-Kalshi + Polymarket US authenticated
+read-only capture; 2 → one authenticated live Kalshi WS connect with a real
+`Signer`, capture `orderbook_snapshot`+`orderbook_delta`+a reconnect (also
+closes 7, 8, A-030, A-028); 3 → run the live-data→M1.5→M2.4→M2.2 loop for one
+session; 4/6 → one small demo Kalshi *fill* and compare venue fee + partial-fill
+fields; 5 → D-006 manual review of one real pair → VERIFIED record; 9 → resolve
+P-TR-10, then a Polymarket US duplicate-submit observation; 10 → a demo Kalshi
+round-trip that fills, reconcile local vs `GET /portfolio/fills|positions`;
+11–13 → wire `RiskManager` into the `LiveBroker` submit path + integration tests
+(code — out of audit scope); 14 → one authenticated read-only trading call using
+`kalshi_trading_credentials_from_env`; 15 → a decision on whether the
+deterministic gate tests + `UnsupportedLiveOperationError` floor satisfy it
+(no exchange dependency), superseding A-037's claim, or define the live check.
+
+**Recommended next item: #2 (Stable live market data)** — highest leverage
+(also unblocks 7, 8 and resolves A-030 + A-028), fully read-only (no orders, no
+funds). Prerequisite: a `Signer` implementation (currently caller-supplied, not
+in the repo).
+
+No ROADMAP checkbox changed. Doc note added to `docs/API_SOURCES.md` "Real-money
+gate status" (its 2026-09-08 "no authenticated trading request on either venue"
+line predated the K-TR-OBS-26..33 demo lifecycle). No code, no network calls,
+no `LIVE_TRADING` change.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
