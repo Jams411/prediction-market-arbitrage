@@ -77,7 +77,7 @@ Gate: pytest, ruff, mypy, and CI must pass before Day 1 implementation.
 - [x] Block unverified pairs from paper/live trading
 
 ### M1.5 Arbitrage engine
-- [ ] Same-market complete-set logic — not built; the engine is buy/buy only, `IDENTICAL` pairs are deferred to execution work (`arbitrage/engine.py` docstring; D-012)
+- [x] Same-market complete-set logic
 - [x] Cross-venue YES/NO logic
 - [x] Fees
 - [x] Depth

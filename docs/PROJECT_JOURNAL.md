@@ -989,6 +989,46 @@ Use this file as the concise chronological record of milestone progress, evidenc
   no `DECISIONS` / `ASSUMPTIONS` change. `ROADMAP.md` remains authoritative;
   box-ticking is a review step and these can be reverted by review.
 
+## 2026-09-09 — M1.5 same-market complete-set arbitrage
+
+- Added `ArbitrageEngine.evaluate_complete_set(books, *, evaluation_time,
+  requested_quantity=None)` → new `CompleteSetEvaluation` (exported from
+  `arbitrage/__init__.py`). Branch `feat/m1.5-complete-set` off `origin/main`
+  (M1.5..M3.4 + roadmap reconcile merged). **No new dependency.**
+- Buys one unit of **every** mutually exclusive outcome of one market on one
+  venue; a matched set pays exactly `executable_quantity` at settlement, so
+  `gross_edge = size − Σ acquisition_cost`, `net_edge = size − (gross +
+  fees + execution_buffer)`, opportunity iff `net_edge > 0` (exact break-even
+  is not one). Reuses the `evaluate` conventions verbatim: exact `Decimal`,
+  `_walk_asks` depth-walking, `executable_quantity = min(ask depth over every
+  outcome, max_quantity, requested_quantity)`, injected `FeeModel` summed per
+  outcome, `max_book_age` / `max_cross_book_skew` (max−min timestamp),
+  `require_full_fill`.
+- **No registry** — there is no equivalence question for the outcomes of one
+  market. The engine verifies only same venue+market, distinct contracts, ≥ 2
+  books; "complete + mutually exclusive" is a caller assertion (**A-039**).
+  `CompleteSetEvaluation.to_opportunity()` maps a binary set to the domain
+  `Opportunity`; a categorical (> 2) set raises.
+- Records **D-025** (registry-free method, not a `MarketPairRecord` extension;
+  D-012's "does not implement complete-set" superseded in part); **A-039**;
+  `docs/ARBITRAGE_METHODOLOGY.md` §1a. `docs/ROADMAP.md` M1.5 "Same-market
+  complete-set logic" ticked (M1.5 now 8/9; "Slippage reserve" still the only
+  open M1.5 item — not implemented here).
+- Not implemented: slippage reserve, new venue adapters, live execution,
+  recorder / reporting changes, Polymarket US changes. The cross-venue
+  `evaluate` path is untouched.
+- Tests: `tests/test_arbitrage_complete_set.py` (30) + an `outcome_book`
+  builder in `tests/arbitrage_support.py` — profitable / breakeven /
+  unprofitable / insufficient-depth (capped + `require_full_fill` reject) /
+  stale-data (+ future-stamp + skew), depth-weighted multi-level cost,
+  `max_quantity` cap, fees summed across outcomes, execution buffer, 3-way
+  categorical set, `to_opportunity` (binary + categorical-raises +
+  no-opportunity-raises), misuse (< 2 books / non-OrderBook / mixed venue /
+  mixed market / duplicate outcome / naive time / non-positive + float
+  requested qty), exact Decimal precision. Suite 556 → 586.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting request.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
