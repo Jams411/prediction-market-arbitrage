@@ -1,0 +1,42 @@
+{
+  "body": {
+    "order": {
+      "action": "<redacted>",
+      "book_side": "<redacted>",
+      "client_order_id": "<redacted>",
+      "created_time": "<redacted>",
+      "exchange_index": "<number>",
+      "fill_count_fp": "<redacted>",
+      "initial_count_fp": "<redacted>",
+      "last_update_time": "<redacted>",
+      "maker_fees_dollars": "<redacted>",
+      "maker_fill_cost_dollars": "<redacted>",
+      "no_price_dollars": "<redacted>",
+      "order_id": "<redacted>",
+      "outcome_side": "<redacted>",
+      "remaining_count_fp": "<redacted>",
+      "self_trade_prevention_type": "<redacted>",
+      "side": "<redacted>",
+      "status": "<redacted>",
+      "subaccount_number": "<number>",
+      "taker_fees_dollars": "<redacted>",
+      "taker_fill_cost_dollars": "<redacted>",
+      "ticker": "<redacted>",
+      "type": "<redacted>",
+      "user_id": "<redacted>",
+      "yes_price_dollars": "<redacted>"
+    }
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 09 Sep 2026 01:25:15 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/orders/{order_id}",
+    "query": {
+      "market_ticker": "KXMVECROSSCATEGORY-SHARD1-S2026030E5B5B57A-4D92EB7E9AA"
+    }
+  },
+  "status": 200
+}

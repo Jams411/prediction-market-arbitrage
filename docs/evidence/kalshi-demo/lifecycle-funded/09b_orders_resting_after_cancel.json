@@ -1,0 +1,18 @@
+{
+  "body": {
+    "cursor": "",
+    "orders": []
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 09 Sep 2026 01:25:20 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/orders",
+    "query": {
+      "status": "resting"
+    }
+  },
+  "status": 200
+}
