@@ -13,9 +13,20 @@ Boundaries (see ``docs/ARBITRAGE_METHODOLOGY.md`` and D-012):
   clock time. Every timestamp is injected.
 - It does **not** hardcode real venue fee schedules — the fee model is injected.
 
-Scope: M1.5 implements the **complementary-outcome buy/buy** model only — buy one
-unit of each side and let the $1 settlement cover the cost. Only
-``OutcomeRelation.COMPLEMENTARY`` records are evaluated.
+Scope: M1.5 implements two **buy-only** arbitrage models:
+
+- **Cross-venue complementary buy/buy** — :meth:`ArbitrageEngine.evaluate`: buy
+  one unit of each complementary side across two venues and let the $1
+  settlement cover the combined cost. Only ``OutcomeRelation.COMPLEMENTARY``
+  registry records are evaluated.
+- **Same-market complete-set buy** — :meth:`ArbitrageEngine.evaluate_complete_set`:
+  buy one unit of **every** mutually exclusive outcome of a single market on a
+  single venue. Exactly one outcome settles to 1, so a matched set pays exactly
+  1 per unit; if the set costs less than 1 after fees and the execution buffer
+  it is a locked-in edge. There is no equivalence question (the outcomes belong
+  to one market), so this path takes ``OrderBook``\\ s directly and uses **no**
+  registry — the caller asserts, by which books it supplies, that they are the
+  market's complete and mutually exclusive outcome set (A-039).
 
 ``IDENTICAL`` pairs are **not** claimed to be un-arbitrageable — an identical
 contract quoted more cheaply on one venue than another is a real edge. But
@@ -191,6 +202,93 @@ class OpportunityEvaluation:
         )
         return Opportunity(
             id=f"{self.pair_id}@{self.evaluation_time.isoformat()}",
+            pair=pair,
+            quantity=self.executable_quantity,
+            edge=self.net_edge_per_unit,
+            timestamp=self.evaluation_time,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CompleteSetEvaluation:
+    """Full, auditable result of one same-market complete-set evaluation.
+
+    Same exact-Decimal discipline as :class:`OpportunityEvaluation`: every
+    cost / edge / profit total is exact; the ``*_per_unit`` values are derived
+    (a division) and may round to the active Decimal context precision.
+
+    This is a **separate** type from :class:`OpportunityEvaluation` on purpose —
+    it does **not** subclass it. Downstream components accept only
+    ``OpportunityEvaluation`` (``recorder.record_opportunity`` isinstance-checks
+    it and raises; ``risk.RiskManager`` / ``dashboard.build_dashboard`` are
+    typed to it, enforced by the mypy gate), so a complete-set result — whose
+    "guaranteed 1 at settlement" premise rests on the caller's A-039 assertion,
+    not a registry gate — cannot be silently recorded, risk-scored, or
+    displayed as if it were a registry-verified opportunity. Nothing consumes
+    either evaluation type or the :class:`Opportunity` from ``to_opportunity``
+    to produce an order; execution needs a hand-built
+    ``OrderRequest`` / ``LiveOrderRequest``.
+    """
+
+    market_id: str
+    venue: str
+    evaluation_time: datetime
+    legs: tuple[LegEvaluation, ...]
+    outcome_contracts: tuple[Contract, ...]
+    requested_quantity: Decimal | None
+    executable_quantity: Decimal
+    depth_capped: bool
+    gross_total_cost: Decimal
+    gross_edge: Decimal
+    fees: Decimal
+    execution_buffer: Decimal
+    net_total_cost: Decimal
+    net_edge: Decimal
+    has_opportunity: bool
+    rejection_reason: str
+
+    @property
+    def outcome_count(self) -> int:
+        return len(self.legs)
+
+    @property
+    def expected_total_profit(self) -> Decimal:
+        """``net_edge`` when an opportunity exists, else ``0``."""
+        return self.net_edge if self.has_opportunity else _ZERO
+
+    @property
+    def net_edge_per_unit(self) -> Decimal:
+        if self.executable_quantity <= _ZERO:
+            return _ZERO
+        return self.net_edge / self.executable_quantity
+
+    @property
+    def gross_edge_per_unit(self) -> Decimal:
+        if self.executable_quantity <= _ZERO:
+            return _ZERO
+        return self.gross_edge / self.executable_quantity
+
+    def to_opportunity(self) -> Opportunity:
+        """Build the minimal venue-neutral :class:`Opportunity` container.
+
+        Only defined for a **binary** complete set (exactly two outcomes) — the
+        domain :class:`MarketPair` holds exactly two contracts. A categorical
+        (>2 outcome) set has no ``MarketPair`` representation; convert it via a
+        future domain type instead.
+        """
+        if not self.has_opportunity:
+            raise ArbitrageError(
+                f"{self.market_id}: no opportunity to convert ({self.rejection_reason})"
+            )
+        if self.outcome_count != 2:
+            raise ArbitrageError(
+                f"{self.market_id}: to_opportunity() needs exactly 2 outcomes, "
+                f"got {self.outcome_count}"
+            )
+        left, right = self.outcome_contracts
+        pair = MarketPair(id=self.market_id, left=left, right=right)
+        return Opportunity(
+            id=f"{self.market_id}@{self.evaluation_time.isoformat()}",
             pair=pair,
             quantity=self.executable_quantity,
             edge=self.net_edge_per_unit,
@@ -470,6 +568,218 @@ class ArbitrageEngine:
                 )
         return ""
 
+    # ------------------------------------------------------------------ #
+    # Same-market complete-set arbitrage
+    # ------------------------------------------------------------------ #
+
+    def evaluate_complete_set(
+        self,
+        books: Sequence[OrderBook],
+        *,
+        evaluation_time: datetime,
+        requested_quantity: Decimal | None = None,
+    ) -> CompleteSetEvaluation:
+        """Evaluate buying one unit of **every** outcome of a single market.
+
+        ``books`` must be the order books for two or more distinct outcomes of
+        the **same** market on the **same** venue. The caller asserts, by which
+        books it passes, that these are the market's *complete* and *mutually
+        exclusive* outcome set (A-039) — the engine verifies only that the books
+        share a venue+market and name distinct contracts. A matched set then
+        pays exactly ``executable_quantity`` at settlement, so the same
+        gross/net-edge arithmetic as :meth:`evaluate` applies (fees +
+        ``execution_buffer_per_unit`` are the only subtracted frictions; exact
+        break-even is not an opportunity).
+
+        Raises :class:`ArbitrageError` on misuse (fewer than two books, a
+        non-``OrderBook``, a mixed venue/market, a duplicate contract, a bad
+        ``evaluation_time`` or ``requested_quantity``). Runtime conditions
+        (an empty ask side, stale books, insufficient depth under
+        ``require_full_fill``, a non-positive edge) are returned as a
+        ``has_opportunity = False`` result with a reason.
+        """
+        # 1. Shape validation — misuse raises.
+        books = tuple(books)
+        if len(books) < 2:
+            raise ArbitrageError(
+                "evaluate_complete_set needs at least two outcome books"
+            )
+        for index, book in enumerate(books):
+            if not isinstance(book, OrderBook):
+                raise ArbitrageError(f"books[{index}] must be an OrderBook")
+        _require_aware(evaluation_time, "evaluation_time")
+        if requested_quantity is not None:
+            if (
+                not isinstance(requested_quantity, Decimal)
+                or not requested_quantity.is_finite()
+            ):
+                raise ArbitrageError("requested_quantity must be a finite Decimal or None")
+            if requested_quantity <= _ZERO:
+                raise ArbitrageError("requested_quantity must be > 0 when given")
+
+        venues = {book.contract.market.venue.id for book in books}
+        markets = {book.contract.market.id for book in books}
+        if len(venues) != 1 or len(markets) != 1:
+            raise ArbitrageError(
+                "evaluate_complete_set books must all be the same venue and market "
+                f"(got venues {sorted(venues)}, markets {sorted(markets)})"
+            )
+        contract_ids = [book.contract.id for book in books]
+        if len(set(contract_ids)) != len(contract_ids):
+            raise ArbitrageError(
+                f"evaluate_complete_set books must be distinct outcomes (got {contract_ids})"
+            )
+
+        venue = next(iter(venues))
+        market_id = next(iter(markets))
+        outcome_contracts = tuple(book.contract for book in books)
+        shells = tuple(_leg_shell_from_book(book) for book in books)
+
+        def _reject(reason: str) -> CompleteSetEvaluation:
+            return CompleteSetEvaluation(
+                market_id=market_id,
+                venue=venue,
+                evaluation_time=evaluation_time,
+                legs=shells,
+                outcome_contracts=outcome_contracts,
+                requested_quantity=requested_quantity,
+                executable_quantity=_ZERO,
+                depth_capped=False,
+                gross_total_cost=_ZERO,
+                gross_edge=_ZERO,
+                fees=_ZERO,
+                execution_buffer=_ZERO,
+                net_total_cost=_ZERO,
+                net_edge=_ZERO,
+                has_opportunity=False,
+                rejection_reason=reason,
+            )
+
+        # 2. Freshness (optional, injected timestamps only).
+        stale = self._complete_set_freshness(books, evaluation_time)
+        if stale:
+            return _reject(stale)
+
+        # 3. Every outcome must have ask liquidity.
+        for book in books:
+            if not book.asks:
+                return _reject(
+                    f"outcome {book.contract.outcome!r} has an empty ask side"
+                )
+
+        # 4. Executable size: min ask depth across every outcome, then caps.
+        depths = [shell.available_ask_depth for shell in shells]
+        size = min(depths)
+        if self._config.max_quantity is not None:
+            size = min(size, self._config.max_quantity)
+
+        depth_capped = False
+        if requested_quantity is not None:
+            if requested_quantity > size:
+                depth_capped = True
+                if self._config.require_full_fill:
+                    return _reject(
+                        f"insufficient depth: requested {requested_quantity}, "
+                        f"executable at most {size}"
+                    )
+            size = min(requested_quantity, size)
+
+        if size <= _ZERO:
+            return _reject("zero executable quantity")
+
+        # 5. Walk each outcome's ask side for `size` units.
+        legs: list[LegEvaluation] = []
+        fees_total = _ZERO
+        gross_total_cost = _ZERO
+        for book in books:
+            fills, cost, filled = _walk_asks(book.asks, size)
+            if filled != size:  # pragma: no cover - size <= min(depths) by construction
+                return _reject(
+                    f"internal: could not fill {size} on outcome "
+                    f"{book.contract.outcome!r} (filled {filled})"
+                )
+            leg_venue = book.contract.market.venue.id
+            fee = self._config.fee_model.fee(
+                venue=leg_venue, fills=[(f.price, f.quantity) for f in fills]
+            )
+            if not isinstance(fee, Decimal) or not fee.is_finite() or fee < _ZERO:
+                raise ArbitrageError(
+                    "fee model returned a non-Decimal, negative, or non-finite value"
+                )
+            fees_total += fee
+            gross_total_cost += cost
+            legs.append(
+                LegEvaluation(
+                    venue=leg_venue,
+                    market_id=book.contract.market.id,
+                    outcome=book.contract.outcome,
+                    contract_id=book.contract.id,
+                    book_timestamp=book.timestamp,
+                    available_ask_depth=_dsum([lvl.quantity for lvl in book.asks]),
+                    fills=fills,
+                    filled_quantity=filled,
+                    acquisition_cost=cost,
+                )
+            )
+
+        # 6. Economics — exact Decimal, no internal rounding. One matched set of
+        #    every outcome pays exactly `size` at settlement.
+        execution_buffer = self._config.execution_buffer_per_unit * size
+        gross_edge = size - gross_total_cost
+        net_total_cost = gross_total_cost + fees_total + execution_buffer
+        net_edge = size - net_total_cost
+
+        has_opportunity = net_edge > _ZERO
+        if has_opportunity:
+            reason = ""
+        elif net_edge == _ZERO:
+            reason = "net edge is exactly zero (break-even is not an opportunity)"
+        else:
+            reason = "net edge is negative after fees and execution buffer"
+
+        return CompleteSetEvaluation(
+            market_id=market_id,
+            venue=venue,
+            evaluation_time=evaluation_time,
+            legs=tuple(legs),
+            outcome_contracts=outcome_contracts,
+            requested_quantity=requested_quantity,
+            executable_quantity=size,
+            depth_capped=depth_capped,
+            gross_total_cost=gross_total_cost,
+            gross_edge=gross_edge,
+            fees=fees_total,
+            execution_buffer=execution_buffer,
+            net_total_cost=net_total_cost,
+            net_edge=net_edge,
+            has_opportunity=has_opportunity,
+            rejection_reason=reason,
+        )
+
+    def _complete_set_freshness(
+        self, books: Sequence[OrderBook], evaluation_time: datetime
+    ) -> str:
+        config = self._config
+        if config.max_book_age is not None:
+            for book in books:
+                age = evaluation_time - book.timestamp
+                if age < timedelta(0):
+                    return (
+                        f"outcome {book.contract.outcome!r} timestamp is after "
+                        "evaluation_time"
+                    )
+                if age > config.max_book_age:
+                    return (
+                        f"outcome {book.contract.outcome!r} is stale: age {age} "
+                        f"exceeds max {config.max_book_age}"
+                    )
+        if config.max_cross_book_skew is not None:
+            stamps = [book.timestamp for book in books]
+            skew = max(stamps) - min(stamps)
+            if skew > config.max_cross_book_skew:
+                return f"cross-book skew {skew} exceeds max {config.max_cross_book_skew}"
+        return ""
+
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -512,6 +822,22 @@ def _leg_shell(book: OrderBook, leg: VenueLeg) -> LegEvaluation:
         market_id=leg.market_id,
         outcome=leg.outcome,
         contract_id=book.contract.id,
+        book_timestamp=book.timestamp,
+        available_ask_depth=_dsum([level.quantity for level in book.asks]),
+        fills=(),
+        filled_quantity=_ZERO,
+        acquisition_cost=_ZERO,
+    )
+
+
+def _leg_shell_from_book(book: OrderBook) -> LegEvaluation:
+    """A no-fill leg evaluation derived from a book alone (complete-set path)."""
+    contract = book.contract
+    return LegEvaluation(
+        venue=contract.market.venue.id,
+        market_id=contract.market.id,
+        outcome=contract.outcome,
+        contract_id=contract.id,
         book_timestamp=book.timestamp,
         available_ask_depth=_dsum([level.quantity for level in book.asks]),
         fills=(),
