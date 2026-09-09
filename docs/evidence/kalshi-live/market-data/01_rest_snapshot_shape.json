@@ -1,0 +1,29 @@
+{
+  "body": {
+    "orderbook_fp": {
+      "no_dollars": [
+        [
+          "<redacted>",
+          "<redacted>"
+        ],
+        [
+          "<redacted>",
+          "<redacted>"
+        ],
+        "<...>"
+      ],
+      "yes_dollars": []
+    }
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 09 Sep 2026 07:28:24 GMT"
+  },
+  "no_levels": 29,
+  "request": {
+    "method": "GET",
+    "path": "/markets/{ticker}/orderbook"
+  },
+  "status": 200,
+  "yes_levels": 0
+}

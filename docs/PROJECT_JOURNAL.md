@@ -1112,7 +1112,7 @@ Classification + smallest next action per item (DEMO evidence flagged as such):
 | # | Item | Class | Evidence | Checkable? |
 |---|------|-------|----------|-----------|
 | 1 | Official API behavior | OBSERVED (Kalshi **demo** only) / UNKNOWN (Polymarket US, prod Kalshi) | K-TR-OBS-26..33 (demo create/cancel/dup-409/reads); all P-TR-* = `VERIFIED (docs)` with open UNKNOWNs; A-038 "RESOLVED demo scope — does NOT lift the gate" | No |
-| 2 | Stable live market data | OBSERVED REST snapshots (prod+demo) / ASSUMPTION+UNKNOWN for the sustained WS feed | M1.2/M1.3 live unauth REST verification; **A-030** (no live WS handshake, loopback only), **A-028** (Kalshi delta semantics UNVERIFIED) | No |
+| 2 | Stable live market data | OBSERVED production REST (snapshot init + a 5-min sustained live session, K-MD-OBS-01..03, 2026-09-09) / UNKNOWN for the live WS feed | `scripts/observe_kalshi_prod_market_data.py`, `docs/evidence/kalshi-live/market-data/`; **A-030** (prod WS needs auth — K-WS-01 — no prod credential; loopback only), **A-028** (Kalshi delta semantics UNVERIFIED) | No — REST half only; the stable-feed core is unverified |
 | 3 | Successful paper execution | TESTED (sim) / ASSUMPTION | `tests/test_paper_broker.py`; **A-003** UNVERIFIED; no live-data→engine→broker→recorder session ever run | No |
 | 4 | Fee reconciliation | VERIFIED (docs) formula / UNKNOWN reconciliation | M1.6 `arbitrage/fees.py`, A-024/A-025/A-026; ASSUMPTIONS "models do not resolve fee reconciliation"; no OBSERVED fee-vs-computed (demo produced no fill) | No |
 | 5 | Contract equivalence | TESTED (gate mechanism) / ASSUMPTION | `tests/test_market_pair_registry.py`; `registry/data/market_pairs.toml` has **zero** records; **A-001** UNVERIFIED | No |
@@ -1150,6 +1150,47 @@ No ROADMAP checkbox changed. Doc note added to `docs/API_SOURCES.md` "Real-money
 gate status" (its 2026-09-08 "no authenticated trading request on either venue"
 line predated the K-TR-OBS-26..33 demo lifecycle). No code, no network calls,
 no `LIVE_TRADING` change.
+
+## 2026-09-09 — Real-money gate #2 attempt: production live market data (REST only; item stays unchecked)
+
+- **Blocker/conflict surfaced first:** the task asked for a bounded live
+  **production** market-data session covering WebSocket connect / message
+  receipt / `seq` handling / disconnect+reconnect. Repository evidence
+  **K-WS-01** says Kalshi's production market-data WS requires an authenticated
+  handshake (public channels included); there is **no production Kalshi
+  credential** in this environment (only the demo key), and the task forbids
+  creating credentials, substituting demo for production, and implementing a
+  Signer for a non-required path. So the WS half could not be done.
+- **What was done (smallest safe available path):** new
+  `scripts/observe_kalshi_prod_market_data.py` — unauthenticated, read-only
+  production REST polling (K-09 public). One bounded session: pick an active
+  market from `KXBTCD`/`KXBTC`/`KXETHD` by observed two-sided depth, then poll
+  `GET /markets/{ticker}/orderbook` + `GET /markets/{ticker}` every 6 s for
+  300 s. Sanitised evidence in `docs/evidence/kalshi-live/market-data/`
+  (SUMMARY + a structure-only orderbook sample — every price/size → a token).
+- **OBSERVED (production):** `KXBTCD-26SEP0904-T84299.99`, 44 polls / 300.2 s
+  (`2026-09-09T07:28:05Z…07:33:05Z`), HTTP-status histogram `{200: 44}`,
+  market `status` `"active"` throughout, **8 distinct book states / 7 changes**
+  (max ~64 s between changes) → a real sustained session with a live book, not
+  a smoke test. REST snapshot init returns the documented `orderbook_fp` shape
+  (K-05/K-06). A REST-level unreachable-host probe raised `URLError`; the next
+  real GET returned 200 (recorded as K-MD-OBS-03, explicitly **not** a WS
+  reconnect). Rows K-MD-OBS-01..04 in `docs/API_SOURCES.md`.
+- **NOT verified:** WS connection, real `orderbook_snapshot`/`orderbook_delta`
+  receipt, per-subscription `seq` / snapshot-then-delta ordering, stream
+  disconnect detection, reconnect + `get_snapshot` resync, `LiveBookFeed`
+  `HealthStatus` transitions across a reconnect. **A-030 / A-028 stay
+  UNVERIFIED.**
+- **Gate impact:** #2 "Stable live market data" stays **unchecked** — the
+  stable-**feed** core is unverified; REST polling is not the feed the M2.1
+  code or the gate item concern. #7 (stale-data handling) and #8
+  (disconnect/reconnect) are **not** advanced — both need the WS reconnect
+  path. Recommended next: a production Kalshi API key + an RSA-PSS signer, then
+  one authenticated `wss://external-api-ws.kalshi.com/trade-api/ws/v2` session.
+- No orders, no funds, no balances/positions/fills (unauthenticated), no
+  `LIVE_TRADING`, no credential change, no Polymarket US, no risk/execution
+  code. Tests: `tests/test_observe_kalshi_prod_market_data.py` (4, offline —
+  the sanitiser / book-parse helpers). Full gate green. Not committed.
 
 ## Journal rules
 
