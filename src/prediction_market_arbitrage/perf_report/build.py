@@ -16,6 +16,7 @@ from decimal import Decimal
 from prediction_market_arbitrage.recorder.models import PNL_SCOPES
 from prediction_market_arbitrage.replay import (
     RecordedFill,
+    RecordedLegRiskEvent,
     RecordedOpportunity,
     RecordedOrderBook,
     RecordedOrderEvent,
@@ -63,7 +64,16 @@ def build_report(
     depth_stats = _depth_stats(order_books)
     pnl_stats = _pnl_stats(pnl_rows, pnl_scope, pnl_scope_id)
 
-    unavailable: list[str] = ["leg_risk_events (recorder has no leg-risk table)"]
+    unavailable: list[str] = []
+    if session.has_leg_risk_stream():
+        leg_risk_stats = _leg_risk_stats(list(session.leg_risk_events()))
+    else:
+        leg_risk_stats = LegRiskStats(
+            note="this recording's database predates the leg_risk_events table"
+        )
+        unavailable.append(
+            "leg-risk events (recording predates the leg_risk_events table)"
+        )
     if opp_stats.positive_edge == 0:
         unavailable.append("mean/median net edge (no positive-edge opportunities recorded)")
     if duration_stats.episodes_with_duration == 0:
@@ -81,8 +91,32 @@ def build_report(
         trades=trade_stats,
         depth=depth_stats,
         pnl=pnl_stats,
-        leg_risk=LegRiskStats(),
+        leg_risk=leg_risk_stats,
         unavailable=tuple(unavailable),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Leg-risk events: recorder-backed one-legged exposure
+# --------------------------------------------------------------------------- #
+
+
+def _leg_risk_stats(events: list[RecordedLegRiskEvent]) -> LegRiskStats:
+    """Deterministic aggregation of recorded one-legged-exposure events. A
+    recording with the table but no rows returns ``recorded=True, events=0``
+    (a real zero — both legs always filled)."""
+    pairs = {(e.order_a_id, e.order_b_id) for e in events}
+    abs_unhedged = [abs(e.unhedged_quantity) for e in events]
+    notionals = [e.unhedged_notional for e in events if e.unhedged_notional is not None]
+    return LegRiskStats(
+        recorded=True,
+        events=len(events),
+        temporary_events=sum(1 for e in events if e.temporary),
+        unresolved_events=sum(1 for e in events if e.unresolved),
+        order_pairs_affected=len(pairs),
+        max_abs_unhedged_quantity=max(abs_unhedged) if abs_unhedged else None,
+        unhedged_notional=Stats.of(notionals),
+        note="",
     )
 
 

@@ -1060,6 +1060,46 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
   --all-files` all pass. Not committed — awaiting request.
 
+## 2026-09-09 — M3.3 recorder-backed leg-risk events (last M3.3 item)
+
+- Branch `feat/m3.3-leg-risk-events` off `origin/main` (M1.5 slippage #28
+  merged). **No new dependency; recorder not redesigned.**
+- **Recorder** — new append-only `leg_risk_events` table + `seq_leg_risk_events`,
+  a `LegRiskEventRow` value-object, and `Recorder.record_leg_risk_event`.
+  `LegRiskEventRow` **fails closed** on `unhedged_quantity == 0` (a balanced
+  measurement is not an event — the metric can't be padded with synthetic
+  zeros). `SCHEMA_VERSION` stays **1**: every table is `CREATE TABLE IF NOT
+  EXISTS`, so an older recording re-opened by the new build additively gains
+  the table; the version tracks existing tables' column shape, unchanged
+  (D-027).
+- **Paper broker** — `LegRiskSnapshot.is_leg_risk_event` /
+  `to_leg_risk_event_row()` bridge the existing on-demand `leg_risk(a, b, …)`
+  measurement to the recorder row. Dependency stays paper_broker → recorder.
+- **Replay** — `RecordedLegRiskEvent`, `ReplaySession.leg_risk_events()` (exact
+  `Decimal` + UTC round-trip), `has_leg_risk_stream()`, a `leg_risk` timeline
+  kind + `counts()` entry. A recording whose DB predates the table →
+  `has_leg_risk_stream()` False, empty stream, `counts()['leg_risk'] == 0`.
+- **perf_report** — `LegRiskStats` gains `events` / `temporary_events` /
+  `unresolved_events` / `order_pairs_affected` / `max_abs_unhedged_quantity` /
+  `unhedged_notional` (`Stats` over priced events); `build_report` aggregates
+  `session.leg_risk_events()` when the stream exists, else keeps the
+  "unavailable, not 0" behaviour. `render_text` prints the LEG RISK section.
+- Records **D-027**; supersedes D-022's "leg-risk unavailable" and A-036's "not
+  persisted" for recordings made by this build. `docs/ROADMAP.md` M3.3
+  "Leg-risk events" ticked → **M3.3 is now 8/8 complete.**
+- Not touched: live execution, `LIVE_TRADING`, venue adapters, Polymarket US,
+  M1.5. Recorder additive only (no column change to any existing table, no
+  migration).
+- Tests: `tests/test_leg_risk_events.py` (new, 5 — persist → replay exact
+  Decimal/UTC → timeline → perf aggregation → determinism → legacy-DB
+  unavailable path), `tests/test_paper_broker.py` +3 (no event when both fill;
+  temporary exposure + row conversion; unresolved/both-terminal),
+  `tests/test_recorder.py` +4 (exact persist; NULL optionals; non-row reject;
+  zero-unhedged reject), `tests/test_perf_report.py` 2 updated (leg-risk zero
+  is now a real 0 with the table present). Suite 603 → 615.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting request.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

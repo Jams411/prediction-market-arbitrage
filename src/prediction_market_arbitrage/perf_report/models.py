@@ -126,15 +126,26 @@ class PnlStats:
 
 @dataclass(frozen=True, slots=True)
 class LegRiskStats:
-    """Leg-risk events are **not** persisted by the M2.2 recorder (no table),
-    so this is always ``recorded = False`` — reported as unavailable, not as
-    ``0`` events."""
+    """One-legged-exposure events recorded during the paper session
+    (``leg_risk_events``). ``recorded`` is ``False`` — and every count stays
+    ``0`` with :attr:`note` set — only when the recording's database predates
+    the leg-risk table; a modern recording with no exposure reports
+    ``recorded = True`` and ``events = 0`` (a real zero)."""
 
     recorded: bool = False
-    note: str = (
-        "the M2.2 recorder has no leg-risk table; leg-risk events are not "
-        "persisted and cannot be reported from a recording"
+    events: int = 0
+    #: events where a leg is still working — the imbalance may yet resolve
+    temporary_events: int = 0
+    #: events where both orders are terminal — the one-leg imbalance is permanent
+    unresolved_events: int = 0
+    #: distinct ``(order_a_id, order_b_id)`` pairs that had any exposure
+    order_pairs_affected: int = 0
+    max_abs_unhedged_quantity: Decimal | None = None
+    #: over the events that carried a priced gap (``unhedged_notional`` not None)
+    unhedged_notional: Stats = field(
+        default_factory=lambda: Stats(count=0, mean=None, median=None, minimum=None, maximum=None)
     )
+    note: str = ""
 
 
 @dataclass(frozen=True, slots=True)

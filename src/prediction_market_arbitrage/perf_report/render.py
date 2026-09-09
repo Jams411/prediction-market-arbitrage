@@ -105,11 +105,24 @@ def render_text(report: PerfReport) -> str:
             f"  max drawdown:    {p.max_drawdown}",
         ]
 
-    lines += [
-        "",
-        "LEG RISK",
-        f"  {_NA} — {report.leg_risk.note}",
-    ]
+    lr = report.leg_risk
+    lines += ["", "LEG RISK  (one-legged exposure events)"]
+    if not lr.recorded:
+        lines.append(f"  {_NA} — {lr.note}")
+    else:
+        max_unhedged = (
+            lr.max_abs_unhedged_quantity
+            if lr.max_abs_unhedged_quantity is not None
+            else _NA
+        )
+        lines += [
+            f"  events:              {lr.events}",
+            f"  temporary:           {lr.temporary_events}",
+            f"  unresolved:          {lr.unresolved_events}",
+            f"  order pairs affected: {lr.order_pairs_affected}",
+            f"  max |unhedged qty|:  {max_unhedged}",
+            f"  unhedged notional:   {_stats(lr.unhedged_notional)}",
+        ]
 
     lines += ["", "UNAVAILABLE / NOT RECORDED"]
     if report.unavailable:

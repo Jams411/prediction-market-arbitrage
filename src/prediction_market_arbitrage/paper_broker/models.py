@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from prediction_market_arbitrage.recorder import FillRow, OrderEventRow
+from prediction_market_arbitrage.recorder import FillRow, LegRiskEventRow, OrderEventRow
 
 from .errors import PaperBrokerError
 
@@ -224,3 +224,31 @@ class LegRiskSnapshot:
     hedge_completion_price: Decimal | None
     unhedged_notional: Decimal | None
     both_terminal: bool = field(default=False)
+
+    @property
+    def is_leg_risk_event(self) -> bool:
+        """True when there is real one-legged exposure to record
+        (``unhedged_quantity != 0``). A balanced measurement is *not* an event."""
+        return self.unhedged_quantity != _ZERO
+
+    def to_leg_risk_event_row(self) -> LegRiskEventRow:
+        """The recorder row for this exposure. Raises ``PaperBrokerError`` when
+        there is nothing to record (``unhedged_quantity == 0``) — the caller
+        should gate on :attr:`is_leg_risk_event` first."""
+        if not self.is_leg_risk_event:
+            raise PaperBrokerError(
+                "to_leg_risk_event_row: unhedged_quantity is 0 — no leg-risk event"
+            )
+        return LegRiskEventRow(
+            order_a_id=self.order_a_id,
+            order_b_id=self.order_b_id,
+            a_filled_quantity=self.a_filled_quantity,
+            b_filled_quantity=self.b_filled_quantity,
+            unhedged_quantity=self.unhedged_quantity,
+            a_average_price=self.a_average_price,
+            b_average_price=self.b_average_price,
+            both_terminal=self.both_terminal,
+            as_of=self.as_of,
+            hedge_completion_price=self.hedge_completion_price,
+            unhedged_notional=self.unhedged_notional,
+        )
