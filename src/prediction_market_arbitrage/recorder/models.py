@@ -117,3 +117,54 @@ class PnlRow:
         dec_text(self.unrealized, field="PnlRow.unrealized")
         dec_text(self.fees, field="PnlRow.fees")
         utc_naive(self.as_of, field="PnlRow.as_of")
+
+
+@dataclass(frozen=True, slots=True)
+class LegRiskEventRow:
+    """One observed one-legged exposure between two orders that should fill
+    together — the persistable shape of a paper-broker ``LegRiskSnapshot``.
+
+    Recorded **only** when there is real exposure: ``unhedged_quantity`` (=
+    ``a_filled_quantity - b_filled_quantity``, signed) must be non-zero, else
+    ``__post_init__`` raises. ``both_terminal`` distinguishes a *temporary*
+    exposure (``False`` — a leg is still working and may yet fill) from an
+    *unresolved* one (``True`` — both orders are terminal, so the imbalance is
+    permanent). ``hedge_completion_price`` / ``unhedged_notional`` are ``None``
+    when the measurement was taken without a book to price the gap.
+    """
+
+    order_a_id: str
+    order_b_id: str
+    a_filled_quantity: Decimal
+    b_filled_quantity: Decimal
+    unhedged_quantity: Decimal
+    a_average_price: Decimal
+    b_average_price: Decimal
+    both_terminal: bool
+    as_of: datetime
+    hedge_completion_price: Decimal | None = None
+    unhedged_notional: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        require_text(self.order_a_id, field="LegRiskEventRow.order_a_id")
+        require_text(self.order_b_id, field="LegRiskEventRow.order_b_id")
+        for name in (
+            "a_filled_quantity",
+            "b_filled_quantity",
+            "unhedged_quantity",
+            "a_average_price",
+            "b_average_price",
+        ):
+            dec_text(getattr(self, name), field=f"LegRiskEventRow.{name}")
+        opt_dec_text(
+            self.hedge_completion_price, field="LegRiskEventRow.hedge_completion_price"
+        )
+        opt_dec_text(self.unhedged_notional, field="LegRiskEventRow.unhedged_notional")
+        if not isinstance(self.both_terminal, bool):
+            raise RecorderError("LegRiskEventRow.both_terminal must be a bool")
+        utc_naive(self.as_of, field="LegRiskEventRow.as_of")
+        if self.unhedged_quantity == Decimal(0):
+            raise RecorderError(
+                "LegRiskEventRow: a leg-risk event needs non-zero unhedged_quantity "
+                "(there is no exposure to record when both legs match)"
+            )

@@ -162,7 +162,7 @@ Day 2 gate: real market data -> arbitrage detector -> paper broker -> positions/
 - [x] Mean/median edge
 - [x] Opportunity duration
 - [x] Depth
-- [ ] Leg-risk events — the report has the section but it is always "unavailable": the M2.2 recorder has no leg-risk table, so there is no data to aggregate (`perf_report/build.py`; D-022)
+- [x] Leg-risk events
 - [x] Paper PnL and drawdown
 
 ### M3.4 Live broker interface
