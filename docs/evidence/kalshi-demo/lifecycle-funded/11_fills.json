@@ -1,0 +1,15 @@
+{
+  "body": {
+    "cursor": "",
+    "fills": []
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 09 Sep 2026 01:25:21 GMT"
+  },
+  "request": {
+    "method": "GET",
+    "path": "/portfolio/fills"
+  },
+  "status": 200
+}

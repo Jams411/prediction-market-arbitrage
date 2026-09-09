@@ -1,0 +1,19 @@
+{
+  "body": {
+    "order_id": "<redacted>",
+    "reduced_by": "<redacted>",
+    "ts_ms": "<number>"
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 09 Sep 2026 01:25:16 GMT"
+  },
+  "request": {
+    "method": "DELETE",
+    "path": "/portfolio/events/orders/{order_id}",
+    "query": {
+      "market_ticker": "KXMVECROSSCATEGORY-SHARD1-S2026030E5B5B57A-4D92EB7E9AA"
+    }
+  },
+  "status": 200
+}
