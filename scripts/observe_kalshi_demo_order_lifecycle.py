@@ -20,8 +20,9 @@ Safety design:
 - The order is a **1-contract** ``yes`` bid at **$0.01** with ``post_only`` on a
   market whose order book is **empty** — it cannot cross, so it rests and is
   then cancelled. Max notional at risk: $0.01 of demo funny-money.
-- The script always tries to cancel any ``order_id`` it received, even on error,
-  and reports loudly if an order is left resting.
+- The script always tries to cancel any ``order_id`` it received, even on error
+  (shard-routed ``DELETE`` with ``market_ticker``), and reports loudly if an
+  order is left resting.
 - At most two create attempts (documented V2 path, then legacy path). It does
   **not** iterate on schema guesses — an unexpected rejection is captured and
   the run stops.
@@ -32,7 +33,9 @@ Sanitisation: responses go through :func:`observe_kalshi_demo.sanitise_body`
 non-sensitive schema fields kept and ``client_order_id`` replaced by a
 placeholder.
 
-Run manually:  ``python scripts/observe_kalshi_demo_order_lifecycle.py``
+Run manually:  ``python scripts/observe_kalshi_demo_order_lifecycle.py [SUBDIR]``
+(``SUBDIR`` = evidence subdirectory under ``docs/evidence/kalshi-demo/``;
+default ``lifecycle``).
 """
 
 from __future__ import annotations
@@ -42,7 +45,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import observe_kalshi_demo as obs
 
@@ -84,13 +89,23 @@ def _sanitise_request_body(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def request(method: str, path: str, key_id: str) -> dict[str, Any]:
+def request(
+    method: str, path: str, key_id: str, query: dict[str, str] | None = None
+) -> dict[str, Any]:
     """One signed, body-less DEMO request (GET / DELETE). Returns a sanitised
-    ``{request,status,headers,body}`` record."""
+    ``{request,status,headers,body}`` record.
+
+    ``query`` is appended to the URL but **excluded** from the signed message
+    (Kalshi signs the path only). The V2 cancel endpoint
+    ``DELETE /portfolio/events/orders/{order_id}`` needs ``market_ticker`` (or
+    ``exchange_index``) here to route to the order's exchange shard — without it
+    a sharded order's cancel returns 404.
+    """
     ts = str(int(time.time() * 1000))
     signature = obs.sign(f"{ts}{method}{SIGN_PATH_PREFIX}{path}")
+    qs = f"?{urlencode(query)}" if query else ""
     req = urllib.request.Request(
-        f"{DEMO_BASE_URL}{path}",
+        f"{DEMO_BASE_URL}{path}{qs}",
         method=method,
         headers={
             "Accept": "application/json",
@@ -112,8 +127,13 @@ def request(method: str, path: str, key_id: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         parsed = {"<non-json-body-bytes>": len(raw)}
 
+    req_record: dict[str, Any] = {"method": method, "path": path}
+    if query:
+        # `market_ticker` is the public probe ticker; `exchange_index` an int —
+        # neither is account-sensitive, so record verbatim for traceability.
+        req_record["query"] = dict(query)
     return {
-        "request": {"method": method, "path": path},
+        "request": req_record,
         "status": status,
         "headers": {
             k.lower(): v
@@ -183,9 +203,22 @@ def _post_order(
     return record, order_id
 
 
-def _write(name: str, record: dict[str, Any]) -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    (OUT_DIR / f"{name}.json").write_text(
+def _redact_order_id_in_paths(
+    steps: list[tuple[str, dict[str, Any]]], order_id: str | None
+) -> None:
+    """Replace the real ``order_id`` with ``{order_id}`` in every persisted
+    ``request.path`` (in place). No-op when no order was created."""
+    if order_id is None:
+        return
+    for _name, record in steps:
+        path = record["request"]["path"]
+        if order_id in path:
+            record["request"]["path"] = path.replace(order_id, "{order_id}")
+
+
+def _write(out_dir: Path, name: str, record: dict[str, Any]) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{name}.json").write_text(
         json.dumps(record, indent=2, sort_keys=True) + "\n"
     )
     body = record["body"]
@@ -193,7 +226,8 @@ def _write(name: str, record: dict[str, Any]) -> None:
     print(f"  {name:24s} {record['status']:>3}  {record['request']['path']}  keys={shape}")
 
 
-def observe() -> int:
+def observe(out_dir: Path | None = None) -> int:
+    target = out_dir if out_dir is not None else OUT_DIR
     if "demo" not in DEMO_BASE_URL:
         raise SystemExit(f"refusing to run: base URL is not demo: {DEMO_BASE_URL}")
     print(f"DEMO base = {DEMO_BASE_URL}")
@@ -223,52 +257,90 @@ def observe() -> int:
             print("\nno order_id returned by either create path — stopping after capture.")
         else:
             print("  (order_id captured in-memory; not persisted)")
+            # Give the new order a moment to propagate onto the shard book /
+            # portfolio views before reading it back.
+            time.sleep(2)
             # 3. Open-order list shape (now non-empty).
             steps.append(("03_orders_after_submit", request("GET", "/portfolio/orders", key_id)))
-            # 4. Single-order status shape.
+            # 4. Single-order status shape. Shard-routed (`market_ticker`), same
+            #    as cancel — an unrouted get-order for a sharded order can 404.
             steps.append(
-                ("04_get_order", request("GET", f"/portfolio/orders/{order_id}", key_id))
+                (
+                    "04_get_order",
+                    request(
+                        "GET",
+                        f"/portfolio/orders/{order_id}",
+                        key_id,
+                        query={"market_ticker": MARKET_TICKER},
+                    ),
+                )
             )
             # 5. Idempotency: resubmit identical client_order_id (no new order on 409).
             dup, _ = _post_order("/portfolio/events/orders", key_id, client_order_id)
             steps.append(("05_submit_duplicate_client_order_id", dup))
 
-            # 6. Cancel — documented V2 path first, then legacy.
-            cancel = request("DELETE", f"/portfolio/events/orders/{order_id}", key_id)
+            # 6. Cancel — documented V2 path. The body-less DELETE must carry
+            #    `market_ticker` (or `exchange_index`) so it routes to the
+            #    order's exchange shard; without it a sharded order's cancel
+            #    404s (K-TR-10 / cancel-order-v2 query params).
+            cancel = request(
+                "DELETE",
+                f"/portfolio/events/orders/{order_id}",
+                key_id,
+                query={"market_ticker": MARKET_TICKER},
+            )
             steps.append(("06_cancel_v2_events_orders", cancel))
-            if cancel["status"] in (400, 404, 405):
-                cancel2 = request("DELETE", f"/portfolio/orders/{order_id}", key_id)
-                steps.append(("07_cancel_legacy_orders", cancel2))
-                cancelled_ok = 200 <= cancel2["status"] < 300
-            else:
-                cancelled_ok = 200 <= cancel["status"] < 300
+            cancelled_ok = 200 <= cancel["status"] < 300
+            if cancelled_ok:
+                # Let the cancel propagate off the shard book before re-reading.
+                time.sleep(3)
 
-            # 8. Post-cancel order status + list.
+            # 8. Post-cancel order status + list (shard-routed get-order).
             get_order_path = f"/portfolio/orders/{order_id}"
             steps.append(
-                ("08_get_order_after_cancel", request("GET", get_order_path, key_id))
+                (
+                    "08_get_order_after_cancel",
+                    request(
+                        "GET", get_order_path, key_id, query={"market_ticker": MARKET_TICKER}
+                    ),
+                )
             )
             steps.append(("09_orders_after_cancel", request("GET", "/portfolio/orders", key_id)))
+            steps.append(
+                (
+                    "09b_orders_resting_after_cancel",
+                    request("GET", "/portfolio/orders", key_id, query={"status": "resting"}),
+                )
+            )
 
             if not cancelled_ok:
                 left_resting = _order_still_open(key_id, order_id)
     finally:
-        # Best-effort safety net: if an order id exists and a later list still
-        # shows an open order, try one more cancel on each path.
+        # Best-effort safety net: if an order id exists, try one more shard-routed
+        # cancel. A 404 here is expected (already cancelled).
         if order_id is not None:
-            for p in (f"/portfolio/events/orders/{order_id}", f"/portfolio/orders/{order_id}"):
-                try:
-                    request("DELETE", p, key_id)
-                except Exception:  # noqa: BLE001 - cleanup must not mask the real result
-                    pass
+            try:
+                request(
+                    "DELETE",
+                    f"/portfolio/events/orders/{order_id}",
+                    key_id,
+                    query={"market_ticker": MARKET_TICKER},
+                )
+            except Exception:  # noqa: BLE001 - cleanup must not mask the real result
+                pass
 
     # 10. Portfolio reads — expect still empty (no fill).
     steps.append(("10_positions", request("GET", "/portfolio/positions", key_id)))
     steps.append(("11_fills", request("GET", "/portfolio/fills", key_id)))
 
+    # The server-assigned order id is account activity — never persist it. It
+    # appears only in `request.path` (response bodies are already sanitised);
+    # collapse it to a placeholder before writing.
+    _redact_order_id_in_paths(steps, order_id)
+
     summary: list[dict[str, Any]] = []
     for name, record in steps:
-        _write(name, record)
+        _write(target, name, record)
         body = record["body"]
         summary.append(
             {
@@ -281,8 +353,8 @@ def observe() -> int:
                 else type(body).__name__,
             }
         )
-    (OUT_DIR / "SUMMARY.json").write_text(json.dumps(summary, indent=2) + "\n")
-    print(f"\nwrote {len(steps)} sanitised fixtures + SUMMARY.json to {OUT_DIR}")
+    (target / "SUMMARY.json").write_text(json.dumps(summary, indent=2) + "\n")
+    print(f"\nwrote {len(steps)} sanitised fixtures + SUMMARY.json to {target}")
 
     if left_resting:
         print("\n*** WARNING: a demo order may still be resting — check manually. ***")
@@ -301,4 +373,5 @@ def _order_still_open(key_id: str, order_id: str) -> bool:
 
 
 if __name__ == "__main__":
-    sys.exit(observe())
+    _sub = sys.argv[1] if len(sys.argv) > 1 else None
+    sys.exit(observe(obs.OUT_DIR / _sub if _sub else None))
