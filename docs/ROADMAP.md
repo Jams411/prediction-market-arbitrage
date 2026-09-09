@@ -56,118 +56,118 @@ Gate: pytest, ruff, mypy, and CI must pass before Day 1 implementation.
 - [x] Deterministic validation tests
 
 ### M1.2 Kalshi market-data adapter
-- [ ] Verify official endpoints
-- [ ] Observe real response
-- [ ] Normalize into internal models
-- [ ] Save sanitized fixture
-- [ ] Add offline tests
-- [ ] No execution code
+- [x] Verify official endpoints
+- [x] Observe real response
+- [x] Normalize into internal models
+- [x] Save sanitized fixture
+- [x] Add offline tests
+- [x] No execution code
 
 ### M1.3 Polymarket US market-data adapter
-- [ ] Verify official endpoints
-- [ ] Observe real response
-- [ ] Normalize into internal models
-- [ ] Save sanitized fixture
-- [ ] Add offline tests
-- [ ] No execution code
+- [x] Verify official endpoints
+- [x] Observe real response
+- [x] Normalize into internal models
+- [x] Save sanitized fixture
+- [x] Add offline tests
+- [x] No execution code
 
 ### M1.4 Manual market-pair registry
-- [ ] Create verified-pair config
-- [ ] Record outcome mapping and resolution notes
-- [ ] Block unverified pairs from paper/live trading
+- [x] Create verified-pair config
+- [x] Record outcome mapping and resolution notes
+- [x] Block unverified pairs from paper/live trading
 
 ### M1.5 Arbitrage engine
-- [ ] Same-market complete-set logic
-- [ ] Cross-venue YES/NO logic
-- [ ] Fees
-- [ ] Depth
-- [ ] Slippage reserve
-- [ ] Data freshness
-- [ ] Executable quantity
-- [ ] Expected profit
-- [ ] Exact synthetic tests
+- [ ] Same-market complete-set logic — not built; the engine is buy/buy only, `IDENTICAL` pairs are deferred to execution work (`arbitrage/engine.py` docstring; D-012)
+- [x] Cross-venue YES/NO logic
+- [x] Fees
+- [x] Depth
+- [ ] Slippage reserve — engine has an injected per-unit `execution_buffer_per_unit`; no artifact names a distinct "slippage reserve" and slippage modelling is deferred to M2.4 (`docs/ARBITRAGE_METHODOLOGY.md`)
+- [x] Data freshness
+- [x] Executable quantity
+- [x] Expected profit
+- [x] Exact synthetic tests
 
 Day 1 gate: live scanner can consume normalized books and emit evidence-backed paper opportunities.
 
 ## Day 2 — WebSockets, recording, replay, paper execution
 
 ### M2.1 Live book state
-- [ ] REST snapshot initialization
-- [ ] WebSocket updates
-- [ ] Disconnect detection
-- [ ] Stale-data handling
-- [ ] Reconnect/resync
-- [ ] Trading disabled on unhealthy market data
+- [x] REST snapshot initialization
+- [x] WebSocket updates
+- [x] Disconnect detection
+- [x] Stale-data handling
+- [x] Reconnect/resync
+- [x] Trading disabled on unhealthy market data
 
 ### M2.2 Recorder
-- [ ] DuckDB
-- [ ] Order-book data
-- [ ] Opportunities
-- [ ] Orders/fills
-- [ ] Positions/PnL
-- [ ] Health events
+- [x] DuckDB
+- [x] Order-book data
+- [x] Opportunities
+- [x] Orders/fills
+- [x] Positions/PnL
+- [x] Health events
 
 ### M2.3 Replay adapter
-- [ ] Replay recorded sessions through same strategy interface
+- [x] Replay recorded sessions through same strategy interface
 
 ### M2.4 Paper broker
-- [ ] Latency
-- [ ] Partial fills
-- [ ] Available depth
-- [ ] Rejections
-- [ ] Slippage
-- [ ] Cancellation
-- [ ] Leg-risk simulation
+- [x] Latency
+- [x] Partial fills
+- [x] Available depth
+- [x] Rejections
+- [x] Slippage
+- [x] Cancellation
+- [x] Leg-risk simulation
 
 ### M2.5 Risk manager
-- [ ] Max position
-- [ ] Max exposure
-- [ ] Max daily loss
-- [ ] Max order size
-- [ ] Minimum net edge
-- [ ] Maximum data age
-- [ ] Maximum unhedged time
-- [ ] Consecutive-error limit
-- [ ] Kill switch
+- [x] Max position
+- [x] Max exposure
+- [x] Max daily loss
+- [x] Max order size
+- [x] Minimum net edge
+- [x] Maximum data age
+- [x] Maximum unhedged time
+- [x] Consecutive-error limit
+- [x] Kill switch
 
 Day 2 gate: real market data -> arbitrage detector -> paper broker -> positions/PnL -> persistent evidence.
 
 ## Day 3 — Verification and productization
 
 ### M3.1 Dashboard
-- [ ] Venue health
-- [ ] WebSocket state
-- [ ] Verified pairs
-- [ ] Current opportunities
-- [ ] Paper orders/fills
-- [ ] Positions/PnL
-- [ ] Risk state
-- [ ] Latency/data age
+- [x] Venue health
+- [x] WebSocket state
+- [x] Verified pairs
+- [x] Current opportunities
+- [x] Paper orders/fills
+- [x] Positions/PnL
+- [x] Risk state
+- [x] Latency/data age
 
 ### M3.2 Failure testing
-- [ ] Venue disconnects
-- [ ] Stale prices
-- [ ] Empty/malformed books
-- [ ] Fee mismatch
-- [ ] Partial/one-leg fills
-- [ ] Duplicate messages/orders
-- [ ] API timeout/rate limit
-- [ ] Invalid contract mapping
-- [ ] Database/process restart
+- [x] Venue disconnects
+- [x] Stale prices
+- [x] Empty/malformed books
+- [x] Fee mismatch
+- [x] Partial/one-leg fills
+- [x] Duplicate messages/orders
+- [x] API timeout/rate limit
+- [x] Invalid contract mapping
+- [x] Database/process restart
 
 ### M3.3 Paper performance report
-- [ ] Opportunities observed/rejected
-- [ ] Paper trades
-- [ ] Fill and partial-fill rates
-- [ ] Mean/median edge
-- [ ] Opportunity duration
-- [ ] Depth
-- [ ] Leg-risk events
-- [ ] Paper PnL and drawdown
+- [x] Opportunities observed/rejected
+- [x] Paper trades
+- [x] Fill and partial-fill rates
+- [x] Mean/median edge
+- [x] Opportunity duration
+- [x] Depth
+- [ ] Leg-risk events — the report has the section but it is always "unavailable": the M2.2 recorder has no leg-risk table, so there is no data to aggregate (`perf_report/build.py`; D-022)
+- [x] Paper PnL and drawdown
 
 ### M3.4 Live broker interface
-- [ ] Interface may exist
-- [ ] LIVE_TRADING remains false by default
+- [x] Interface may exist
+- [x] LIVE_TRADING remains false by default
 
 ## Real-money gate
 
