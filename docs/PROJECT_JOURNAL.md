@@ -1192,6 +1192,123 @@ no `LIVE_TRADING` change.
   code. Tests: `tests/test_observe_kalshi_prod_market_data.py` (4, offline —
   the sanitiser / book-parse helpers). Full gate green. Not committed.
 
+## 2026-09-09 — Kalshi production authenticated WS: auth re-verified + read-only observation path prepared (not run)
+
+- **Goal:** the minimum auth/signing support to later run a read-only
+  authenticated Kalshi **production** market-data WebSocket session — code +
+  tests ready, nothing executed.
+- **Docs re-verified** against official Kalshi sources (WS-A-S1
+  `quick_start_websockets`, WS-A-S2 `quick_start_authenticated_requests`). Every
+  production WS auth fact is **unchanged** from K-WS-AUTH-01..04: URL
+  `wss://external-api-ws.kalshi.com/trade-api/ws/v2`; headers
+  `KALSHI-ACCESS-KEY` / `-TIMESTAMP` (Unix **ms** string) / `-SIGNATURE`
+  (base64); signed message `timestamp + "GET" + "/trade-api/ws/v2"`; RSA-PSS,
+  MGF1-SHA256, salt = digest length, SHA-256. New rows K-WS-AUTH-05..08 in
+  `docs/API_SOURCES.md`. Only drift noted: the key-creation UI wording is now
+  "Account & security → API Keys → Create Key" (K-TR-16 recorded the older
+  "Profile Settings …"); same self-service, unscoped, no-approval flow.
+- **Credential requirement:** a standard Kalshi API key (RSA key pair). There is
+  **no** read-only vs trading key type and no scopes — same key type for demo
+  and production, only the host differs. **No production key exists here** and
+  the repo must not create one — the operator creates it manually in the Kalshi
+  web UI, downloads the PEM once, stores the key id in the macOS Keychain
+  (`pma-kalshi-prod-api-key-id`) and the PEM at
+  `~/.config/pma/kalshi-prod-private-key.pem` (mode 600).
+- **One signer, read-only by construction:** the signature is RSA-PSS/SHA-256
+  over an opaque string with no method/endpoint meaning, so the same key signs
+  REST and WS identically (K-TR-03 ≡ K-WS-AUTH-03). The signer cannot grant or
+  block execution (keys are unscoped); read-only is enforced by the calling
+  script only issuing market-data WS frames + public `GET /markets` — no
+  `/portfolio`, no order endpoints.
+- **Changed:**
+  - `scripts/kalshi_signer.py` — `OpensslRsaPssSigner` (implements
+    `livebook.Signer` via an `openssl` subprocess, no `cryptography` dep, same
+    approach as `observe_kalshi_demo.py`) + `read_keychain_password`. Private
+    key read from a file path only; never env/CLI/logged; `repr` shows the path
+    only.
+  - `scripts/observe_kalshi_prod_ws_market_data.py` — default `--check` runs a
+    local preflight and prints the manual key-creation step; **opens no socket**.
+    `--observe` refuses unless `PMA_KALSHI_PROD_WS_OBSERVE=1` **and** preflight
+    passes; only then does it connect + subscribe one market's `orderbook_delta`
+    + record `seq` and a sanitised snapshot/delta + disconnect + reconnect +
+    resubscribe (fresh snapshot = resync) + disconnect.
+  - `tests/test_kalshi_signer.py` (offline — generates a throwaway RSA key with
+    `openssl`, round-trip verifies incl. through `kalshi_ws_handshake`;
+    Keychain lookup stubbed).
+  - `tests/test_observe_kalshi_prod_ws_market_data.py` (offline — `--check`
+    opens no socket, `--observe` refuses without the env guard, stream consumer
+    sends only `subscribe`, sanitiser tokenises scalars, no account/order path
+    literal or trading import in the module).
+  - Doc updates: `API_SOURCES.md` (K-WS-AUTH-05..08 + transport-status note),
+    `ASSUMPTIONS.md` (A-030 / A-028 detail: signer now exists, still
+    docs-only), this entry.
+- **Ready for observation:** yes, pending one manual step — the operator creates
+  a production Kalshi API key (Kalshi web UI → **Account & security → API Keys →
+  Create Key**), stores the id in the Keychain and the PEM at the path above,
+  then runs `PMA_KALSHI_PROD_WS_OBSERVE=1 python
+  scripts/observe_kalshi_prod_ws_market_data.py --observe`.
+- **Not done / unchanged:** no production API key created, no authenticated
+  production network call, no order/balance/position/fill access, no
+  `LIVE_TRADING`, no Polymarket US, no execution wiring. **A-030 / A-028 stay
+  UNVERIFIED**; Real-money gate items **#2 / #7 / #8 remain unchecked**. Full
+  local gate green. Not committed.
+
+## 2026-09-09 — Kalshi production authenticated WS session: OBSERVED (gate #2/#7/#8 stay unchecked)
+
+- **What ran:** the operator created a production Kalshi API key manually
+  (Kalshi web UI), stored the id in the Keychain + the PEM at
+  `~/.config/pma/kalshi-prod-private-key.pem`, and ran
+  `PMA_KALSHI_PROD_WS_OBSERVE=1 python scripts/observe_kalshi_prod_ws_market_data.py --observe`
+  once. One ~35 s session, `2026-09-09T15:29:36Z…15:30:12Z`, two connections.
+  Sanitised evidence: `docs/evidence/kalshi-live/ws-market-data/SUMMARY.json`.
+- **OBSERVED (production) — K-WS-OBS-01..08 in `API_SOURCES.md`:**
+  - The RSA-PSS handshake built by `livebook.ws_auth.kalshi_ws_handshake` +
+    `scripts.kalshi_signer.OpensslRsaPssSigner` was **accepted by the real
+    Kalshi server** on both connections (`wss://external-api-ws.kalshi.com/trade-api/ws/v2`).
+  - `subscribe` body (K-WS-AUTH-04) accepted; the ack frame type is
+    `subscribed` (not `ok`).
+  - `orderbook_snapshot` received + decoded on both connections
+    (`decode_orderbook_snapshot` accepted the real frame; `yes_dollars_fp`
+    absent = one-sided book, allowed by K-WS-03).
+  - `orderbook_delta` received + decoded once, on the reconnect session
+    (`decode_orderbook_delta` accepted it; both `ts_ms` int and deprecated `ts`
+    string present — K-WS-04).
+  - Per-subscription `seq` sequential: snapshot `seq=1` → delta `seq=2`,
+    strictly increasing; `seq` **resets to 1** for a new subscription on a new
+    connection (per-subscription, not global).
+  - Clean disconnect (`t1.close()`) → reconnect with a fresh handshake →
+    resubscribe → the channel re-sent a **fresh `orderbook_snapshot`** (then a
+    delta): the "resubscribe = full resync" path (K-WS-02) proven end-to-end
+    against prod.
+- **NOT observed (K-WS-OBS-08):** a sustained multi-minute feed; more than one
+  delta (the first connection idle-timed-out after its snapshot); an
+  unexpected / server-side disconnect and its detection; `LiveBookFeed` /
+  `FeedHealth` `HEALTHY → DISCONNECTED → RESYNCING → HEALTHY` transitions (the
+  script drove `WebsocketsTransport` + decoders directly, never
+  `LiveBookConnection`); staleness gating; **A-028** additive-delta application.
+- **Assumptions:** **A-030 — Kalshi half resolved** (handshake / subscribe /
+  snapshot / delta formats match the live production server); Polymarket US half
+  still UNVERIFIED (no live handshake; P-WS-AUTH-03 casing/enum discrepancy
+  open). **A-028 unchanged** (UNVERIFIED — the one delta was decoded, never
+  applied).
+- **Gate impact — no checkbox flips:**
+  - **#2 "Stable live market data":** unchecked. Authenticated WS connect +
+    snapshot + one delta + `seq` ordering are now OBSERVED, but "stable /
+    sustained live feed with healthy state throughout" is not — ~35 s, one
+    delta, no `FeedHealth` tracking.
+  - **#7 "Stale-data handling":** unchecked, not advanced — no staleness event,
+    no `LiveBookFeed` gating exercised against the live feed.
+  - **#8 "Disconnect/reconnect behavior":** unchecked. The resubscribe/resync
+    *mechanism* now works against prod, but the run used a clean client-side
+    close (not an unexpected drop) and captured no health-state recovery.
+- **Not done:** no additional network calls, no orders, no balances/positions/
+  fills, no funds, no `LIVE_TRADING`, no credential change in the repo, no
+  Polymarket US. ROADMAP unchanged. Docs updated: `API_SOURCES.md`
+  (K-WS-AUTH-08 → EXECUTED; K-WS-OBS-01..08; gate #2 verdict; transport-status
+  note), `ASSUMPTIONS.md` (A-030 partly resolved), this entry. No code/logic
+  change → no new tests; existing gate still green from the prior pass. Not
+  committed.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

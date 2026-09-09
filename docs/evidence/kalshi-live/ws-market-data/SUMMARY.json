@@ -1,0 +1,98 @@
+{
+  "after_reconnect_resubscribe": {
+    "deltas": 1,
+    "first_delta_shape": {
+      "msg": {
+        "delta_fp": "<redacted>",
+        "market_id": "<redacted>",
+        "market_ticker": "<redacted>",
+        "price_dollars": "<redacted>",
+        "side": "<redacted>",
+        "ts": "<redacted>",
+        "ts_ms": "<number>"
+      },
+      "seq": "<number>",
+      "sid": "<number>",
+      "type": "<redacted>"
+    },
+    "first_snapshot_shape": {
+      "msg": {
+        "market_id": "<redacted>",
+        "market_ticker": "<redacted>",
+        "no_dollars_fp": [
+          [
+            "<redacted>",
+            "<redacted>"
+          ],
+          [
+            "<redacted>",
+            "<redacted>"
+          ],
+          "<...>"
+        ]
+      },
+      "seq": "<number>",
+      "sid": "<number>",
+      "type": "<redacted>"
+    },
+    "frame_type_histogram": {
+      "orderbook_delta": 1,
+      "orderbook_snapshot": 1,
+      "subscribed": 1
+    },
+    "market_ticker_redacted": "<redacted>",
+    "seq_strictly_increasing": true,
+    "seq_values": [
+      1,
+      2
+    ],
+    "snapshots": 1
+  },
+  "auth": "KALSHI-ACCESS-KEY / -TIMESTAMP(ms) / -SIGNATURE(base64 RSA-PSS SHA-256)",
+  "environment": "production",
+  "first_connection": {
+    "deltas": 0,
+    "first_delta_shape": null,
+    "first_snapshot_shape": {
+      "msg": {
+        "market_id": "<redacted>",
+        "market_ticker": "<redacted>",
+        "no_dollars_fp": [
+          [
+            "<redacted>",
+            "<redacted>"
+          ],
+          [
+            "<redacted>",
+            "<redacted>"
+          ],
+          "<...>"
+        ]
+      },
+      "seq": "<number>",
+      "sid": "<number>",
+      "type": "<redacted>"
+    },
+    "frame_type_histogram": {
+      "orderbook_snapshot": 1,
+      "subscribed": 1
+    },
+    "market_ticker_redacted": "<redacted>",
+    "seq_strictly_increasing": true,
+    "seq_values": [
+      1
+    ],
+    "snapshots": 1
+  },
+  "notes": [
+    "No /portfolio call, no order call, no balance/position/fill read.",
+    "LIVE_TRADING not read or set; no execution wiring.",
+    "Real-money gate items #2/#7/#8 remain unchecked."
+  ],
+  "resync_delivered_fresh_snapshot": true,
+  "session_end_utc": "2026-09-09T15:30:12.283540+00:00",
+  "session_start_utc": "2026-09-09T15:29:36.952724+00:00",
+  "transport": "authenticated WebSocket (orderbook_delta channel)",
+  "venue": "kalshi",
+  "ws_url": "wss://external-api-ws.kalshi.com/trade-api/ws/v2"
+}

@@ -257,16 +257,76 @@ production Kalshi credential exists in this environment.
 | K-MD-OBS-01 | **REST snapshot initialisation** against production works: `GET /markets/{ticker}/orderbook` → HTTP **200** with the documented `{ "orderbook_fp": { "yes_dollars": [...], "no_dollars": [...] } }` shape (K-05); level pairs are `[price_string, size_string]` (K-06). Sampled market `KXBTCD-26SEP0904-T84299.99` (a Bitcoin-daily binary), 28 `no_dollars` levels / 0 `yes_dollars` (one-sided near the threshold). | OBSERVED (production) | `market-data/01_rest_snapshot_shape.json` (200); `market-data/SUMMARY.json`. | Partial support for gate #2 "REST snapshot initialization" — REST path only. |
 | K-MD-OBS-02 | **Sustained availability + a live book.** 44 polls of the same orderbook over **300.2 s wall** (6 s interval), session `2026-09-09T07:28:05Z … 07:33:05Z`: HTTP-status histogram **`{200: 44}`** (100 %), market `status` field `"active"` throughout, and **8 distinct book states / 7 changes** with a max gap of ~64 s between changes. This is a real sustained session (UTC start/end + 44 timed samples), not a one-message smoke test, and the book demonstrably updates. | OBSERVED (production) | `market-data/SUMMARY.json` (`polls`, `orderbook_status_histogram`, `distinct_book_states_observed`, `polls_with_book_change`, `session_start/end_utc`, `wall_elapsed_s`, `per_poll[]`). | Supports "the production market-data service is reachable and stable over minutes, and the book is live" — **for REST**, not the WS feed. |
 | K-MD-OBS-03 | **Transport failure + recovery (REST analog only).** A GET to an unreachable host raised `URLError`; the next GET to the real endpoint returned **200**. This is *not* a WebSocket disconnect/resync — no stream, no `seq`, no `get_snapshot`, no `LiveBookFeed` state transition. | OBSERVED (production, REST) | `market-data/SUMMARY.json` (`transport_failure_probe`, `recovery_after_failure_status`). | Does **not** satisfy gate #8; recorded only to bound what REST can show. |
-| K-MD-OBS-04 | **Not verified here** (blocked on a missing production Kalshi credential; creating one was out of scope): WebSocket connection success, real WS `orderbook_snapshot`/`orderbook_delta` receipt, per-subscription `seq` / snapshot-then-delta ordering (K-WS-02), stream disconnect detection, reconnect + `get_snapshot` resync (K-WS-05), and `LiveBookFeed` `HealthStatus` transitions across a real reconnect. **A-030** and **A-028** remain **UNVERIFIED**. | UNKNOWN | — (no WS session) | Gate #2 stays **unchecked**; #7 and #8 unchanged. |
+| K-MD-OBS-04 | **Not verified here** (blocked on a missing production Kalshi credential; creating one was out of scope): WebSocket connection success, real WS `orderbook_snapshot`/`orderbook_delta` receipt, per-subscription `seq` / snapshot-then-delta ordering (K-WS-02), stream disconnect detection, reconnect + `get_snapshot` resync (K-WS-05), and `LiveBookFeed` `HealthStatus` transitions across a real reconnect. **A-030** and **A-028** remain **UNVERIFIED**. **PARTLY SUPERSEDED 2026-09-09 by K-WS-OBS-01..08:** WS connect, snapshot + one delta receipt, per-subscription `seq` ordering (1→2), and clean disconnect → reconnect → resubscribe → fresh-snapshot resync are now OBSERVED against production; still not verified — a sustained feed, an unexpected disconnect + its detection, `LiveBookFeed`/`HealthStatus` transitions, and **A-028**. | UNKNOWN (state now partly changed) | — (no WS session at the time) | Gate #2 stays **unchecked**; #7 and #8 unchanged. |
 
-**Real-money gate #2 verdict:** *partially* supported — production REST snapshot
-init and multi-minute service/book liveness are now OBSERVED — but the item's
-core (a **stable live feed**: WS connect, sustained `seq`-ordered updates,
-disconnect → reconnect → resync with healthy state throughout) is **not**
-verified. REST polling is not the feed the M2.1 code or the gate item concern.
-**Item #2 remains unchecked.** Gate #7 (stale-data handling) and #8
-(disconnect/reconnect) are **not** strengthened — both need the WS reconnect
-path that was not exercised.
+**Real-money gate #2 verdict (updated 2026-09-09 after the WS session):**
+*partially* supported. Now OBSERVED against production: REST snapshot init +
+multi-minute service/book liveness (K-MD-OBS-01..02) **and** an authenticated WS
+connect, `orderbook_snapshot` receipt on two connections, one `orderbook_delta`,
+sequential per-subscription `seq` (1→2), and a clean disconnect → reconnect →
+resubscribe → fresh-snapshot resync (K-WS-OBS-01..07). Still **not** verified —
+the item's core wording, a **stable live feed**: the WS session was ~35 s with a
+single delta (the first connection idle-timed-out after its snapshot), so
+*sustained* `seq`-ordered updates over a meaningful window are unproven, and no
+`LiveBookFeed`/`FeedHealth` state was tracked ("healthy state throughout" not
+shown). **Item #2 remains unchecked.** Gate #7 (stale-data handling): **not**
+advanced — no staleness event and no `LiveBookFeed` gating was exercised against
+the live feed. Gate #8 (disconnect/reconnect): the resubscribe/resync
+*mechanism* is now proven against prod, but the run used a **clean client-side
+close**, not an unexpected drop, and captured **no** `HEALTHY → DISCONNECTED →
+RESYNCING → HEALTHY` transition — so **#8 remains unchecked**.
+
+### Kalshi — production authenticated WS: auth re-verified + observation path prepared (2026-09-09)
+
+Docs re-checked against the official Kalshi sources (WS-A-S1 `quick_start_websockets`,
+WS-A-S2 `quick_start_authenticated_requests`) on 2026-09-09. Every production
+WebSocket auth fact already recorded (K-WS-AUTH-01..04) is **unchanged**:
+
+- URL `wss://external-api-ws.kalshi.com/trade-api/ws/v2` (prod).
+- Handshake headers `KALSHI-ACCESS-KEY` / `KALSHI-ACCESS-TIMESTAMP` (Unix **ms**
+  string) / `KALSHI-ACCESS-SIGNATURE` (base64).
+- Signed message = `timestamp + "GET" + "/trade-api/ws/v2"`; RSA-PSS,
+  MGF1-SHA256, salt length = `PSS.DIGEST_LENGTH` (= 32), over SHA-256.
+- Subscribe: `{"id":<int>,"cmd":"subscribe","params":{"channels":["orderbook_delta"],"market_ticker":"…"}}`
+  (`market_tickers` array for many). Channel re-sends one `orderbook_snapshot`
+  then incremental `orderbook_delta` (K-WS-02) — so **resubscribe on a new
+  connection is a full resync**.
+- "even channels that carry public market data still use the authenticated
+  WebSocket session, but they do not impose additional per-channel authorization
+  checks" — i.e. auth is required for the socket, not per channel (matches K-WS-01).
+
+| # | Claim | Status | Evidence |
+|---|-------|--------|----------|
+| K-WS-AUTH-05 | **Production API-key requirement.** The production WS needs a standard Kalshi API key (an RSA key pair). Docs describe **one** key type with no permission scopes / roles, no read-only vs trading distinction, and no approval step; "This process is the same for the demo or production environment" — only the endpoint host differs. UI path in the current docs: **Account & security → API Keys → Create Key** (K-TR-16 recorded the older wording "Profile Settings → API Keys → Create New API Key"; same self-service flow). Private key downloads once as PEM/`.key`; the public half stays with Kalshi. | VERIFIED (docs) — re-checked 2026-09-09 | WS-A-S1; WS-A-S2; matches K-TR-16. |
+| K-WS-AUTH-06 | **One signer covers read-only REST and WS.** The signature is `RSA-PSS(SHA-256)` over an opaque message string with no endpoint/method semantics, so the same RSA key signs REST and WS identically (K-TR-03 ≡ K-WS-AUTH-03). The signer neither grants nor can prevent execution — keys are unscoped; read-only is a property of *which requests the caller sends*. Read-only posture is therefore enforced by the calling script (market-data WS + public `GET /markets` only; no `/portfolio`, no order endpoints), not by the key or signer. | VERIFIED (docs) + design | WS-A-S2; K-TR-16. |
+| K-WS-AUTH-07 | **Reusable RSA-PSS signer now exists.** `scripts/kalshi_signer.py` — `OpensslRsaPssSigner` (implements `livebook.Signer`; `openssl dgst -sha256 -sign … -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:digest -binary`, keeping the repo's zero-crypto-dependency posture, same approach as `observe_kalshi_demo.py`) + `read_keychain_password`. Private key is read from a file path only — never env, never CLI, never logged; `repr` shows only the path. Offline tests (`tests/test_kalshi_signer.py`) generate a throwaway RSA key with `openssl` and round-trip verify with the matching public key, incl. through `kalshi_ws_handshake`. Partly resolves the "no `Signer` implementation in the repo" half of **A-030**. | TESTED (offline) — no live venue | `scripts/kalshi_signer.py`; `tests/test_kalshi_signer.py`. |
+| K-WS-AUTH-08 | **Read-only WS observation path — EXECUTED 2026-09-09.** `scripts/observe_kalshi_prod_ws_market_data.py --observe` was run once by the operator with a manually-created production key (Keychain `pma-kalshi-prod-api-key-id` + `~/.config/pma/kalshi-prod-private-key.pem`). It built the handshake via `kalshi_ws_handshake` + `OpensslRsaPssSigner`, connected with `WebsocketsTransport`, subscribed one production market's `orderbook_delta`, recorded `seq` + a structure-only sanitised snapshot/delta, disconnected (clean client close), reconnected + resubscribed on a fresh connection, then disconnected. No `/portfolio` call, no order/balance/position/fill access, no `LIVE_TRADING` read, no Polymarket US. Results: K-WS-OBS-01..08 below. | OBSERVED (production) | `docs/evidence/kalshi-live/ws-market-data/SUMMARY.json`; `scripts/observe_kalshi_prod_ws_market_data.py`. |
+
+### Kalshi — production authenticated WS session (OBSERVED 2026-09-09)
+
+One session, `2026-09-09T15:29:36.952Z … 15:30:12.283Z` (~35 s wall, two
+connections). Evidence: `docs/evidence/kalshi-live/ws-market-data/SUMMARY.json`
+(sanitised — every price/size/ticker/id scalar → a type token; `seq`/`sid`
+kept as `"<number>"`, counts and frame-type histogram kept verbatim).
+
+| # | Claim | Status | Evidence | Gate impact |
+|---|-------|--------|----------|-------------|
+| K-WS-OBS-01 | **The authenticated production handshake is accepted by the real Kalshi server.** Both connections to `wss://external-api-ws.kalshi.com/trade-api/ws/v2` with the `KALSHI-ACCESS-KEY` / `-TIMESTAMP` (ms) / `-SIGNATURE` (base64 RSA-PSS/SHA-256, salt = digest length) headers built by `livebook.ws_auth.kalshi_ws_handshake` + `scripts.kalshi_signer.OpensslRsaPssSigner` opened successfully and received frames. | OBSERVED (production) | `SUMMARY.json` `ws_url`, `auth`, `first_connection`/`after_reconnect_resubscribe` both non-empty. | Confirms the **Kalshi half of A-030** (handshake + header names + sign string match the live venue). |
+| K-WS-OBS-02 | **Subscribe command shape is accepted; the ack frame type is `subscribed`.** Each connection sent `{"id":<int>,"cmd":"subscribe","params":{"channels":["orderbook_delta"],"market_tickers":["…"]}}` (K-WS-AUTH-04) and the server replied with one frame of type `subscribed` (not `ok`), then market-data frames. `livebook.transport.kalshi_frame_decoder` already routes any non-snapshot/delta frame to `[]`, so this ack needs no decoder change. | OBSERVED (production) | `SUMMARY.json` `frame_type_histogram` (`"subscribed": 1` per connection). | Confirms the subscribe body form against the live venue (A-030, Kalshi). New fact: ack type string is `subscribed`. |
+| K-WS-OBS-03 | **`orderbook_snapshot` received and decoded on both connections.** Each connection got exactly 1 `orderbook_snapshot`; `livebook.kalshi_ws.decode_orderbook_snapshot` accepted the real frame without error. Observed `msg` = `{market_ticker, market_id, no_dollars_fp:[[price,count],…]}` with `yes_dollars_fp` **absent** (one-sided book — allowed by K-WS-03 "absent side key = no offers on that side"). Level pairs are `[string, string]` (K-WS-03 / K-06). | OBSERVED (production) | `SUMMARY.json` `first_snapshot_shape` (both sessions). | Confirms K-WS-03 snapshot shape against the live venue. |
+| K-WS-OBS-04 | **`orderbook_delta` received and decoded (1 frame, reconnect session).** `livebook.kalshi_ws.decode_orderbook_delta` accepted the real frame. Observed `msg` = `{market_ticker, market_id, price_dollars:str, delta_fp:str, side:str, ts_ms:int, ts:str}` — **both** `ts_ms` (int) and the deprecated `ts` (string) are present (K-WS-04). | OBSERVED (production) | `SUMMARY.json` `after_reconnect_resubscribe.first_delta_shape`. | Confirms K-WS-04 delta shape against the live venue. Does **not** verify **A-028** (additive application): the delta was decoded, never applied to a book; values redacted. |
+| K-WS-OBS-05 | **Per-subscription `seq` is sequential and starts at 1.** Reconnect session: snapshot `seq = 1`, then delta `seq = 2`; `seq_strictly_increasing = true`. First session: snapshot `seq = 1` only (no delta arrived). | OBSERVED (production) | `SUMMARY.json` `seq_values` (`[1]` and `[1,2]`), `seq_strictly_increasing`. | Confirms K-WS-02 snapshot-then-delta ordering with a sequential per-subscription counter — **for a single delta**. Not a sustained `seq`-ordered stream. |
+| K-WS-OBS-06 | **`seq` resets to 1 for a new subscription on a new connection.** The reconnect session's fresh `subscribe` produced a new snapshot at `seq = 1` (not continuing from the first session). | OBSERVED (production) | `SUMMARY.json` `first_connection.seq_values` `[1]` vs `after_reconnect_resubscribe.seq_values` `[1,2]`. | Confirms `seq` is **per-subscription**, not per-connection or global (K-WS-02). |
+| K-WS-OBS-07 | **Clean disconnect → reconnect → resubscribe → fresh snapshot works against production.** After `t1.close()` a second `WebsocketsTransport` connected with a fresh handshake, resubscribed, and the channel re-sent a full `orderbook_snapshot` (then a delta). This is the "resubscribe = full resync" path (K-WS-02) proven end-to-end against the live server. | OBSERVED (production) | `SUMMARY.json` `resync_delivered_fresh_snapshot = true`; `after_reconnect_resubscribe.snapshots = 1`. | The resync **mechanism** works against prod. **Not** an unexpected/server-initiated drop, and no `FeedHealth` state machine was involved (see K-WS-OBS-08). |
+| K-WS-OBS-08 | **Not observed in this session:** a sustained multi-minute feed; more than one `orderbook_delta`; an unexpected/server-side disconnect and its detection; `livebook.state.LiveBookFeed` / `FeedHealth` `HEALTHY → DISCONNECTED → RESYNCING → HEALTHY` transitions (the script drove `WebsocketsTransport` + decoders directly, never `LiveBookFeed` / `LiveBookConnection`); staleness gating; **A-028** additive-delta application. | UNKNOWN | — (out of scope of this run) | Gate **#2 / #7 / #8 stay unchecked** — see the verdict below. |
+
+**No `/portfolio` call, no order call, no balance/position/fill read, no
+`LIVE_TRADING` read or set, no Polymarket US** (`SUMMARY.json` `notes`;
+K-WS-AUTH-06). Credentials were read from the Keychain + PEM file at run time and
+never printed, logged, persisted, or fixtured. **A-030 is now resolved for the
+Kalshi half** (handshake / subscribe / snapshot / delta formats match the live
+production server); the **Polymarket US half of A-030 stays UNVERIFIED**.
+**A-028 stays UNVERIFIED.**
 
 ---
 
@@ -351,13 +411,26 @@ no networked transport implemented** — see the blocker below.
   `LiveBookConnection`.
 - **RSA-PSS / Ed25519 signing is still injected** (`Signer`) — the framework
   imports no `cryptography`. A caller supplies the signer for a real connection.
-- **No live OBSERVED handshake or frame against a real venue.** The transport is
+  A reusable Kalshi signer now exists outside the package:
+  `scripts/kalshi_signer.OpensslRsaPssSigner` (K-WS-AUTH-07). It was used for a
+  real production Kalshi WS session on 2026-09-09 (K-WS-OBS-01..08).
+- **Kalshi: live OBSERVED handshake + frames (2026-09-09).** A one-off
+  `scripts/observe_kalshi_prod_ws_market_data.py --observe` run connected to
+  `wss://external-api-ws.kalshi.com/trade-api/ws/v2`, was accepted by the real
+  server, and received `subscribed` + `orderbook_snapshot` + one
+  `orderbook_delta` whose decoded shapes match K-WS-03 / K-WS-04; per-subscription
+  `seq` ran 1→2; a clean disconnect → reconnect → resubscribe delivered a fresh
+  snapshot (K-WS-OBS-01..07). This ran the shipped `WebsocketsTransport` +
+  `livebook.kalshi_ws` decoders directly — **not** `LiveBookConnection` /
+  `LiveBookFeed`, so no `HealthStatus` transition was exercised (K-WS-OBS-08).
+  **Kalshi half of A-030 resolved; Polymarket US half still not verified.**
+- **Polymarket US: still no live OBSERVED handshake or frame.** The transport is
   tested against a **local `websockets` server on loopback** (a real socket
   round-trip, but the local server accepts any headers). No authenticated
-  connection to Kalshi / Polymarket US was made; no WS fixture was captured; the
+  connection to Polymarket US was made; no P-WS fixture was captured; its
   signing message strings / header names are unit-tested only against the docs.
-  Whether a real venue server accepts the handshake is **not verified** —
-  recorded as **A-030**.
+  Whether the real Polymarket US server accepts the handshake is **not
+  verified** — the open remainder of **A-030**.
 - Kalshi `orderbook_delta` is described as a **private channel** (WS-A-S1) — it
   rides the authenticated session even though its payload is public market data.
 - Polymarket US `X-PM-Signature` construction uses `path` with no documented
