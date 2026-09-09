@@ -964,6 +964,31 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - No `src/` change, no dependency, no `DECISIONS` change. `LIVE_TRADING` never
   read or set; production Kalshi never called; no Polymarket US work.
 
+## 2026-09-09 — ROADMAP.md reconciliation with repository state
+
+- Ticked the milestone checklists whose deliverables are proven on `main` by a
+  merged PR + a source package + dedicated deterministic tests (556 passing) +
+  a detailed journal entry: **M1.2, M1.3** (6/6 each — live OBSERVED
+  verification + sanitized fixtures), **M1.4** (3/3), **M2.1** (6/6), **M2.2**
+  (6/6), **M2.3** (1/1), **M2.4** (7/7), **M2.5** (9/9), **M3.1** (8/8),
+  **M3.2** (9/9), **M3.4** (2/2).
+- **Left unchecked (evidence does not support completion):**
+  - M1.5 "Same-market complete-set logic" — engine is buy/buy only; `IDENTICAL`
+    deferred to execution work (`arbitrage/engine.py`; D-012).
+  - M1.5 "Slippage reserve" — only a generic `execution_buffer_per_unit`
+    exists; nothing names a slippage reserve and slippage modelling is deferred
+    to M2.4.
+  - M3.3 "Leg-risk events" — the report section is permanently "unavailable"
+    (no recorder leg-risk table; D-022).
+- **Real-money gate: unchanged, every item stays locked.** Demo order-lifecycle
+  evidence (A-038) is demo-observation scope only; live/real-money execution
+  stays blocked by D-002 and A-037 / D-023 (`live_broker` is an interface
+  boundary; no signed venue order is possible; Polymarket US trading API has no
+  primary evidence).
+- Documentation change only — no `src/` change, no test change, no dependency,
+  no `DECISIONS` / `ASSUMPTIONS` change. `ROADMAP.md` remains authoritative;
+  box-ticking is a review step and these can be reverted by review.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
