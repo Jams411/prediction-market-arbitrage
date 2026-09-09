@@ -1234,6 +1234,56 @@ existing `execution_buffer_per_unit` knob only.
 `docs/ARBITRAGE_METHODOLOGY.md` §"Same-market complete-set", `docs/ASSUMPTIONS.md`
 A-039.
 
+### D-026 — Slippage reserve is a separate engine knob, not folded into the execution buffer
+
+**Date:** 2026-09-09
+
+**Context:** the last unchecked ROADMAP M1.5 item was "Slippage reserve". The
+engine already had `EngineConfig.execution_buffer_per_unit`, a per-matched-set
+Decimal subtracted from the edge, but `docs/ARBITRAGE_METHODOLOGY.md` and the
+2026-09-09 roadmap reconciliation deliberately treated "execution buffer"
+(a general safety margin) and "slippage reserve" (the assumed adverse price
+move between the depth-walked decision price and the real fill) as **different**
+concepts, so the item stayed open.
+
+**Decision:** add `EngineConfig.slippage_reserve_per_unit: Decimal = _ZERO`
+(validated finite `>= 0`, same as the execution buffer) as a **peer** knob, not
+a rename or a fold-in. Both `evaluate` and `evaluate_complete_set` compute
+`slippage_reserve = slippage_reserve_per_unit * executable_quantity` and add it
+to `net_total_cost` alongside fees and the execution buffer;
+`net_edge = size - net_total_cost`; opportunity iff `net_edge > 0` (exact
+break-even still not an opportunity). Both `OpportunityEvaluation` and
+`CompleteSetEvaluation` gain a `slippage_reserve` field so the audit trail shows
+which friction consumed the edge. `0` (the default) reproduces the pre-reserve
+result byte-for-byte.
+
+**Alternatives considered:** rename `execution_buffer_per_unit` to
+`slippage_reserve_per_unit` (rejected — loses the distinct "general margin"
+concept and silently changes the meaning of a shipped, recorded field); fold
+slippage into the reported `execution_buffer` value (rejected — the audit trail
+should separate the two frictions, matching how fees are already their own
+field); make the reserve a fraction of acquisition cost rather than per-unit
+(rejected — the per-unit shape mirrors `execution_buffer_per_unit` exactly, is
+the smallest change, and keeps every test's arithmetic trivially exact).
+
+**Trade-offs / consequences:** the `recorder` `opportunities` table has an
+`execution_buffer` column but no `slippage_reserve` column — a recorded row's
+`net_total_cost` / `net_edge` include the reserve, but the reserve component
+alone is not separately columned (the same limitation as per-leg fees). Adding
+a column is a versioned recorder-schema change, out of scope here and not
+required by any existing interface (`record_opportunity` reads a fixed field
+list). The reserve is a caller-chosen parameter with no venue-microstructure
+backing (**A-040**); it does not change `LIVE_TRADING`, adapters, the paper
+broker, or any execution behaviour.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/arbitrage/engine.py`
+(`EngineConfig.slippage_reserve_per_unit`, `slippage_reserve` on both result
+types, both `evaluate*` methods), `tests/test_arbitrage_engine.py` +
+`tests/test_arbitrage_complete_set.py` (slippage-reserve sections),
+`docs/ARBITRAGE_METHODOLOGY.md` §2.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

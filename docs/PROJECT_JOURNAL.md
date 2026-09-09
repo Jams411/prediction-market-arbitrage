@@ -1029,6 +1029,37 @@ Use this file as the concise chronological record of milestone progress, evidenc
 - Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
   --all-files` all pass. Not committed — awaiting request.
 
+## 2026-09-09 — M1.5 explicit slippage reserve (last M1.5 item)
+
+- Added `EngineConfig.slippage_reserve_per_unit: Decimal = _ZERO` — a **peer**
+  of `execution_buffer_per_unit`, not a rename or fold-in (D-026). Validated
+  finite `>= 0`. Branch `feat/m1.5-slippage-reserve` off `origin/main`
+  (M1.5 complete-set #27 merged). **No new dependency.**
+- Both `evaluate` and `evaluate_complete_set` compute
+  `slippage_reserve = slippage_reserve_per_unit * executable_quantity` and add
+  it to `net_total_cost` alongside fees + execution buffer;
+  `net_edge = size − net_total_cost`; opportunity iff `net_edge > 0`. Both
+  `OpportunityEvaluation` and `CompleteSetEvaluation` gain a `slippage_reserve`
+  field (audit trail). Exact `Decimal`, no internal rounding. `0` (the default)
+  reproduces the pre-reserve result byte-for-byte.
+- `recorder` untouched — `record_opportunity` reads a fixed field list; the
+  `opportunities` table records `net_total_cost` / `net_edge` (which include the
+  reserve) but has no separate `slippage_reserve` column (a versioned schema
+  change, out of scope; same limitation as per-leg fees). No paper-broker /
+  dashboard / risk / adapter / Polymarket US changes; `LIVE_TRADING` unchanged.
+- Records **D-026**, **A-040** (the reserve is a caller-chosen parameter with no
+  venue-microstructure backing — like the injected `FeeModel`).
+  `docs/ARBITRAGE_METHODOLOGY.md` §0/§2 updated. **`docs/ROADMAP.md` M1.5
+  "Slippage reserve" ticked — M1.5 is now 9/9 complete.**
+- Tests: `tests/test_arbitrage_engine.py` +9, `tests/test_arbitrage_complete_set.py`
+  +6 — zero reserve reproduces the baseline, positive reserve reduces net edge
+  deterministically, reserve scales with executable quantity, pushes an
+  opportunity to exact break-even, makes one unprofitable, stacks with
+  fees + execution buffer, invalid values (negative / NaN / Infinity / float)
+  rejected, and the complete-set path (binary + categorical). Suite 588 → 603.
+- Gates: `ruff check .`, `mypy src tests`, `pytest`, `pre-commit run
+  --all-files` all pass. Not committed — awaiting request.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
