@@ -704,12 +704,20 @@ ROADMAP "Real-money gate → **Official API behavior**" has two halves:
    idempotency, errors/rate limits, partial fills). Recorded as `VERIFIED
    (docs)` with explicit `UNKNOWN` gaps.
 2. **Confirm it against a real venue** (`OBSERVED` + a `TESTED` offline pin) —
-   **NOT done.** No authenticated request, capture, or fixture exists for any
-   trading endpoint on either venue.
+   **partly done, DEMO only** (added 2026-09-09 by the real-money-gate audit):
+   Kalshi **demo** trading endpoints are now OBSERVED — authenticated
+   `POST /portfolio/events/orders` (201), duplicate-`client_order_id` `409`,
+   `DELETE …?market_ticker=` (200), and the portfolio reads (K-TR-OBS-26..33,
+   `docs/evidence/kalshi-demo/lifecycle-funded/`). **Still NOT done:**
+   production Kalshi (zero evidence); **Polymarket US trading** (zero
+   authenticated calls — all P-TR-* rows are `VERIFIED (docs)` with open
+   `UNKNOWN`s); any OBSERVED **fill** on either venue (the demo round-trip
+   produced none).
 
-Therefore the gate item stays **unchecked**. Blocking `UNKNOWN`s that must close
-before live use: Kalshi `openapi.yaml` cross-check + a live `409`-on-duplicate
-observation; Polymarket US retail client-order-id / `ClOrdID` mechanism (P-TR-10)
-and `Retry-After` behavior (P-TR-12). Real-money trading stays disabled (D-002;
-`live_broker` still raises `UnsupportedLiveOperationError`, A-037). No adapter
-was implemented and `LIVE_TRADING` remains `False`.
+Therefore the gate item stays **unchecked** — demo evidence does not satisfy
+"Real money remains locked until all are verified." Blocking `UNKNOWN`s that
+must close before live use: production-Kalshi authenticated capture; Polymarket
+US retail client-order-id / `ClOrdID` mechanism (P-TR-10) and `Retry-After`
+behavior (P-TR-12); an OBSERVED partial fill. Real-money trading stays disabled
+(D-002; `live_broker` still raises `UnsupportedLiveOperationError`, A-037). No
+adapter was implemented and `LIVE_TRADING` remains `False`.
