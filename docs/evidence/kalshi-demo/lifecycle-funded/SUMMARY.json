@@ -1,0 +1,114 @@
+[
+  {
+    "name": "00_orders_before",
+    "method": "GET",
+    "path": "/portfolio/orders",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "orders"
+    ]
+  },
+  {
+    "name": "01_submit_v2_events_orders",
+    "method": "POST",
+    "path": "/portfolio/events/orders",
+    "status": 201,
+    "body_keys": [
+      "client_order_id",
+      "fill_count",
+      "order_id",
+      "remaining_count",
+      "ts_ms"
+    ]
+  },
+  {
+    "name": "03_orders_after_submit",
+    "method": "GET",
+    "path": "/portfolio/orders",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "orders"
+    ]
+  },
+  {
+    "name": "04_get_order",
+    "method": "GET",
+    "path": "/portfolio/orders/{order_id}",
+    "status": 200,
+    "body_keys": [
+      "order"
+    ]
+  },
+  {
+    "name": "05_submit_duplicate_client_order_id",
+    "method": "POST",
+    "path": "/portfolio/events/orders",
+    "status": 409,
+    "body_keys": [
+      "error"
+    ]
+  },
+  {
+    "name": "06_cancel_v2_events_orders",
+    "method": "DELETE",
+    "path": "/portfolio/events/orders/{order_id}",
+    "status": 200,
+    "body_keys": [
+      "order_id",
+      "reduced_by",
+      "ts_ms"
+    ]
+  },
+  {
+    "name": "08_get_order_after_cancel",
+    "method": "GET",
+    "path": "/portfolio/orders/{order_id}",
+    "status": 200,
+    "body_keys": [
+      "order"
+    ]
+  },
+  {
+    "name": "09_orders_after_cancel",
+    "method": "GET",
+    "path": "/portfolio/orders",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "orders"
+    ]
+  },
+  {
+    "name": "09b_orders_resting_after_cancel",
+    "method": "GET",
+    "path": "/portfolio/orders",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "orders"
+    ]
+  },
+  {
+    "name": "10_positions",
+    "method": "GET",
+    "path": "/portfolio/positions",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "event_positions",
+      "market_positions"
+    ]
+  },
+  {
+    "name": "11_fills",
+    "method": "GET",
+    "path": "/portfolio/fills",
+    "status": 200,
+    "body_keys": [
+      "cursor",
+      "fills"
+    ]
+  }
+]

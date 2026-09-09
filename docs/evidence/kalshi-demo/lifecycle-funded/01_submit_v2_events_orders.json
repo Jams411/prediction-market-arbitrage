@@ -1,0 +1,28 @@
+{
+  "body": {
+    "client_order_id": "<redacted>",
+    "fill_count": "<redacted>",
+    "order_id": "<redacted>",
+    "remaining_count": "<redacted>",
+    "ts_ms": "<number>"
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Wed, 09 Sep 2026 01:25:13 GMT"
+  },
+  "request": {
+    "body": {
+      "client_order_id": "<demo-synthetic-client-order-id>",
+      "count": "1",
+      "post_only": true,
+      "price": "0.01",
+      "self_trade_prevention_type": "maker",
+      "side": "bid",
+      "ticker": "KXMVECROSSCATEGORY-SHARD1-S2026030E5B5B57A-4D92EB7E9AA",
+      "time_in_force": "good_till_canceled"
+    },
+    "method": "POST",
+    "path": "/portfolio/events/orders"
+  },
+  "status": 201
+}

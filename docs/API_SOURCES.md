@@ -388,7 +388,7 @@ limits, and partial-fill reporting. **No adapter was implemented.**
 | K-TR-07 | Idempotency: `client_order_id` is a **server-enforced** dedupe key. Resubmitting the same `client_order_id` returns **`409 Conflict`** ("Order with this `client_order_id` already exists"); the field is optional but "strongly recommended". | VERIFIED (docs) | K-TR-S3 ("The API will reject duplicate submissions with the same `client_order_id`"; 409 listed). Not OBSERVED against a live account. | Informs `live_broker.IdempotencyGuard` design intent (local half only); no venue call. |
 | K-TR-08 | Order status / partial fills: `GET /portfolio/orders/{order_id}` returns an order object with `status` ∈ {`resting`, `canceled`, `executed`} plus fixed-point `initial_count_fp`, `fill_count_fp`, `remaining_count_fp`, and cost/fee fields (`taker_fees_dollars`, `maker_fees_dollars`, `taker_fill_cost_dollars`, `maker_fill_cost_dollars`). A **partial fill** is represented as `status = resting` with `fill_count_fp` > 0 and `remaining_count_fp` > 0 — there is **no distinct `partially_filled` status**. No `average_fill_price` on this schema. | VERIFIED (docs) | K-TR-S5 response schema. | None. |
 | K-TR-09 | Per-fill reporting: `GET /portfolio/fills` returns a `fills` array; each fill has `fill_id` (a.k.a. legacy `trade_id`), `order_id`, `ticker`/`market_ticker`, `outcome_side` (`yes`\|`no`), `book_side` (`bid`\|`ask`), `count_fp`, `yes_price_dollars`, `no_price_dollars`, `is_taker` (bool), `fee_cost`, `created_time`. One row per matched execution — the granular partial-fill record. | VERIFIED (docs) | K-TR-S6 response schema. | None. |
-| K-TR-10 | Cancel order: **`DELETE /portfolio/events/orders/{order_id}`**. Cancellation is by **`order_id` only** (path param); `client_order_id` is echoed in the response but cannot be used to cancel. Response: `order_id`, `client_order_id`, `reduced_by` (fixed-point string — contracts canceled), `ts_ms` (int). | VERIFIED (docs) | K-TR-S4 method+path+response. | None. |
+| K-TR-10 | Cancel order: **`DELETE /portfolio/events/orders/{order_id}`**. Cancellation is by **`order_id`** (path param); `client_order_id` is echoed in the response but cannot be used to cancel. Query params: `subaccount` (default 0), `exchange_index` (omit / `-1` = auto-route), `market_ticker` (**required when auto-routing**). Response: `order_id`, `client_order_id`, `reduced_by` (fixed-point string — contracts canceled), `ts_ms` (int). | VERIFIED (docs) + OBSERVED (K-TR-OBS-30 — an unrouted DELETE 404s for a sharded order; `?market_ticker=…` → 200). | K-TR-S4 method+path+response+query params. | Live-broker Kalshi cancel must pass `market_ticker` or `exchange_index`. |
 | K-TR-11 | Positions: `GET /portfolio/positions`. Query: `cursor`, `limit` (1–1000, default 100), `count_filter`, `ticker`, `event_ticker`, `subaccount` (default 0), `exchange_index`. Response has `market_positions[]` (`ticker`, `exchange_index`, `total_traded_dollars`, `position_fp`, `market_exposure_dollars`, `realized_pnl_dollars`, `fees_paid_dollars`, `last_updated_ts`) and `event_positions[]` (`event_ticker`, `total_cost_dollars`, `total_cost_shares_fp`, `event_exposure_dollars`, `realized_pnl_dollars`, `fees_paid_dollars`). | VERIFIED (docs) | K-TR-S7 schema. `resting_orders_count` not present in the documented schema. | None. |
 | K-TR-12 | Rate limits: token-bucket per API key; bucket refills continuously at the tier's per-second budget up to capacity; request allowed when the bucket covers its cost, else **`429 Too Many Requests`** with body `{"error": "too many requests"}`. 429 responses **do not** currently include `Retry-After` or `X-RateLimit-*` headers; no extra cooldown penalty. Default request cost 10 tokens; create order 10, cancel order 2; authoritative per-endpoint costs at `GET /account/endpoint_costs`. Basic tier: read budget 200, write budget 100 tokens/s; Basic write bucket holds ~1 s of budget. Higher tiers (Advanced … Prestige) via `GET /account/limits`. | VERIFIED (docs) | K-TR-S8. | None. |
 | K-TR-13 | Documented HTTP error statuses on create order: 400, 401, 409, 429, 500 (no Kalshi-specific error-code enum listed on the V2 page beyond these). Cancel order lists 401, 404, 500. | VERIFIED (docs) | K-TR-S2, K-TR-S4. | None. |
@@ -495,7 +495,7 @@ Tool: `scripts/observe_kalshi_demo_order_lifecycle.py`; fixtures in
 | # | Claim | Status | Evidence | Code impact |
 |---|-------|--------|----------|-------------|
 | K-TR-OBS-11 | `POST /portfolio/orders` (legacy V1 create) on demo → **HTTP 410 Gone** `{"error":{"code":"deprecated_v1_order_endpoint","message":"Please switch to the V2 endpoints","details":<link to create-order-v2 docs>}}`. Confirms K-TR-04's "legacy `POST /portfolio/orders` is deprecated" — it is now fully retired for **writes** (while `GET /portfolio/orders` still returns 200, K-TR-OBS-06). | OBSERVED | `lifecycle/02_submit_legacy_orders.json` (410). | Live-broker Kalshi order submission must target the V2 path only. |
-| K-TR-OBS-12 | `POST /portfolio/events/orders` (documented V2 create, K-TR-04) on demo with this key → **HTTP 404** `{"error":{"code":"user_not_found","message":"user not found","details":"Exchange user not found. For Predictions: reference … Exchange Sharding documentation."}}`. The 404 is an **account-provisioning** error, not path-not-found: the same key authenticates every portfolio **read** (K-TR-OBS-01) but is not resolvable as an "Exchange user" for order entry. | OBSERVED | `lifecycle/01_submit_v2_events_orders.json` (404). | Blocks OBSERVED evidence for K-TR-06/07/08/09/10; see A-038. |
+| K-TR-OBS-12 | `POST /portfolio/events/orders` (documented V2 create, K-TR-04) on demo with this key → **HTTP 404** `{"error":{"code":"user_not_found","message":"user not found","details":"Exchange user not found. For Predictions: reference … Exchange Sharding documentation."}}`. The 404 is an **account-provisioning** error, not path-not-found: the same key authenticates every portfolio **read** (K-TR-OBS-01) but is not resolvable as an "Exchange user" for order entry. **SUPERSEDED 2026-09-09 by K-TR-OBS-26:** once demo shard 1 was funded (K-TR-OBS-22), the identical `POST` returned **201**. The `404 user_not_found` was the *unfunded target shard* state — no "Exchange user" exists on a shard with no collateral. The `lifecycle/01…` fixture retains the original 404 capture. | OBSERVED (state now changed) | `lifecycle/01_submit_v2_events_orders.json` (404, pre-funding). | Was: blocked K-TR-06..10 OBSERVED evidence. Now resolved — see K-TR-OBS-26..33. |
 | K-TR-OBS-13 | After both failed create attempts, `GET /portfolio/positions` and `GET /portfolio/fills` were **unchanged** (`{…: [], "cursor": ""}`). No order, position, or fill was created. Re-confirms K-TR-OBS-04 / K-TR-OBS-05 envelopes on a second same-day capture. | OBSERVED (envelope only) | `lifecycle/10_positions.json`, `lifecycle/11_fills.json` (200). | None. |
 
 #### 2026-09-08 (later still) — demo shard-balance / exchange-status read-only probe
@@ -566,29 +566,57 @@ shard 1 is accepted — `POST /portfolio/events/orders` was **not** re-attempted
 (K-TR-OBS-12's `404 user_not_found` is unretested). A-038's core blocker
 (OBSERVED create-order / cancel / status / fills, K-TR-05..10) is unresolved.
 
+#### 2026-09-09 — funded-shard order lifecycle (submit → cancel round-trip)
+
+After demo shard 1 was funded (K-TR-OBS-22), one **1-contract `yes` bid @
+$0.01, `post_only`, GTC** order was placed on the verified shard-1 demo market
+`KXMVECROSSCATEGORY-SHARD1-…` (`status = active`, **empty order book** — a
+$0.01 bid cannot cross; `post_only` is the second guard) and immediately
+cancelled. Max notional at risk: $0.01 of demo funny-money; no deliberate
+fill; quantity never increased. Tool:
+`scripts/observe_kalshi_demo_order_lifecycle.py lifecycle-funded`; fixtures
+`docs/evidence/kalshi-demo/lifecycle-funded/*.json` (D-024 sanitiser; the
+server `order_id` is scrubbed to `{order_id}` in every persisted path).
+
+| # | Claim | Status | Evidence | Code impact |
+|---|-------|--------|----------|-------------|
+| K-TR-OBS-26 | **The `404 user_not_found` (K-TR-OBS-12) is resolved once the target shard is funded.** `POST /portfolio/events/orders` on demo with the same key → **HTTP 201**, body `{ client_order_id, fill_count, order_id, remaining_count, ts_ms }` — exactly the K-TR-06 documented create-order response key set; no lifecycle `status` on the create response (matches K-TR-06). Order body sent: the K-TR-05 field set (`ticker, side=bid, count="1", price="0.01", time_in_force=good_till_canceled, self_trade_prevention_type=maker, post_only=true`) with no `exchange_index` → auto-routed to shard 1 by the `…-SHARD1-…` ticker (K-TR-14). | OBSERVED | `lifecycle-funded/01_submit_v2_events_orders.json` (201). | Live-broker Kalshi create-order targets `POST /portfolio/events/orders`; the create response has no order status. |
+| K-TR-OBS-27 | Immediately after submit, `GET /portfolio/orders` → 200 with the resting order present; the order row shape (`GetOrder` / list element) is OBSERVED to carry: `action, book_side, client_order_id, created_time, exchange_index, fill_count_fp, initial_count_fp, last_update_time, maker_fees_dollars, maker_fill_cost_dollars, no_price_dollars, order_id, outcome_side, remaining_count_fp, self_trade_prevention_type, side, status, subaccount_number, taker_fees_dollars, taker_fill_cost_dollars, ticker, type, user_id, yes_price_dollars`. This is a **superset** of K-TR-08's documented field list (adds `action, book_side, type, created_time, last_update_time, user_id, subaccount_number, yes_price_dollars, no_price_dollars`). All per-order **values** are redacted by the sanitiser. | OBSERVED (field names only) | `lifecycle-funded/03_orders_after_submit.json`, `lifecycle-funded/04_get_order.json` (200). | Informs a future Kalshi order-status mapping; field values still doc-only. |
+| K-TR-OBS-28 | Single-order read `GET /portfolio/orders/{order_id}` on demo **404s for a sharded order unless it is shard-routed** — the same routing rule the cancel needs (K-TR-OBS-30). With `?market_ticker=…SHARD1…` it returns 200 and the K-TR-OBS-27 row shape. | OBSERVED | `lifecycle-funded/04_get_order.json` (200, path shows the `market_ticker` query); an earlier unrouted attempt returned 404. | Live-broker order-status reads for a sharded venue must pass `market_ticker` / `exchange_index`. |
+| K-TR-OBS-29 | Idempotency: re-`POST` of the **identical `client_order_id`** while the order rests → **HTTP 409**, body `{ error: { code, message } }` (values redacted). Confirms K-TR-07's server-enforced dedupe; no second order was created (K-TR-OBS-32). | OBSERVED (envelope only) | `lifecycle-funded/05_submit_duplicate_client_order_id.json` (409). | Confirms `live_broker.IdempotencyGuard` design intent has a venue-side counterpart. |
+| K-TR-OBS-30 | **Cancel requires shard routing.** `DELETE /portfolio/events/orders/{order_id}` with **no** `market_ticker` / `exchange_index` query → **HTTP 404** `not_found`; the legacy `DELETE /portfolio/orders/{order_id}` → **410** `deprecated_v1_order_endpoint`. `DELETE /portfolio/events/orders/{order_id}?market_ticker=…SHARD1…` → **HTTP 200**, body `{ order_id, reduced_by, ts_ms }` — the K-TR-10 documented cancel response; `reduced_by` was the full order size. The cancel-order-v2 reference lists `subaccount`, `exchange_index` (omit / `-1` = auto-route) and `market_ticker` (required for auto-route) query params — a body-less DELETE has no ticker to auto-route from, so one of these is mandatory for a sharded order. | OBSERVED | `lifecycle-funded/06_cancel_v2_events_orders.json` (200, `market_ticker` query in the record); earlier unrouted attempts 404 / 410. | Live-broker Kalshi cancel: `DELETE /portfolio/events/orders/{id}?market_ticker=…` (or `exchange_index=`). |
+| K-TR-OBS-31 | Post-cancel: `GET /portfolio/orders/{order_id}?market_ticker=…` → 200 (row shape as K-TR-OBS-27; `status` value redacted). `GET /portfolio/orders?status=resting` → **`{"orders": [], "cursor": ""}`** — the order left the resting book. (An out-of-band read confirmed `status = "canceled"`, `remaining_count_fp = 0` — raw value not persisted.) | OBSERVED | `lifecycle-funded/08_get_order_after_cancel.json`, `lifecycle-funded/09b_orders_resting_after_cancel.json` (200). | None. |
+| K-TR-OBS-32 | After submit + cancel, `GET /portfolio/positions` → `{market_positions: [], event_positions: [], cursor: ""}` and `GET /portfolio/fills` → `{fills: [], cursor: ""}`. **No fill, no position** — the resting $0.01 bid never matched (empty book + `post_only`). `GET /portfolio/orders` (unfiltered) lists the order with a terminal status; `?status=resting` is empty (K-TR-OBS-31). | OBSERVED (envelope only) | `lifecycle-funded/10_positions.json`, `lifecycle-funded/11_fills.json` (200). | Confirms K-TR-OBS-04 / K-TR-OBS-05 envelopes on an account that has now had order activity; per-row shapes still not observed (no fill / position rows). |
+| K-TR-OBS-33 | Safety: after the run, an independent GET showed **0 resting orders**, **0 fills**, **0 positions**; every demo order created across A-038 (5 total) is `canceled` with `remaining_count_fp = 0`. Nothing left open; `LIVE_TRADING` never read or set; production Kalshi never called. | OBSERVED | Out-of-band `GET /portfolio/orders?status=resting` / `/fills` / `/positions` (not fixtured — values redacted anyway). | None. |
+
 ### Not verified / still open
 
-- Array **element** shapes for positions / fills / orders — demo account is
-  empty. Needs a demo account with activity (or a later capture) to move
-  K-TR-08 / K-TR-09 / K-TR-11 row-level fields to OBSERVED.
+- **Order-row / fill / position field _values_** — the `GET /portfolio/orders`
+  row shape (field _names_) is now OBSERVED (K-TR-OBS-27), but every value is
+  redacted by the D-024 sanitiser, so `status` enum values (`resting` /
+  `canceled` / `executed`), fixed-point formats, and fee/cost semantics are
+  still doc-only (K-TR-08). `fills[]` / `market_positions[]` / `event_positions[]`
+  **rows** were never populated (the probe order never filled and holds no
+  position) — K-TR-09 / K-TR-11 element fields stay doc-only.
 - Order-get not-found behavior for a **well-formed unknown UUID**, and single
-  order read at `/portfolio/events/orders/{id}`.
-- **Create-order request/response shape (K-TR-05/06), idempotency 409 (K-TR-07),
-  order-status (K-TR-08), fills (K-TR-09), cancel (K-TR-10)** — still
-  `VERIFIED (docs)` only. Blocked: the demo key is not order-entry provisioned
-  (K-TR-OBS-12 / A-038). Needs an Exchange-sharded demo account (account
-  configuration — out of scope) or a later capture.
+  order read at `/portfolio/events/orders/{id}`. (New: an unrouted
+  `GET /portfolio/orders/{id}` for a _real_ sharded order can 404 —
+  K-TR-OBS-28.)
+- **Create-order (K-TR-05/06 → K-TR-OBS-26), idempotency 409 (K-TR-07 →
+  K-TR-OBS-29), single-order read (K-TR-08 → K-TR-OBS-27/28), cancel (K-TR-10 →
+  K-TR-OBS-30) are now OBSERVED on demo shard 1.** Still doc-only: partial-fill
+  reporting (K-TR-08 `fill_count_fp` > 0 with `status = resting`), `GET
+  /portfolio/fills` per-fill rows (K-TR-09) — no fill was produced.
 - `429` body and headers (K-TR-12) — not triggered.
 - Whether an `exchange_index`-scoped `GET /portfolio/balance` returns a
   **different** `balance` / `portfolio_value` than the unscoped call — the
   scoped values are redacted in the fixtures (K-TR-OBS-14).
-- **Order entry on the now-funded demo shard 1 is untested.** The operator
-  funded the demo account and completed an `Exchange 0 → Exchange 1` $10
-  transfer (`status = complete`, K-TR-OBS-22); dollar amounts are redacted in
-  the fixtures (K-TR-OBS-23), so the $90 / $10 split rests on operator UI
-  evidence only. `POST /portfolio/events/orders` has **not** been re-attempted
-  since funding — K-TR-OBS-12's `404 user_not_found` is unretested. A-038
-  remains blocking until an order round-trip (K-TR-05..10) is OBSERVED.
+- Order entry on the funded demo shard 1 is now **OBSERVED** working
+  (K-TR-OBS-26..33): a `post_only` $0.01 bid submitted (201), listed, read,
+  duplicate-rejected (409), cancelled (200), and left no fill / position.
+  A-038's demo-observation blocker is cleared; the remaining live-use blocker
+  is the real-money gate + the unimplemented `live_broker` (A-037 / D-023),
+  not demo provisioning.
 - The earlier "Service unavailable" on the first demo-UI transfer
   (K-TR-OBS-17..21) was **transient** — a later identical transfer completed
   (K-TR-OBS-22). Its root cause is still undiagnosed but is no longer a

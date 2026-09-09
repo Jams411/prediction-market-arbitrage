@@ -929,6 +929,41 @@ Use this file as the concise chronological record of milestone progress, evidenc
   D-023 stand. No `src/` change, no dependency, no `DECISIONS` change.
   `LIVE_TRADING` untouched; no Polymarket US work.
 
+## 2026-09-09 — A-038: funded-shard demo order lifecycle (submit → cancel round-trip)
+
+- With demo shard 1 funded (K-TR-OBS-22), ran one **1-contract `yes` bid @
+  $0.01, `post_only`, GTC** on the verified shard-1 demo market
+  `KXMVECROSSCATEGORY-SHARD1-…` (`status = active`, empty book — cannot cross)
+  and cancelled it immediately. Max risk $0.01 demo funny-money; no fill; qty
+  never raised.
+- Tool: `scripts/observe_kalshi_demo_order_lifecycle.py lifecycle-funded`
+  (now takes an optional evidence-subdir arg; V2 cancel + single-order GET are
+  **shard-routed** with `?market_ticker=`; the server `order_id` is scrubbed to
+  `{order_id}` in every persisted path). New fixtures
+  `docs/evidence/kalshi-demo/lifecycle-funded/*.json`; the pre-funding
+  `lifecycle/` fixtures (K-TR-OBS-11/12) are kept intact.
+- OBSERVED (`docs/API_SOURCES.md` **K-TR-OBS-26..33**):
+  - `POST /portfolio/events/orders` → **201** with the K-TR-06 response key set
+    — the K-TR-OBS-12 `404 user_not_found` was the *unfunded target shard*
+    state (K-TR-OBS-12 marked SUPERSEDED).
+  - Order row in `GET /portfolio/orders` carries a **superset** of the K-TR-08
+    documented field names (values redacted).
+  - Duplicate `client_order_id` → **409** (K-TR-07 confirmed).
+  - Cancel needs shard routing: unrouted `DELETE` → 404, legacy path → 410,
+    `DELETE …?market_ticker=…` → **200** `{order_id, reduced_by, ts_ms}`
+    (K-TR-10 updated with the query params). Same routing rule for single-order
+    GET.
+  - Post-cancel `?status=resting` list empty; `positions` / `fills` empty; an
+    independent re-check showed 0 resting / 0 fills / 0 positions, every demo
+    order `canceled`.
+- **A-038 → RESOLVED (demo-observation scope).** It never governed the
+  real-money gate; live/real-money trading stays disabled by **D-002** and
+  **A-037 / D-023** (`live_broker` is an interface boundary only). Still
+  doc-only: per-fill rows (K-TR-09), partial-fill reporting, and all redacted
+  order values. `ASSUMPTIONS.md` A-038 "Blocks live use?" → No.
+- No `src/` change, no dependency, no `DECISIONS` change. `LIVE_TRADING` never
+  read or set; production Kalshi never called; no Polymarket US work.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
