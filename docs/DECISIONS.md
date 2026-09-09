@@ -371,11 +371,12 @@ detail lives in the strategy-layer `OpportunityEvaluation`, and
 opportunity exists — mirrors D-011's boundary).
 
 **Trade-offs / consequences:** The engine cannot, by construction, tell you
-whether a positive edge will be *realized* — that needs the paper broker. It
-also does not implement same-market complete-set arbitrage (a ROADMAP M1.5
-bullet): `MarketPairRecord` is cross-venue by construction (fixed `kalshi` +
-`polymarket_us` legs), so a same-venue pairing has no registry representation
-today. Flagged for a future registry extension or a separate mechanism.
+whether a positive edge will be *realized* — that needs the paper broker. The
+cross-venue `evaluate` path does not implement same-market complete-set
+arbitrage: `MarketPairRecord` is cross-venue by construction (fixed `kalshi` +
+`polymarket_us` legs), so a same-venue pairing has no registry representation.
+**Superseded in part by D-025**, which adds `evaluate_complete_set` as a
+separate, registry-free method rather than extending `MarketPairRecord`.
 
 **Learning takeaway:** Keep the deterministic core deterministic. Every
 dependency you refuse to bake in — the network, the human equivalence call, the
@@ -1171,6 +1172,67 @@ are unchanged (K-TR-OBS rows stay OBSERVED).
 `docs/evidence/kalshi-demo/*.json`,
 `scripts/observe_kalshi_demo_order_lifecycle.py` +
 `docs/evidence/kalshi-demo/lifecycle/*.json` (reuses `sanitise_body`).
+
+### D-025 — Same-market complete-set arbitrage is a registry-free method on the engine
+
+**Date:** 2026-09-09
+
+**Context:** the ROADMAP M1.5 bullet "Same-market complete-set logic" was the
+last unchecked M1.5 item. Complete-set arbitrage buys one unit of **every**
+mutually exclusive outcome of a *single* market on a *single* venue; exactly one
+outcome settles to 1, so a matched set pays exactly 1 per unit and a set costing
+< 1 (after fees + the execution buffer) is a locked-in edge. The existing
+`evaluate` path is cross-venue: it requires a VERIFIED `MarketPairRecord`, whose
+`kalshi` + `polymarket_us` legs are fixed and cross-venue by construction
+(D-011). D-012 flagged complete-set as needing "a future registry extension or a
+separate mechanism".
+
+**Decision:** add `ArbitrageEngine.evaluate_complete_set(books, *,
+evaluation_time, requested_quantity=None)` returning a new
+`CompleteSetEvaluation`. It takes the outcome `OrderBook`s **directly** and uses
+**no registry**:
+
+- There is no equivalence question — the outcomes belong to one market, so
+  "these N outcomes are the complete, mutually exclusive set" is a property of
+  that market, not a cross-market mapping a human must verify. The caller
+  asserts it by which books it supplies (A-039); the engine verifies only that
+  the books share one venue+market and name distinct contracts, and that there
+  are ≥ 2.
+- Everything else reuses the `evaluate` conventions unchanged: exact `Decimal`
+  (no internal rounding), `_walk_asks` depth-walking, `executable_quantity =
+  min(ask depth over every outcome, `max_quantity`, `requested_quantity`)`,
+  injected `FeeModel` summed per outcome, the same optional freshness guards
+  (`max_book_age`, `max_cross_book_skew` — the latter as `max − min` timestamp
+  across all books), `require_full_fill`, and `execution_buffer_per_unit`.
+  Exact break-even is not an opportunity.
+- `CompleteSetEvaluation.to_opportunity()` is defined only for a **binary**
+  set (exactly 2 outcomes → a domain `MarketPair`); a categorical (> 2) set
+  raises rather than distorting `MarketPair`.
+
+**Alternatives considered:** extend `MarketPairRecord` / the registry to hold a
+same-venue outcome group (rejected — invents review-workflow infra for a case
+with no equivalence question; the registry's whole purpose is the human
+cross-venue equivalence gate, D-006/D-011); overload `evaluate` with an
+optional "complete set" mode (rejected — the 2-leg `OpportunityEvaluation`
+result type and the `record` parameter do not fit N outcomes); a standalone
+function outside `ArbitrageEngine` (rejected — it needs the same
+`EngineConfig`).
+
+**Trade-offs / consequences:** the engine now has two entry points with two
+result types. `evaluate_complete_set` cannot verify outcome-set exhaustiveness
+from `OrderBook`s alone — a caller that passes a non-exhaustive subset gets a
+wrong "guaranteed 1 at settlement" premise (A-039). This does **not** touch the
+cross-venue path, the registry, live execution, or the recorder. It does not
+implement a slippage reserve (still a separate open item); it reuses the
+existing `execution_buffer_per_unit` knob only.
+
+**Status:** ACTIVE.
+
+**Evidence:** `src/prediction_market_arbitrage/arbitrage/engine.py`
+(`evaluate_complete_set`, `CompleteSetEvaluation`, `_complete_set_freshness`,
+`_leg_shell_from_book`), `tests/test_arbitrage_complete_set.py`,
+`docs/ARBITRAGE_METHODOLOGY.md` §"Same-market complete-set", `docs/ASSUMPTIONS.md`
+A-039.
 
 ## Documentation rule going forward
 

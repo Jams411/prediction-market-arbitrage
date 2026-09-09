@@ -108,3 +108,20 @@ def polymarket_book(
         outcome=contract_outcome if contract_outcome is not None else outcome,
     )
     return OrderBook(contract=contract, bids=(), asks=_levels(asks), timestamp=timestamp)
+
+
+def outcome_book(
+    outcome: str,
+    asks: Sequence[tuple[str, str]],
+    *,
+    venue: Venue = KALSHI_VENUE,
+    market: str = KALSHI_MARKET,
+    timestamp: datetime = TS,
+) -> OrderBook:
+    """One outcome's book within a single same-venue market (complete-set path)."""
+    contract = Contract(
+        market=Market(venue=venue, id=market, title="synthetic", close_time=None),
+        id=f"{market}:{outcome}",
+        outcome=outcome,
+    )
+    return OrderBook(contract=contract, bids=(), asks=_levels(asks), timestamp=timestamp)

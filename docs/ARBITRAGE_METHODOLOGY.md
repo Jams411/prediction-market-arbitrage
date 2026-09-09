@@ -9,10 +9,13 @@ represents a locked-in edge — and the many things a positive number here does
 
 ## 0. Scope of M1.5
 
-The engine implements **one** arbitrage model: the **complementary-outcome
-buy/buy**. It only evaluates registry records whose `relation` is
-`COMPLEMENTARY` — buy one unit of each side, let the $1 settlement cover the
-combined cost.
+The engine implements **two** buy-only arbitrage models:
+
+1. **Complementary-outcome buy/buy** (`ArbitrageEngine.evaluate`) — cross-venue.
+   Only registry records whose `relation` is `COMPLEMENTARY` are evaluated: buy
+   one unit of each side, let the $1 settlement cover the combined cost.
+2. **Same-market complete-set buy** (`ArbitrageEngine.evaluate_complete_set`) —
+   single market, single venue. See §1a.
 
 `IDENTICAL` pairs (the same contract, priced differently on the two venues) are
 also a real arbitrage in principle — but capturing it means *selling* / shorting
@@ -22,9 +25,9 @@ opportunity** for `IDENTICAL` records, with a reason. This is a limitation of
 the current engine, **not** a claim that identical contracts cannot be
 arbitraged; support is deferred to execution/broker work.
 
-Also **not** in M1.5: same-market complete-set arbitrage (the registry's
-`MarketPairRecord` is cross-venue by construction), live trading, order
-submission, positions, and any use of wall-clock time.
+Also **not** in M1.5: a slippage reserve (only a generic
+`execution_buffer_per_unit` knob exists), live trading, order submission,
+positions, and any use of wall-clock time.
 
 ## 1. Why buying complementary outcomes below total payout is arbitrage
 
@@ -42,6 +45,32 @@ difference is locked in the moment both fills complete:
 Example: leg A asks 0.45, leg B asks 0.52. Combined cost 0.97, settlement value
 1.00, gross edge 0.03 per matched set. This is direction-free: you are not
 betting on the event, only on the two prices summing to less than the payout.
+
+## 1a. Same-market complete-set arbitrage
+
+Generalise §1 from two complementary legs to **all** outcomes of one market.
+A market's outcomes are, by the venue's own construction, **mutually exclusive**
+(at most one resolves YES) and **collectively exhaustive** (exactly one does).
+Holding one unit of every outcome therefore pays exactly **1 unit** at
+settlement, whichever outcome wins:
+
+    gross_edge_per_unit = 1 - Σ ask_price(outcome_i)
+
+For a binary market that is just `1 - (YES_ask + NO_ask)`; for an N-way
+categorical market it is `1 - (ask_A + ask_B + ask_C + …)`.
+
+`ArbitrageEngine.evaluate_complete_set(books, …)` takes the outcome
+`OrderBook`s directly — there is **no equivalence question** and **no registry**
+(D-025). "These are the complete, mutually exclusive outcome set" is a property
+of the one market the caller chose; the engine only checks that the books share
+a venue+market, name distinct contracts, and number at least two (A-039). The
+net-edge arithmetic, depth-walking, executable-quantity cap, injected
+`FeeModel` (summed per outcome), freshness guards, and `execution_buffer` are
+all identical to §2–§4. Exact break-even is not an opportunity.
+
+The result is a `CompleteSetEvaluation`; `to_opportunity()` maps a **binary**
+set to the domain `Opportunity` container (a categorical set has no two-contract
+`MarketPair` and raises instead).
 
 ## 2. Gross edge vs. net edge
 
