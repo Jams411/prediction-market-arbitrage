@@ -142,6 +142,107 @@ def test_negative_edge_is_not_an_opportunity() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Slippage reserve (M1.5 — explicit, configurable, deterministic)
+# --------------------------------------------------------------------------- #
+
+
+def test_zero_slippage_reserve_reproduces_pre_reserve_result() -> None:
+    baseline = _evaluate(a_asks=[("0.45", DEEP)], b_asks=[("0.52", DEEP)], quantity="1")
+    with_zero = _evaluate(
+        a_asks=[("0.45", DEEP)],
+        b_asks=[("0.52", DEEP)],
+        quantity="1",
+        config=EngineConfig(slippage_reserve_per_unit=D("0")),
+    )
+    assert with_zero.slippage_reserve == D("0")
+    assert with_zero.net_total_cost == baseline.net_total_cost
+    assert with_zero.net_edge == baseline.net_edge == D("0.03")
+    assert with_zero.has_opportunity is True
+
+
+def test_positive_slippage_reserve_reduces_net_edge_deterministically() -> None:
+    result = _evaluate(
+        a_asks=[("0.45", DEEP)],
+        b_asks=[("0.52", DEEP)],
+        quantity="1",
+        config=EngineConfig(slippage_reserve_per_unit=D("0.01")),
+    )
+    assert result.slippage_reserve == D("0.01")  # 0.01 per matched set, one set
+    assert result.net_total_cost == D("0.98")
+    assert result.net_edge == D("0.02")
+    assert result.has_opportunity is True
+
+
+def test_slippage_reserve_scales_with_executable_quantity() -> None:
+    result = _evaluate(
+        a_asks=[("0.45", DEEP)],
+        b_asks=[("0.52", DEEP)],
+        quantity="5",
+        config=EngineConfig(slippage_reserve_per_unit=D("0.01")),
+    )
+    assert result.executable_quantity == D("5")
+    assert result.slippage_reserve == D("0.05")
+    assert result.net_edge == D("5") * D("0.03") - D("0.05")
+    assert result.net_edge == D("0.10")
+
+
+def test_slippage_reserve_can_push_an_opportunity_to_exact_break_even() -> None:
+    result = _evaluate(
+        a_asks=[("0.45", DEEP)],
+        b_asks=[("0.52", DEEP)],
+        quantity="1",
+        config=EngineConfig(slippage_reserve_per_unit=D("0.03")),
+    )
+    assert result.slippage_reserve == D("0.03")
+    assert result.net_edge == D("0.00")
+    assert result.has_opportunity is False
+    assert "break-even" in result.rejection_reason
+
+
+def test_slippage_reserve_can_make_an_opportunity_unprofitable() -> None:
+    result = _evaluate(
+        a_asks=[("0.45", DEEP)],
+        b_asks=[("0.52", DEEP)],
+        quantity="1",
+        config=EngineConfig(slippage_reserve_per_unit=D("0.04")),
+    )
+    assert result.net_edge == D("-0.01")
+    assert result.has_opportunity is False
+    assert "negative" in result.rejection_reason
+
+
+def test_slippage_reserve_stacks_with_fees_and_execution_buffer() -> None:
+    result = _evaluate(
+        a_asks=[("0.45", DEEP)],
+        b_asks=[("0.52", DEEP)],
+        quantity="1",
+        config=EngineConfig(
+            fee_model=FixedPerUnitFeeModel(D("0.005")),
+            execution_buffer_per_unit=D("0.005"),
+            slippage_reserve_per_unit=D("0.01"),
+        ),
+    )
+    # gross 0.97 + fees 0.01 + buffer 0.005 + slippage 0.01 = 0.995
+    assert result.fees == D("0.010")
+    assert result.execution_buffer == D("0.005")
+    assert result.slippage_reserve == D("0.010")
+    assert result.net_total_cost == D("0.995")
+    assert result.net_edge == D("0.005")
+    assert result.has_opportunity is True
+
+
+@pytest.mark.parametrize("bad", [D("-0.01"), D("NaN"), D("Infinity")])
+def test_invalid_slippage_reserve_is_rejected(bad: Decimal) -> None:
+    with pytest.raises(ArbitrageError, match="slippage_reserve_per_unit"):
+        EngineConfig(slippage_reserve_per_unit=bad)
+
+
+def test_float_slippage_reserve_is_rejected() -> None:
+    with pytest.raises(ArbitrageError, match="slippage_reserve_per_unit"):
+        EngineConfig(slippage_reserve_per_unit=0.01)  # type: ignore[arg-type]
+
+
+# --------------------------------------------------------------------------- #
 # Depth walking
 # --------------------------------------------------------------------------- #
 
