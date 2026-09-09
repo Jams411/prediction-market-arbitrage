@@ -242,6 +242,34 @@ the channel requires API-key auth in the handshake, which M2.1 does not do).
 
 ---
 
+## Kalshi — production live market-data observation (2026-09-09, Real-money gate #2)
+
+A bounded, **unauthenticated, read-only** production session against
+`https://external-api.kalshi.com/trade-api/v2` (K-01 / K-09: public REST market
+data). Tool: `scripts/observe_kalshi_prod_market_data.py`; sanitised evidence in
+`docs/evidence/kalshi-live/market-data/` (SUMMARY + a structure-only sample —
+every price/size scalar → a type token). **No WebSocket** — Kalshi's production
+market-data WS requires API-key auth in the handshake (K-WS-01) and no
+production Kalshi credential exists in this environment.
+
+| # | Claim | Status | Evidence | Gate impact |
+|---|-------|--------|----------|-------------|
+| K-MD-OBS-01 | **REST snapshot initialisation** against production works: `GET /markets/{ticker}/orderbook` → HTTP **200** with the documented `{ "orderbook_fp": { "yes_dollars": [...], "no_dollars": [...] } }` shape (K-05); level pairs are `[price_string, size_string]` (K-06). Sampled market `KXBTCD-26SEP0904-T84299.99` (a Bitcoin-daily binary), 28 `no_dollars` levels / 0 `yes_dollars` (one-sided near the threshold). | OBSERVED (production) | `market-data/01_rest_snapshot_shape.json` (200); `market-data/SUMMARY.json`. | Partial support for gate #2 "REST snapshot initialization" — REST path only. |
+| K-MD-OBS-02 | **Sustained availability + a live book.** 44 polls of the same orderbook over **300.2 s wall** (6 s interval), session `2026-09-09T07:28:05Z … 07:33:05Z`: HTTP-status histogram **`{200: 44}`** (100 %), market `status` field `"active"` throughout, and **8 distinct book states / 7 changes** with a max gap of ~64 s between changes. This is a real sustained session (UTC start/end + 44 timed samples), not a one-message smoke test, and the book demonstrably updates. | OBSERVED (production) | `market-data/SUMMARY.json` (`polls`, `orderbook_status_histogram`, `distinct_book_states_observed`, `polls_with_book_change`, `session_start/end_utc`, `wall_elapsed_s`, `per_poll[]`). | Supports "the production market-data service is reachable and stable over minutes, and the book is live" — **for REST**, not the WS feed. |
+| K-MD-OBS-03 | **Transport failure + recovery (REST analog only).** A GET to an unreachable host raised `URLError`; the next GET to the real endpoint returned **200**. This is *not* a WebSocket disconnect/resync — no stream, no `seq`, no `get_snapshot`, no `LiveBookFeed` state transition. | OBSERVED (production, REST) | `market-data/SUMMARY.json` (`transport_failure_probe`, `recovery_after_failure_status`). | Does **not** satisfy gate #8; recorded only to bound what REST can show. |
+| K-MD-OBS-04 | **Not verified here** (blocked on a missing production Kalshi credential; creating one was out of scope): WebSocket connection success, real WS `orderbook_snapshot`/`orderbook_delta` receipt, per-subscription `seq` / snapshot-then-delta ordering (K-WS-02), stream disconnect detection, reconnect + `get_snapshot` resync (K-WS-05), and `LiveBookFeed` `HealthStatus` transitions across a real reconnect. **A-030** and **A-028** remain **UNVERIFIED**. | UNKNOWN | — (no WS session) | Gate #2 stays **unchecked**; #7 and #8 unchanged. |
+
+**Real-money gate #2 verdict:** *partially* supported — production REST snapshot
+init and multi-minute service/book liveness are now OBSERVED — but the item's
+core (a **stable live feed**: WS connect, sustained `seq`-ordered updates,
+disconnect → reconnect → resync with healthy state throughout) is **not**
+verified. REST polling is not the feed the M2.1 code or the gate item concern.
+**Item #2 remains unchecked.** Gate #7 (stale-data handling) and #8
+(disconnect/reconnect) are **not** strengthened — both need the WS reconnect
+path that was not exercised.
+
+---
+
 ## Polymarket US — WebSocket order book (M2.1)
 
 Verification date: **2026-09-06** (docs read; **no live socket connection** —
@@ -721,3 +749,18 @@ US retail client-order-id / `ClOrdID` mechanism (P-TR-10) and `Retry-After`
 behavior (P-TR-12); an OBSERVED partial fill. Real-money trading stays disabled
 (D-002; `live_broker` still raises `UnsupportedLiveOperationError`, A-037). No
 adapter was implemented and `LIVE_TRADING` remains `False`.
+
+### #2 "Stable live market data" — partial, 2026-09-09
+
+A bounded production session was run (K-MD-OBS-01..04, above): production
+**REST** market data — snapshot init, a 5-minute 44-poll window at 100 % HTTP
+200 with a demonstrably live book, and a REST transport-failure/recovery — is
+now **OBSERVED**. The item's core (a **stable live WebSocket feed**: connect,
+`seq`-ordered snapshot→delta updates, disconnect → reconnect → resync) is
+**NOT** verified: Kalshi's production market-data WS requires an authenticated
+handshake (K-WS-01) and no production Kalshi credential exists here, so no WS
+session was opened. **A-030 / A-028 stay UNVERIFIED.** Item #2 stays
+**unchecked**; #7 and #8 are **not** advanced. Smallest next action: a
+production Kalshi API key + an RSA-PSS signer, then one authenticated
+`wss://external-api-ws.kalshi.com/trade-api/ws/v2` session capturing a
+snapshot + deltas + a reconnect.
