@@ -102,3 +102,47 @@ The project's implementation workflow through 2026-09-10 used Claude Code as the
 ## Codex comparison period
 
 The Codex comparison period begins after PR #38 / 2026-09-10. New Codex milestones should be appended here using the same fields and engineering gates as Claude Code. Do not lower or raise acceptance standards based on the agent used.
+
+### Paginated Kalshi Demo candidate observation — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** reused the existing read-only Demo diagnostic to verify cursor
+pagination and inspect 10 pages / 1,000 open markets at the unchanged
+`--max-price 0.60`; recorded a compact evidence summary.
+**Validation:** targeted diagnostic tests; live public Demo market-data
+observation; no authenticated or execution endpoints.
+**Outcome:** three markets passed the existing picker rule; recommended target
+`KXMLBHR-26SEP101305HOUPHI-PHILARRAEZ1-1` had YES best bid `0.0600`, best ask
+`0.0800`, and `27083.29` available at the best ask in the initial observed
+snapshot. A fresh targeted read-only revalidation observed the target still
+`active` and eligible at the same bid/ask, with 4 bid / 3 ask levels and
+`64583.23` then available at the best ask. The subsequent authorized bounded
+execution attempt failed closed before submission: the target remained eligible,
+but the supported observer has no ticker argument and its non-paginated picker
+could not select it from the first 100 open markets. No account call occurred.
+**Evidence:** `docs/PROJECT_JOURNAL.md` and
+`docs/evidence/kalshi-demo/execution/candidate-scan-2026-09-10.json` plus
+`docs/evidence/kalshi-demo/execution/candidate-revalidation-2026-09-10.json` plus
+`docs/evidence/kalshi-demo/execution/bounded-execution-blocked-2026-09-10.json`.
+**Quality note:** no code or risk-limit change was needed; no order was placed.
+
+### Explicit target selection for bounded Kalshi Demo execution — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** required an explicit operator-supplied ticker for `--observe`, added
+exact Demo retrieval and fail-closed status/identity/eligibility validation, and
+kept the existing execution safeguards and discovery diagnostic unchanged.
+**Validation:** focused 39-test observer suite plus the complete local Ruff,
+mypy, pytest, and pre-commit quality gate.
+**Outcome:** the bounded harness can evaluate the exact authorized market without
+depending on discovery ordering; missing, ambiguous, unavailable, inactive, or
+ineligible targets stop before credentials or submission. No order was run.
+**Evidence:** D-033; `docs/PROJECT_JOURNAL.md`;
+`scripts/observe_kalshi_demo_execution.py`;
+`tests/test_observe_kalshi_demo_execution.py`.
+**Quality note:** narrow script/test/docs change only; no execution architecture,
+risk limits, production gates, dependencies, or historical attribution changed.

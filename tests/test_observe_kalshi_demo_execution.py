@@ -9,6 +9,7 @@ demo order run bounded and safe enough to execute?").
 from __future__ import annotations
 
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import observe_kalshi_demo_execution as harness
@@ -64,7 +65,7 @@ def test_observe_refuses_without_the_env_guard(monkeypatch: pytest.MonkeyPatch) 
         harness, "run_observation",
         lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not run")),
     )
-    assert harness.main(["--observe"]) == 2
+    assert harness.main(["--observe", "--ticker", "KXSYNTH-TARGET"]) == 2
 
 
 def test_observe_refuses_when_preflight_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -75,7 +76,51 @@ def test_observe_refuses_when_preflight_not_ready(monkeypatch: pytest.MonkeyPatc
         harness, "run_observation",
         lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not run")),
     )
+    assert harness.main(["--observe", "--ticker", "KXSYNTH-TARGET"]) == 2
+
+
+def test_observe_requires_exactly_one_explicit_ticker_before_preflight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        harness, "preflight",
+        lambda: (_ for _ in ()).throw(AssertionError("preflight must not run")),
+    )
     assert harness.main(["--observe"]) == 2
+    assert harness.main(["--observe", "--ticker"]) == 2
+    assert (
+        harness.main(
+            ["--observe", "--ticker", "KXSYNTH-A", "--ticker", "KXSYNTH-B"]
+        )
+        == 2
+    )
+
+
+def test_observe_routes_the_explicit_ticker_and_exact_max_price(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        harness, "preflight", lambda: _ready_report(env_guard_set=True)
+    )
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(
+        harness,
+        "run_observation",
+        lambda max_price, ticker: seen.update(
+            max_price=max_price, ticker=ticker
+        )
+        or 0,
+    )
+    assert (
+        harness.main(
+            ["--observe", "--ticker", "KXSYNTH-TARGET", "--max-price", "0.60"]
+        )
+        == 0
+    )
+    assert seen == {
+        "max_price": Decimal("0.60"),
+        "ticker": "KXSYNTH-TARGET",
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -353,6 +398,181 @@ def _two_sided_book(ask: str, *, size: str = "50", depth: int = 2) -> _Book:
         _Lvl(Decimal("0.001") * (depth - i), Decimal(size)) for i in range(depth)
     )
     return _Book(bids=bids, asks=asks)
+
+
+class _ExactTargetClient:
+    def __init__(self, market: dict[str, str] | Exception) -> None:
+        self.market = market
+        self.requested: list[str] = []
+
+    def get_market(self, ticker: str) -> dict[str, str]:
+        self.requested.append(ticker)
+        if isinstance(self.market, Exception):
+            raise self.market
+        return self.market
+
+    def list_markets(self, **_kwargs: Any) -> Any:
+        raise AssertionError("explicit targeting must not depend on discovery ordering")
+
+
+class _ExactTargetAdapter:
+    def __init__(self, book: _Book | Exception) -> None:
+        self.book = book
+        self.requested: list[str] = []
+
+    def get_order_books(self, ticker: str) -> Any:
+        self.requested.append(ticker)
+        if isinstance(self.book, Exception):
+            raise self.book
+        return SimpleNamespace(yes=self.book)
+
+
+def _install_exact_target_fakes(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    market: dict[str, str] | Exception,
+    book: _Book | Exception,
+) -> tuple[_ExactTargetClient, _ExactTargetAdapter]:
+    client = _ExactTargetClient(market)
+    adapter = _ExactTargetAdapter(book)
+    monkeypatch.setattr(harness, "KalshiClient", lambda **_kwargs: client)
+    monkeypatch.setattr(harness, "KalshiMarketDataAdapter", lambda _client: adapter)
+    return client, adapter
+
+
+def test_explicit_valid_ticker_is_retrieved_exactly_without_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticker = "KXSYNTH-TARGET"
+    client, adapter = _install_exact_target_fakes(
+        monkeypatch,
+        market={"ticker": ticker, "status": "active"},
+        book=_two_sided_book("0.40", size="25"),
+    )
+    pick = harness.pick_authorized_demo_market(ticker, Decimal("0.60"))
+    assert pick == harness._Pick(ticker, f"{ticker}:YES", Decimal("0.40"))
+    assert client.requested == [ticker]
+    assert adapter.requested == [ticker]
+
+
+def test_explicit_ticker_not_found_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_exact_target_fakes(
+        monkeypatch, market=RuntimeError("not found"), book=_two_sided_book("0.40")
+    )
+    with pytest.raises(SystemExit, match="unavailable"):
+        harness.pick_authorized_demo_market("KXSYNTH-MISSING", Decimal("0.60"))
+
+
+def test_explicit_closed_ticker_fails_before_reading_its_book(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticker = "KXSYNTH-CLOSED"
+    _, adapter = _install_exact_target_fakes(
+        monkeypatch,
+        market={"ticker": ticker, "status": "closed"},
+        book=_two_sided_book("0.40"),
+    )
+    with pytest.raises(SystemExit, match="not active"):
+        harness.pick_authorized_demo_market(ticker, Decimal("0.60"))
+    assert adapter.requested == []
+
+
+def test_explicit_ticker_response_mismatch_fails_as_ambiguous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, adapter = _install_exact_target_fakes(
+        monkeypatch,
+        market={"ticker": "KXSYNTH-OTHER", "status": "active"},
+        book=_two_sided_book("0.40"),
+    )
+    with pytest.raises(SystemExit, match="ambiguous"):
+        harness.pick_authorized_demo_market("KXSYNTH-TARGET", Decimal("0.60"))
+    assert adapter.requested == []
+
+
+def test_explicit_ticker_above_price_cap_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticker = "KXSYNTH-EXPENSIVE"
+    _install_exact_target_fakes(
+        monkeypatch,
+        market={"ticker": ticker, "status": "active"},
+        book=_two_sided_book("0.61"),
+    )
+    with pytest.raises(SystemExit, match=r"best ask 0\.61 > max-price 0\.60"):
+        harness.pick_authorized_demo_market(ticker, Decimal("0.60"))
+
+
+def test_explicit_ticker_with_insufficient_depth_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticker = "KXSYNTH-THIN"
+    _install_exact_target_fakes(
+        monkeypatch,
+        market={"ticker": ticker, "status": "active"},
+        book=_two_sided_book("0.40", depth=1),
+    )
+    with pytest.raises(SystemExit, match="depth 1 < 2"):
+        harness.pick_authorized_demo_market(ticker, Decimal("0.60"))
+
+
+def test_explicit_ticker_with_one_sided_book_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticker = "KXSYNTH-ONE-SIDED"
+    _install_exact_target_fakes(
+        monkeypatch,
+        market={"ticker": ticker, "status": "active"},
+        book=_Book(
+            bids=(_Lvl(Decimal("0.30"), Decimal("10")),),
+            asks=(),
+        ),
+    )
+    with pytest.raises(SystemExit, match="book not two-sided"):
+        harness.pick_authorized_demo_market(ticker, Decimal("0.60"))
+
+
+def test_discovery_picker_behavior_is_unchanged_without_explicit_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    markets = (
+        SimpleNamespace(id="KXSYNTH-FIRST"),
+        SimpleNamespace(id="KXSYNTH-CHEAPER"),
+    )
+    books = {
+        "KXSYNTH-FIRST": _two_sided_book("0.40"),
+        "KXSYNTH-CHEAPER": _two_sided_book("0.30"),
+    }
+
+    class _DiscoveryAdapter:
+        def __init__(self, _client: Any) -> None:
+            pass
+
+        def list_markets(self, **kwargs: Any) -> Any:
+            assert kwargs == {"status": "open", "limit": harness.DIAG_MARKET_LIMIT}
+            return SimpleNamespace(markets=markets)
+
+        def get_order_books(self, ticker: str) -> Any:
+            return SimpleNamespace(yes=books[ticker])
+
+    monkeypatch.setattr(harness, "KalshiClient", lambda **_kwargs: object())
+    monkeypatch.setattr(harness, "KalshiMarketDataAdapter", _DiscoveryAdapter)
+    assert harness.pick_liquid_demo_market(Decimal("0.60")) == harness._Pick(
+        "KXSYNTH-CHEAPER", "KXSYNTH-CHEAPER:YES", Decimal("0.30")
+    )
+
+
+def test_explicit_target_flow_keeps_position_and_orchestrator_checks_before_submit() -> None:
+    import inspect
+
+    source = inspect.getsource(harness.run_observation)
+    position_check = source.index("current_market_position(")
+    orchestrator_execute = source.index("orch.execute(")
+    assert position_check < orchestrator_execute
+    assert "pick_authorized_demo_market(ticker, max_price)" in source
+    assert "KalshiDemoLiveBroker(" in source
 
 
 def test_diagnose_is_a_read_only_mode_that_skips_preflight_and_the_observation(
