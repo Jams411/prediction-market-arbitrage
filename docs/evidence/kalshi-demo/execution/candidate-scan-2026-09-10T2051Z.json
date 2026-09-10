@@ -1,0 +1,58 @@
+{
+  "evidence_status": "OBSERVED",
+  "recorded_at_utc": "2026-09-10T20:51:48Z",
+  "environment": "Kalshi Demo",
+  "mode": "read-only public paginated diagnostic",
+  "command": "observe_kalshi_demo_execution.py --diagnose --max-price 0.60 --pages 10",
+  "pagination": {
+    "representation": "opaque cursor returned by GET /markets and supplied to the next page request",
+    "page_limit": 100,
+    "pages_inspected": 10
+  },
+  "eligibility_rules": {
+    "max_price": "0.60",
+    "minimum_levels_per_side": 2,
+    "requires_two_sided_yes_book": true
+  },
+  "counts": {
+    "markets_inspected": 1000,
+    "non_empty_yes_books": 123,
+    "two_sided_yes_books": 27,
+    "eligible_candidates": 1
+  },
+  "eligible_candidates": [
+    {
+      "ticker": "KXUCLSPREAD-26SEP10BMUBOG-BMU5",
+      "status": "active",
+      "best_bid": "0.0500",
+      "best_ask": "0.0700",
+      "bid_levels": 4,
+      "ask_levels": 3,
+      "available_size_at_best_ask": "11896.81",
+      "reason": "picker-eligible"
+    }
+  ],
+  "recommended_candidate": "KXUCLSPREAD-26SEP10BMUBOG-BMU5",
+  "recommendation_basis": "the only candidate passing the existing picker eligibility rule",
+  "diagnostic_discrepancy": {
+    "status": "BLOCKER for advisory-count wording only",
+    "detail": "The diagnostic correctly reported 1 picker-eligible market, but recommend_max_price said 9 markets satisfy the picker rule because it counts depth-qualified markets before applying max-price. No code was changed."
+  },
+  "limitations": [
+    "This is a time-sensitive public Demo market-data observation, not execution evidence.",
+    "The candidate was not authenticated, position-checked, risk-checked, or selected for execution.",
+    "The raw verbose diagnostic output remained temporary and was not committed."
+  ],
+  "safety": {
+    "credentials_used": false,
+    "authenticated_calls": false,
+    "account_position_balance_fill_calls": false,
+    "orders_submitted": false,
+    "orders_cancelled": false,
+    "production_access": false,
+    "max_price_changed": false,
+    "liquidity_requirements_changed": false,
+    "live_trading_enabled": false,
+    "cross_venue_work": false
+  }
+}

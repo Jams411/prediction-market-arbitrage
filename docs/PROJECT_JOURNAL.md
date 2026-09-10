@@ -1906,6 +1906,85 @@ no `LIVE_TRADING` change.
   request, production access, credential access/change, `LIVE_TRADING` change,
   risk/price/quantity change, or Polymarket work occurred.
 
+## 2026-09-10 — M3.6: reviewed rejection diagnostics merged; target finalized
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge:** PR #41 was re-verified open at reviewed head
+  `b2d5796a10358270677efd0535332ebea9bae2c1`, with green GitHub `quality` CI,
+  no GitHub review/comment blocker, and one reviewed commit. It was squash-merged
+  using the repository's established strategy as main commit
+  `d5a7d2cc25b8ef505895558ccb8c5b306da8b30e`.
+- **Fresh public observation (OBSERVED):** exact Demo identity matched for
+  `KXMLBHR-26SEP101305HOUPHI-PHILARRAEZ1-1`, but status was `finalized` on
+  exchange index 3. The YES book was empty: best bid/ask unavailable, 0 bid
+  levels, 0 ask levels, and no size at the best ask. It failed the unchanged
+  two-sided-book / minimum-2-level eligibility rule before authentication.
+- **Fail-closed result:** the bounded execution command was not run. No Demo
+  position, duplicate, or risk check ran; create attempts = 0; cancel attempts =
+  0; no replacement market was selected. HTTP rejection fields are not
+  applicable because no create request occurred.
+- **Evidence:**
+  `docs/evidence/kalshi-demo/execution/target-finalized-2026-09-10.json`.
+- **Gate impact:** none. This read-only observation is not execution, fill,
+  profitability, or production-readiness evidence. A new candidate requires a
+  separate read-only selection and revalidation milestone.
+- **Safety:** public Kalshi Demo market data only for the observation. No
+  authenticated venue call, order, cancel, account/position/fill/balance call,
+  production/real-money action, `LIVE_TRADING` change, or cross-venue work.
+
+## 2026-09-10 — Kalshi Demo 10-page replacement-candidate observation
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Observation (OBSERVED):** the established credential-free diagnostic ran
+  with `--diagnose --max-price 0.60 --pages 10`. Cursor pagination inspected 10
+  pages / 1,000 open Demo markets. Of those, 123 had a non-empty YES book, 27
+  were two-sided, and exactly 1 passed the unchanged picker rule.
+- **Eligible candidate:** `KXUCLSPREAD-26SEP10BMUBOG-BMU5`, `active`, YES best
+  bid `0.0500`, best ask `0.0700`, 4 bid levels / 3 ask levels, and `11896.81`
+  available at the best ask. It is the recommended candidate because it was the
+  only market marked `picker-eligible`; this is discovery, not authorization or
+  execution readiness.
+- **Diagnostic discrepancy / blocker:** the primary eligible count and row say
+  1, but `recommend_max_price` says 9 markets "satisfy the picker rule." Its
+  implementation counts markets with two-sided, depth-qualified books before
+  applying `--max-price`; eight of those do not pass the cap. No code was
+  changed, per the milestone instruction to stop on a diagnostic defect.
+- **Evidence:**
+  `docs/evidence/kalshi-demo/execution/candidate-scan-2026-09-10T2051Z.json`.
+  The verbose scan output remained temporary.
+- **Safety:** public Kalshi Demo market data only. No credential, authenticated,
+  account, position, balance, fill, order, cancel, production, `LIVE_TRADING`,
+  risk-check, duplicate-check, or cross-venue action occurred.
+
+## 2026-09-10 — Kalshi Demo diagnostic advisory-count correction
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Confirmed root cause:** `recommend_max_price` correctly identified
+  structurally tradeable markets using two-sided/depth/positive-ask checks, but
+  used that pre-cap count in text claiming every one "satisf[ies] the picker
+  rule." The primary diagnostic rows and eligible count correctly applied the
+  active `--max-price`; execution eligibility was not defective.
+- **Changed:** the advisory now partitions structurally tradeable candidates
+  into currently eligible (`best_ask <= current_max_price`) and above-cap
+  groups. Only the first group is described as satisfying the picker. Above-cap
+  markets are labeled structurally tradeable but currently ineligible; when all
+  are above cap, the function still returns no suggested price increase.
+- **Tests:** focused cases cover multiple depth-qualified markets with one under
+  cap, all structurally valid markets above cap, multiple already-eligible
+  markets, no structurally tradeable market, exact `Decimal` preservation, and
+  semantic consistency between primary diagnostic and advisory counts.
+- **Historical evidence:** the prior scan artifact and journal discrepancy are
+  unchanged; this entry records the later correction separately.
+- **Safety:** offline code/tests/docs only. The live Demo scan was not rerun. No
+  credential, authenticated, account, position, balance, fill, order, cancel,
+  production, `LIVE_TRADING`, risk-limit, or cross-venue action occurred.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

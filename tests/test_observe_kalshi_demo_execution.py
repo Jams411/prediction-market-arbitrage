@@ -703,18 +703,81 @@ def test_recommend_max_price_returns_none_when_nothing_is_two_sided() -> None:
     assert "two-sided" in reason and "cannot help" in reason
 
 
-def test_recommend_max_price_returns_the_tightest_bound_when_already_satisfiable() -> None:
-    cands = [_candidate(best_ask=Decimal("0.55")), _candidate(best_ask=Decimal("0.30"))]
+def test_recommend_max_price_counts_only_markets_under_the_active_cap() -> None:
+    cands = [
+        _candidate(best_ask=Decimal("0.0700")),
+        _candidate(
+            best_ask=Decimal("0.7900"),
+            picker_eligible=False,
+            note="best ask 0.7900 > max-price 0.60",
+        ),
+    ]
     value, reason = harness.recommend_max_price(cands, Decimal("0.60"))
-    assert value == Decimal("0.30")  # exact cheapest ask, no rounding
-    assert "0.30" in reason
+    assert value == Decimal("0.0700")
+    assert "1 market(s) currently satisfy the picker rule" in reason
+    assert "1 additional structurally tradeable market(s)" in reason
+
+
+def test_recommend_max_price_returns_the_exact_tightest_eligible_decimal() -> None:
+    cands = [
+        _candidate(best_ask=Decimal("0.5500")),
+        _candidate(best_ask=Decimal("0.3000")),
+    ]
+    value, reason = harness.recommend_max_price(cands, Decimal("0.6000"))
+    assert value is not None and str(value) == "0.3000"
+    assert "2 market(s) currently satisfy the picker rule" in reason
+    assert "above the active max-price" not in reason
 
 
 def test_recommend_max_price_never_suggests_raising_above_the_current_bound() -> None:
-    # cheapest two-sided ask is 0.75, above the 0.60 bound -> None, cite the number
-    cands = [_candidate(best_ask=Decimal("0.75"), picker_eligible=False,
-                        note="best ask 0.75 > max-price 0.60")]
+    cands = [
+        _candidate(
+            best_ask=Decimal("0.7500"),
+            picker_eligible=False,
+            note="best ask 0.7500 > max-price 0.60",
+        ),
+        _candidate(
+            best_ask=Decimal("0.8000"),
+            picker_eligible=False,
+            note="best ask 0.8000 > max-price 0.60",
+        ),
+    ]
     value, reason = harness.recommend_max_price(cands, Decimal("0.60"))
     assert value is None
-    assert "0.75" in reason
+    assert "0 markets currently satisfy the picker rule" in reason
+    assert "2 structurally tradeable market(s)" in reason
+    assert "0.7500" in reason
     assert "operator decision" in reason
+
+
+def test_diagnostic_eligible_count_and_advisory_use_the_same_cap_semantics(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    candidates = [
+        _candidate(ticker="KXSYNTH-ELIGIBLE", best_ask=Decimal("0.0700")),
+        _candidate(
+            ticker="KXSYNTH-ABOVE-1",
+            best_ask=Decimal("0.7900"),
+            picker_eligible=False,
+            note="best ask 0.7900 > max-price 0.60",
+        ),
+        _candidate(
+            ticker="KXSYNTH-ABOVE-2",
+            best_ask=Decimal("0.8000"),
+            picker_eligible=False,
+            note="best ask 0.8000 > max-price 0.60",
+        ),
+    ]
+    monkeypatch.setattr(harness, "KalshiClient", lambda **_kwargs: object())
+    monkeypatch.setattr(harness, "KalshiMarketDataAdapter", lambda _client: object())
+    monkeypatch.setattr(
+        harness,
+        "_scan_open_demo_markets",
+        lambda *_args, **_kwargs: candidates,
+    )
+
+    assert harness.run_diagnostic(Decimal("0.60"), pages=10) == 0
+    output = capsys.readouterr().out
+    assert "-> 1 market(s) satisfy the picker rule" in output
+    assert "1 market(s) currently satisfy the picker rule" in output
+    assert "2 additional structurally tradeable market(s)" in output
