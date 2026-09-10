@@ -40,6 +40,14 @@ This repository is the authoritative source of truth for implementation state, d
 - Update `docs/PROJECT_JOURNAL.md` concisely for completed milestone work.
 - Do not rewrite prior decisions to make history look cleaner; supersede them explicitly.
 
+## Agent attribution
+
+- Record the coding agent for every completed implementation milestone so quality can be compared over time. Use `Claude Code`, `Codex`, `Other`, or `Human`; record the exact model when known and `unknown` otherwise.
+- Add `Agent:`, `Model:`, and `Reviewer:` metadata to the milestone's `docs/PROJECT_JOURNAL.md` entry and include the agent in the PR description.
+- Append material completed milestones to `docs/AGENT_ATTRIBUTION.md`, including validation, outcome, rework/defects if any, and supporting PR/commit references.
+- Do not infer historical attribution from Git author metadata. If attribution is not supported by project/session records, write `unknown`.
+- Agent attribution never changes evidence status or acceptance standards. Every agent must pass the same tests, review, safety rules, and GitHub CI.
+
 ## Project-specific invariants
 
 - Use exact `Decimal` arithmetic for financial values unless repository evidence explicitly requires otherwise.
