@@ -387,6 +387,17 @@ Every unverified project assumption must be recorded here before implementation 
   stay UNVERIFIED and block real-money use.
 - Not implemented: real venue calls, automatic activation, strategy / dashboard
   / risk changes, real-money order submission (including in tests).
+- **2026-09-10 — A-037 is UNCHANGED by M3.5.** A separate, host-pinned
+  `prediction_market_arbitrage.demo_execution` package now *does* implement
+  Kalshi order submit / cancel / status / positions — but **against the Kalshi
+  demo host only** (hard `DemoHostError` on any production marker), over an
+  injected transport with no networked implementation, and with no production
+  credential path. `KalshiLiveBroker` / `PolymarketUsLiveBroker` (the
+  *production* boundary this row governs) still raise
+  `UnsupportedLiveOperationError` for every operation, and no production order
+  endpoint has primary evidence. See `docs/DECISIONS.md` D-030. Real-money gates
+  stay blocked pending an actual demo observation run (not just the offline
+  orchestration tests).
 
 ### Live-execution gate (M1.3)
 
