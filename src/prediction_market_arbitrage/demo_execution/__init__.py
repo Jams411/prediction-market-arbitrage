@@ -23,6 +23,14 @@ from __future__ import annotations
 from .broker import KalshiDemoLiveBroker
 from .errors import DemoCapabilityError, DemoExecutionError, DemoHostError
 from .orchestrator import DemoExecutionOrchestrator, ExecutionOutcome
+from .rest_transport import (
+    DemoTransportError,
+    HttpRequest,
+    HttpResponse,
+    HttpSender,
+    KalshiDemoRestTransport,
+    urllib_sender,
+)
 from .transport import (
     DEMO_HOST_MARKER,
     PROD_HOST_MARKERS,
@@ -40,7 +48,13 @@ __all__ = [
     "DemoHostError",
     "DemoResponse",
     "DemoTransport",
+    "DemoTransportError",
     "ExecutionOutcome",
+    "HttpRequest",
+    "HttpResponse",
+    "HttpSender",
     "KalshiDemoLiveBroker",
+    "KalshiDemoRestTransport",
     "assert_demo_host",
+    "urllib_sender",
 ]

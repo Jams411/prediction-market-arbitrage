@@ -398,6 +398,12 @@ Every unverified project assumption must be recorded here before implementation 
   endpoint has primary evidence. See `docs/DECISIONS.md` D-030. Real-money gates
   stay blocked pending an actual demo observation run (not just the offline
   orchestration tests).
+- **2026-09-10 (M3.6) — still UNCHANGED.** `demo_execution.KalshiDemoRestTransport`
+  (concrete stdlib-`urllib` demo REST; injected signer + injected HTTP seam;
+  host-pinned; fail-closed parsing) and `scripts/observe_kalshi_demo_execution.py`
+  (a bounded, env-guarded, **unrun** one-order demo harness) exist —
+  offline-tested only. No demo order has been placed; production is untouched.
+  See D-031.
 
 ### Live-execution gate (M1.3)
 
