@@ -10,6 +10,10 @@ venv/
 .coverage
 htmlcov/
 
+# Local dev tooling — not an intentional tracked dependency artifact
+# (project uses hatchling + PEP 621 deps in pyproject.toml; no [tool.uv])
+uv.lock
+
 # Environment and secrets
 .env
 .env.*
