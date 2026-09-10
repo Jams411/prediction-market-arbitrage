@@ -399,6 +399,49 @@ access; `LIVE_TRADING` never read or set; no Polymarket US.
 
 ---
 
+### Kalshi — production live-book runtime: stale-data + disconnect/reconnect (2026-09-09, gates #7 / #8)
+
+A follow-up pass targeting the two still-unchecked runtime gates. Same shipped
+runtime; **the staleness probe no longer pauses consumption**. Two bounded modes
+of `scripts/observe_kalshi_livebook_runtime.py`, run read-only against
+production. Evidence:
+`docs/evidence/kalshi-live/livebook-runtime/SUMMARY_RECONNECT.json` and
+`…/SUMMARY_STALE.json` (the original `SUMMARY.json` from the gate-#2 pass is
+retained unchanged). No `/portfolio`, order, balance/position/fill access;
+`LIVE_TRADING` never read or set; no Polymarket US; no clock/timestamp
+manipulation; no injected frames.
+
+| # | Claim | Status | Evidence | Gate impact |
+|---|-------|--------|----------|-------------|
+| K-LB-OBS-13 | **Clean HEALTHY → DISCONNECTED transition on an induced drop.** `--observe` picks a liquid market, initialises from REST, subscribes over the authed prod WS, consumes to a stable `HEALTHY` `seq`-ordered stream (8 applied deltas, both feeds `HEALTHY`/seq 5), then confirms `all_healthy() == true` **immediately before** the drop. Unlike the gate-#2 pass (feeds were already `STALE` from the pause), the disconnect now hits genuinely healthy feeds. | OBSERVED (production), session `2026-09-09T…`, `SUMMARY_RECONNECT.json` `config.healthy_pre_drop = true`; timeline `C_confirm/feeds_healthy_pre_drop`. | #8 — the "healthy feed → connection loss" edge is now clean. |
+| K-LB-OBS-14 | **One controlled drop → detection → unhealthy, through the runtime.** The underlying socket is abruptly closed (`shutdown(SHUT_RDWR)` + `close`); `LiveBookConnection.pump_one()` raises `TransportClosed` with **0** buffered frames this run; `handle_disconnect()` → both feeds `DISCONNECTED`, `trading_enabled = false`. | OBSERVED (production) | timeline `D_disconnect/socket_dropped` → `handle_disconnect` (`transport_closed_raised = true`, `buffered_frames_drained_before_detection = 0`). | #8 — detection + unhealthy state. |
+| K-LB-OBS-15 | **Reconnect + authenticated resubscribe + REST resync; HEALTHY only after resync.** `LiveBookConnection.reconnect(time.sleep)` re-ran `connect_and_subscribe()` (fresh `kalshi_ws_handshake` RSA-PSS + K-WS-AUTH-04 subscribe body) — succeeded on attempt **0**. Immediately after reconnect both feeds still `DISCONNECTED` (`healthy_before_resync = false`); `resync()` → `begin_resync` (`RESYNCING`) → fresh REST `apply_snapshot` → both feeds `HEALTHY`. Then **4** further real `orderbook_delta` applied, new per-subscription `seq` epoch (2→3), `seq_reset_on_resubscribe = true`, `delta_outcomes = {applied: 12}`, 0 desyncs, 0 within-subscription `seq` violations. Full path `UNINITIALIZED → HEALTHY → DISCONNECTED → (reconnect, still DISCONNECTED) → HEALTHY(after resync)`. | OBSERVED (production) | `SUMMARY_RECONNECT.json` timeline `E_recover/reconnected` (`reconnect_attempts: 0`), `E_recover/resynced` (`healthy_before_resync: false`, `post_resync` both `healthy`), `F_resumed/pumped_4_deltas`; `seq_epochs_first_last = [[2,5],[2,3]]`. | #8 recovery path — OBSERVED end-to-end through the runtime. **Residual:** (a) the drop is **harness-induced**, not a spontaneous server/network drop; (b) `BackoffPolicy` delay/give-up was **not exercised** (`reconnect_attempts = 0`) — it stays TESTED-only (D-028 loopback + unit); (c) `RESYNCING` is transient and was not sampled as its own timeline row (TESTED in `test_healthy_restored_only_after_post_reconnect_resync`). |
+| K-LB-OBS-16 | **Natural stale lifecycle NOT captured — bounded window, documented blocker.** `--observe-stale` consumes continuously (never pausing) and samples `LiveBookFeed.health()` + the fail-closed accessor `current_order_book(now, require_healthy=True)` between every `pump_one()`. Run 200 s cap: `pick_moderate_market` fell back to a liquid market (see K-LB-OBS-17), **400** deltas applied over ~90 s, `empty_pumps = 0`, `max_pump_gap_s = 6.685`, no feed aged past the 30 s `max_staleness` → **no stale interval existed to observe**; early-stopped as "market too active". `feeds_that_went_stale = []`, `lifecycle_observed = false`. | OBSERVED (production) — blocker | `SUMMARY_STALE.json` `result = "BLOCKED …"`, `stale_watch` (`empty_pumps: 0`, `delta_pumps: 199`, `max_pump_gap_s: 6.685`, `max_observed_stale_age_s: 0.0`). | #7 **stays unchecked.** |
+| K-LB-OBS-17 | **Two independent reasons a natural stale lifecycle could not be observed in a bounded window.** (a) *Market availability:* Kalshi's public `GET /markets?status=open` (no series filter, 3 pages) returned **300** tickers, **all** empty-book `KXMVECROSSCATEGORY-SHARD1-*` markets (`two_sided = false`, depth 0); the only reliably two-sided markets found are the crypto hourly series, which update many times per second and never approach a 30 s gap. (b) *Architectural:* a continuously-consuming `LiveBookConnection.pump_one()` caller **blocks inside `WebsocketsTransport.receive()`** between qualifying `orderbook_delta` frames — on a quiet market there is no intervening traffic to return control, so the caller cannot sample `health()` during the stale interval; it regains control only when the next real delta arrives, which immediately restores `HEALTHY`. `WebsocketsTransport.recv_timeout` converts a quiet-but-alive socket into `TransportClosed` + full reconnect (quiet socket ≡ dead socket). See `docs/DECISIONS.md` D-029. | OBSERVED (probe) + design analysis | throwaway probe (not committed); `SUMMARY_STALE.json`; `src/prediction_market_arbitrage/livebook/ws_transport.py` `receive()`. | #7 blocker — resolving it needs either a curated quiet-market ticker whose inter-delta gap is 30–150 s, or a non-fatal idle/poll path on the transport, or a concurrent health sampler. All are out of scope for an observation milestone. |
+
+**Real-money gate reassessment (2026-09-09, stale + reconnect pass):**
+
+- **#7 "Stale-data handling" — STAYS UNCHECKED.** `LiveBookFeed.health()` returns
+  `STALE` / `trading_enabled = false` correctly (deterministic tests; and
+  K-LB-OBS-07 on the live feed), and the fail-closed accessor rejects a stale
+  book — but a **natural** `HEALTHY → STALE → HEALTHY` lifecycle on a live feed,
+  with recovery driven by a genuine new delta, was **not** captured. Blocker:
+  K-LB-OBS-16 / K-LB-OBS-17 (no suitable market + `pump_one()` blocks between
+  deltas). Not manufacturable within this milestone's constraints (no pause, no
+  clock edit, no injected frames, no threshold weakening).
+- **#8 "Disconnect/reconnect behavior" — STAYS UNCHECKED (materially strengthened).**
+  The full recovery path is now OBSERVED against production through the runtime
+  **from genuinely healthy feeds**, with a clean `HEALTHY → DISCONNECTED →
+  reconnect → HEALTHY-after-resync` transition and post-resync deltas
+  (K-LB-OBS-13..15) — an improvement on the gate-#2 pass, where feeds were
+  already `STALE` at the drop. Remaining before a reviewer can check #8:
+  (a) a spontaneous (server/network) disconnect rather than a harness-induced
+  socket close; (b) `BackoffPolicy` retry/backoff exercised live
+  (`reconnect_attempts` was 0). Both are explicitly listed in K-LB-OBS-15's
+  residual.
+
+---
+
 ## Polymarket US — WebSocket order book (M2.1)
 
 Verification date: **2026-09-06** (docs read; **no live socket connection** —

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import ast
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -283,6 +283,162 @@ def test_healthy_restored_only_after_post_reconnect_resync() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# watch_staleness_lifecycle — natural HEALTHY -> STALE -> HEALTHY (gate #7)
+# --------------------------------------------------------------------------- #
+
+
+class _StepClock:
+    """A clock that advances a fixed step every call — no wall-clock, no
+    injected frames: staleness is produced purely by real time passing between
+    qualifying updates, exactly as a quiet market would."""
+
+    def __init__(self, start: datetime, step_s: float) -> None:
+        self._t = start
+        self._step = step_s
+
+    def __call__(self) -> datetime:
+        now = self._t
+        self._t = self._t + timedelta(seconds=self._step)
+        return now
+
+
+def _stale_connection(transport: FakeWebSocketTransport, feeds: dict[str, LiveBookFeed],
+                      clock: _StepClock) -> LiveBookConnection:
+    return LiveBookConnection(
+        venue="kalshi",
+        feeds=list(feeds.values()),
+        transport=transport,
+        handshake_factory=lambda: Handshake(url="wss://x", headers={}),
+        subscribe_command=kalshi_subscribe_command(command_id=1, market_tickers=[TICKER]),
+        decode=kalshi_frame_decoder,
+        snapshot_source=FakeSnapshotSource({}),
+        clock=clock,
+        backoff=BackoffPolicy(base_seconds=0.0001, factor=1.0, max_seconds=0.001, max_attempts=3),
+    )
+
+
+def test_watch_staleness_lifecycle_sees_natural_stale_then_recovery() -> None:
+    yes_feed = LiveBookFeed(contract=kalshi_contract("YES", ticker=TICKER), venue="kalshi",
+                            max_staleness=obs.MAX_STALENESS)
+    no_feed = LiveBookFeed(contract=kalshi_contract("NO", ticker=TICKER), venue="kalshi",
+                           max_staleness=obs.MAX_STALENESS)
+    feeds = {yes_feed.contract.id: yes_feed, no_feed.contract.id: no_feed}
+
+    # snapshot -> HEALTHY, then only control frames (no qualifying update) while
+    # the clock advances past max_staleness, then one real delta -> recovery.
+    frames: list[str] = [
+        json.dumps(kalshi_snapshot_frame(seq=1, yes_fp=[("0.40", "10")],
+                                         no_fp=[("0.60", "10")], ticker=TICKER)),
+    ]
+    frames += [json.dumps({"type": "ok", "sid": 7, "seq": 0})] * 8
+    frames += [json.dumps(kalshi_delta_frame(seq=2, side="yes", price_dollars="0.40",
+                                             delta_fp="1.00", ticker=TICKER))]
+    transport = FakeWebSocketTransport(frames)
+    clock = _StepClock(datetime(2026, 3, 1, 12, 0, 0, tzinfo=UTC), step_s=6.0)
+    conn = _stale_connection(transport, feeds, clock)
+
+    conn.connect_and_subscribe()
+    conn.pump_one()  # apply the snapshot -> HEALTHY
+    assert conn.feed_health()[yes_feed.contract.id].status is HealthStatus.HEALTHY
+
+    rec = obs.Recorder(list(feeds))
+    result = obs.watch_staleness_lifecycle(conn, feeds, rec, max_watch_s=120.0, now_fn=clock)
+
+    assert result["lifecycle_observed"] is True
+    assert result["inconclusive"] is None
+    assert set(result["feeds_that_went_stale"]) == {"YES", "NO"}
+    assert result["max_observed_stale_age_s"] > obs.MAX_STALENESS.total_seconds()
+    # the fail-closed accessor rejected the book on every stale sample
+    assert result["fail_closed_gate_rejections_while_stale"] >= 1
+    events = [e["event"] for e in rec.timeline]
+    assert "feed_went_stale" in events
+    assert "feed_recovered_via_real_delta" in events
+    recovered = next(e for e in rec.timeline if e["event"] == "feed_recovered_via_real_delta")
+    assert recovered["fail_closed_accessor_serves_again"] is True
+
+
+def test_watch_staleness_lifecycle_reports_inconclusive_on_transport_close() -> None:
+    feed = LiveBookFeed(contract=kalshi_contract("YES", ticker=TICKER), venue="kalshi",
+                        max_staleness=obs.MAX_STALENESS)
+    feeds = {feed.contract.id: feed}
+    frames = [json.dumps(kalshi_snapshot_frame(seq=1, yes_fp=[("0.40", "10")], no_fp=None,
+                                               ticker=TICKER))]
+    transport = FakeWebSocketTransport(frames)  # script exhausts -> TransportClosed
+    clock = _StepClock(datetime(2026, 3, 1, 12, 0, 0, tzinfo=UTC), step_s=6.0)
+    conn = _stale_connection(transport, feeds, clock)
+    conn.connect_and_subscribe()
+    conn.pump_one()
+
+    rec = obs.Recorder(list(feeds))
+    result = obs.watch_staleness_lifecycle(conn, feeds, rec, max_watch_s=120.0, now_fn=clock)
+
+    assert result["lifecycle_observed"] is False
+    assert result["inconclusive"] is not None
+    assert "transport_closed_during_watch" in [e["event"] for e in rec.timeline]
+
+
+# --------------------------------------------------------------------------- #
+# pick_moderate_market — alive-but-thin selection for the gate #7 watch
+# --------------------------------------------------------------------------- #
+
+
+class _MMarket:
+    def __init__(self, mid: str) -> None:
+        self.id = mid
+
+
+class _MPage:
+    def __init__(self, ids: list[str]) -> None:
+        self.markets = [_MMarket(i) for i in ids]
+        self.cursor = None
+
+
+class _ProbeAdapter:
+    """Returns book pairs by ticker; a ticker in ``moving`` gets a different
+    book on its second read (alive), others are static."""
+
+    def __init__(self, ids: list[str], moving: set[str], depths: dict[str, int]) -> None:
+        self._ids = ids
+        self._moving = moving
+        self._depths = depths
+        self._seen: dict[str, int] = {}
+
+    def list_markets(self, **_: Any) -> _MPage:
+        return _MPage(self._ids)
+
+    def get_order_books(self, ticker: str) -> _FakeBooks:
+        n = self._seen.get(ticker, 0)
+        self._seen[ticker] = n + 1
+        depth = self._depths.get(ticker, 3)
+        moved = ticker in self._moving and n >= 1
+        # `depth` distinct bid/ask levels; a "moving" market's top size changes
+        # on its second read so its fingerprint differs.
+        top_qty = "7" if moved else "5"
+        bids = [("0.40", top_qty)] + [(f"0.{30 - i}", "5") for i in range(depth - 1)]
+        asks = [("0.60", top_qty)] + [(f"0.{70 + i}", "5") for i in range(depth - 1)]
+        return _FakeBooks(
+            yes=_order_book("YES", bids, asks),
+            no=_order_book("NO", bids, asks),
+        )
+
+
+def test_pick_moderate_market_prefers_alive_but_thin() -> None:
+    ids = ["AAA", "BBB", "CCC", "DDD"]
+    # BBB and DDD move; BBB is thinner than DDD -> BBB is the pick.
+    adapter = _ProbeAdapter(ids, moving={"BBB", "DDD"},
+                            depths={"AAA": 2, "BBB": 3, "CCC": 2, "DDD": 8})
+    picked = obs.pick_moderate_market(adapter, sleep=lambda _s: None)  # type: ignore[arg-type]
+    assert picked == "BBB"
+
+
+def test_pick_moderate_market_falls_back_to_thin_two_sided_when_nothing_moves() -> None:
+    ids = ["AAA", "BBB", "CCC"]
+    adapter = _ProbeAdapter(ids, moving=set(), depths={"AAA": 5, "BBB": 2, "CCC": 9})
+    picked = obs.pick_moderate_market(adapter, sleep=lambda _s: None)  # type: ignore[arg-type]
+    assert picked == "BBB"
+
+
+# --------------------------------------------------------------------------- #
 # entry point + read-only guards
 # --------------------------------------------------------------------------- #
 
@@ -315,6 +471,21 @@ def test_observe_runs_when_ready_and_guarded(monkeypatch: pytest.MonkeyPatch) ->
                         lambda md, ms: seen.update(md=md, ms=ms) or 0)
     assert obs.main(["--observe", "5", "60"]) == 0
     assert seen == {"md": 5, "ms": 60.0}
+
+
+def test_observe_stale_refuses_without_env_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_preflight(monkeypatch, ready=True, env_guard_set=False)
+    monkeypatch.setattr(obs, "run_stale_observation",
+                        lambda *a: (_ for _ in ()).throw(AssertionError("must not run")))
+    assert obs.main(["--observe-stale"]) == 2
+
+
+def test_observe_stale_runs_when_ready_and_guarded(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_preflight(monkeypatch, ready=True, env_guard_set=True)
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(obs, "run_stale_observation", lambda w: seen.update(w=w) or 0)
+    assert obs.main(["--observe-stale", "300"]) == 0
+    assert seen == {"w": 300.0}
 
 
 def test_no_account_or_trading_path_in_module() -> None:

@@ -1439,6 +1439,63 @@ socket, healthy only after resync); production run
 (`E_recover/reconnected`, `reconnect_attempts: 0`); `docs/API_SOURCES.md`
 K-LB-OBS-12.
 
+### D-029 — A `pump_one()`-based consumer cannot observe the `STALE` verdict on a quiet market; recorded as a known gate-#7 gap, not fixed
+
+**Date:** 2026-09-09
+
+**Context.** Real-money gate #7 ("Stale-data handling") calls for observing a
+**natural** `HEALTHY → STALE → HEALTHY` lifecycle on a live feed — a real quiet
+spell longer than `LiveBookFeed.max_staleness` (30 s) followed by a genuine new
+`orderbook_delta` — while the consumer keeps running and downstream health
+gating rejects the stale book. A bounded read-only production pass
+(`scripts/observe_kalshi_livebook_runtime.py --observe-stale`, which **never**
+pauses consumption) could not capture it. Two independent reasons
+(`docs/API_SOURCES.md` K-LB-OBS-16 / K-LB-OBS-17):
+
+1. **Runtime shape.** `LiveBookConnection.pump_one()` calls
+   `WebsocketsTransport.receive()`, which **blocks** until the next data frame.
+   On a quiet market there is no intervening traffic, so a continuously
+   consuming caller cannot sample `LiveBookFeed.health()` *during* the gap — it
+   regains control only when the next delta arrives, which immediately restores
+   `HEALTHY`. The transitional `STALE` verdict is real and computed correctly
+   (deterministic tests; K-LB-OBS-07 on the live feed) but is invisible to this
+   consumer. Separately, `WebsocketsTransport.recv_timeout` turns a
+   quiet-but-alive socket into `TransportClosed` + a full reconnect, conflating
+   "quiet market" with "dead connection".
+2. **Market availability.** Kalshi's public `GET /markets?status=open` (no
+   series filter) is dominated by empty-book `KXMVECROSSCATEGORY-SHARD1-*`
+   markets; the only reliably two-sided live markets found are the crypto
+   hourly series, which update many times per second and never approach a 30 s
+   gap (observed: `max_pump_gap_s = 6.685` over ~90 s, 400 deltas,
+   `empty_pumps = 0`).
+
+**Decision.** Do **not** change the runtime for this. Adding a non-fatal
+idle/poll path to the transport, or a concurrent health-sampling thread, is a
+runtime feature beyond an observation milestone and is not required by any
+shipped consumer today (M2.1's `run_forever` reconnects on `TransportClosed`,
+which is acceptable for a venue that pings every ~10 s — a true >`recv_timeout`
+silence *is* a dead connection for the crypto markets in use). Gate #7 stays
+**unchecked**. The observation harness keeps the `--observe-stale` mode
+(continuous consumption, fail-closed-accessor sampling, `SUMMARY_STALE.json`
+blocker artifact) so the lifecycle can be captured later given either a curated
+quiet-market ticker with 30–150 s inter-delta gaps, or a future transport
+idle/poll capability.
+
+**What is NOT claimed.** This is not a statement that stale handling is broken —
+`LiveBookFeed` fails closed on staleness correctly. It is a statement that the
+**natural end-to-end lifecycle** has not been OBSERVED in production, so the
+gate cannot be checked on evidence.
+
+**Status:** ACTIVE (accepted gap).
+
+**Evidence:** `scripts/observe_kalshi_livebook_runtime.py`
+(`watch_staleness_lifecycle`, `run_stale_observation`);
+`tests/test_observe_kalshi_livebook_runtime.py`
+(`test_watch_staleness_lifecycle_sees_natural_stale_then_recovery`,
+`test_watch_staleness_lifecycle_reports_inconclusive_on_transport_close`);
+`docs/evidence/kalshi-live/livebook-runtime/SUMMARY_STALE.json`;
+`docs/API_SOURCES.md` K-LB-OBS-16 / K-LB-OBS-17.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

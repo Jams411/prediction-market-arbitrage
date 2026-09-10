@@ -1372,6 +1372,65 @@ no `LIVE_TRADING` change.
   wiring, no Polymarket US, no broadening of signer use. Full local gate green
   (657 tests). Not committed.
 
+## 2026-09-09 — Kalshi production runtime: stale (#7) + disconnect/reconnect (#8) follow-up — both stay unchecked
+
+- **Goal:** resolve real-money gates #7 (stale-data handling) and #8
+  (disconnect/reconnect) with production evidence through the shipped runtime,
+  without pausing consumption for #7. Branch
+  `obs/kalshi-livebook-stale-reconnect` off `main` @ 1090665.
+- **Harness changes (`scripts/observe_kalshi_livebook_runtime.py`):** split into
+  two bounded read-only modes. `--observe` (gate #8): unchanged flow **minus the
+  consumption pause** — the induced socket drop now hits genuinely `HEALTHY`
+  feeds. `--observe-stale` (gate #7): **new** `watch_staleness_lifecycle` —
+  consumes continuously via `pump_one()`, samples `LiveBookFeed.health()` and
+  the fail-closed `current_order_book(now, require_healthy=True)` between reads,
+  looks for a natural `HEALTHY → STALE → HEALTHY` round trip; `pick_moderate_market`
+  probes for an alive-but-thin market. Evidence now in `SUMMARY_RECONNECT.json`
+  and `SUMMARY_STALE.json` (original `SUMMARY.json` retained). New offline tests
+  for both functions + `--observe-stale` guards. No runtime/logic change.
+- **OBSERVED — #8 (`SUMMARY_RECONNECT.json`, session 2026-09-09, liquid BTC-daily
+  market, ~20 s; K-LB-OBS-13..15):** 8 applied deltas → `all_healthy() == true`
+  confirmed pre-drop → one induced socket close → `pump_one()` raised
+  `TransportClosed` (0 buffered frames) → `handle_disconnect()` both feeds
+  `DISCONNECTED`/`trading_enabled=false` → `reconnect(time.sleep)` succeeded
+  attempt 0 (fresh RSA-PSS handshake + K-WS-AUTH-04 subscribe) → still
+  `DISCONNECTED` (`healthy_before_resync=false`) → `resync()` fresh REST snapshot
+  → both `HEALTHY` → 4 more real deltas, new `seq` epoch 2→3,
+  `delta_outcomes={applied:12}`, 0 desyncs. Clean
+  `HEALTHY→DISCONNECTED→HEALTHY-after-resync` (improves on the gate-#2 pass where
+  feeds were already `STALE` at the drop).
+- **BLOCKED — #7 (`SUMMARY_STALE.json`; K-LB-OBS-16..17, D-029):** no natural
+  stale lifecycle captured in a bounded window. Two independent reasons: (a) the
+  public `GET /markets?status=open` listing is all empty-book
+  `KXMVECROSSCATEGORY-SHARD1-*` markets, and the only reliably two-sided live
+  markets are the crypto firehose (observed `max_pump_gap_s=6.685` over ~90 s,
+  400 deltas, `empty_pumps=0`); (b) architectural — `pump_one()` blocks in
+  `receive()` between deltas, so a continuously-consuming caller can't sample
+  `health()` during a quiet gap, and `recv_timeout` treats a quiet socket as a
+  dead one. Recorded as an accepted gap (D-029); harness keeps the mode for a
+  later capture.
+- **Gate reassessment:**
+  - **#2** unchanged (still CHECKED).
+  - **#7 "Stale-data handling" — STAYS UNCHECKED.** Fail-closed staleness
+    behaviour is correct in tests and K-LB-OBS-07, but the natural end-to-end
+    lifecycle is not OBSERVED. Blocker D-029 / K-LB-OBS-16..17.
+  - **#8 "Disconnect/reconnect behavior" — STAYS UNCHECKED (materially
+    strengthened).** Full runtime recovery from healthy feeds is now OBSERVED
+    (K-LB-OBS-13..15). Two items remain before a reviewer checks it: a
+    **spontaneous** (server/network) disconnect rather than a harness-induced
+    socket close, and `BackoffPolicy` retry/backoff exercised live
+    (`reconnect_attempts` was 0 — backoff stays TESTED-only). *Note: the task
+    prompt's stated #8 standard permits a harness-induced drop through the normal
+    path; the repo's prior verdict additionally wants a spontaneous drop and
+    backoff > 0. Left unchecked pending the gate owner's call on that criteria
+    conflict.*
+- **A-028** unchanged (OBSERVED, narrow — no new additive-delta check this pass).
+- **Not done:** no orders, no cancel/modify, no balances/positions/fills, no
+  funds, no `LIVE_TRADING`, no credential change, no execution wiring, no
+  Polymarket US, no runtime/architecture change. ROADMAP real-money gate
+  checkboxes unchanged. Full local quality gate run once after the code change.
+  Not committed.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

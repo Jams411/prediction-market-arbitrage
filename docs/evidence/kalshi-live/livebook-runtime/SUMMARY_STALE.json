@@ -1,0 +1,264 @@
+{
+  "additive_delta_check": {
+    "checked": 2,
+    "desyncs": 0,
+    "level_removed_on_zero": 0,
+    "matches": 2,
+    "mismatches": 0,
+    "note": "check: qty_after == (qty_before + delta_fp); raw values not persisted"
+  },
+  "applied_delta_count": 400,
+  "book_fingerprint_changes": 398,
+  "config": {
+    "market_selection": "pick_moderate_market (alive-but-thin probe)",
+    "max_staleness_s": 30.0,
+    "recv_timeout_s": 170.0,
+    "warmup_deltas_seen": 2,
+    "warmup_deltas_target": 2,
+    "watch_cap_s": 200.0
+  },
+  "delta_outcomes": {
+    "applied": 400
+  },
+  "environment": "production",
+  "health_statuses_seen": [
+    "uninitialized",
+    "healthy"
+  ],
+  "market_ticker": "<redacted>",
+  "observation": "natural_stale_lifecycle (real-money gate #7)",
+  "path": "livebook.LiveBookConnection + LiveBookFeed (shipped runtime)",
+  "result": "BLOCKED \u2014 no natural HEALTHY->STALE->HEALTHY lifecycle in window",
+  "safety": [
+    "read-only market data only; no order/cancel/modify code path",
+    "no balances/positions/fills; no funds; live trading untouched",
+    "signer used only for the market-data WS handshake; single venue only",
+    "no clock/timestamp manipulation; no injected frames"
+  ],
+  "seq_epochs_first_last": [
+    [
+      2,
+      201
+    ]
+  ],
+  "seq_monotonic_violations_within_subscription": 0,
+  "seq_reset_on_resubscribe": false,
+  "session_end_utc": "2026-09-10T02:02:33.307745+00:00",
+  "session_start_utc": "2026-09-10T01:59:43.075425+00:00",
+  "stale_watch": {
+    "delta_pumps": 199,
+    "empty_pumps": 0,
+    "fail_closed_gate_rejections_while_stale": 0,
+    "fail_closed_gate_serves_while_healthy": 400,
+    "feeds_that_went_stale": [],
+    "inconclusive": "market stayed active: every pump_one() returned a qualifying delta and no feed aged past max_staleness within the window \u2014 no stale interval to observe",
+    "lifecycle_observed": false,
+    "max_observed_stale_age_s": 0.0,
+    "max_pump_gap_s": 6.685,
+    "max_staleness_threshold_s": 30.0,
+    "stale_spans": [],
+    "watch_cap_s": 200.0,
+    "watch_elapsed_s": 90.345
+  },
+  "timeline": [
+    {
+      "event": "start",
+      "health": {
+        "NO": {
+          "last_sequence": null,
+          "status": "uninitialized",
+          "trading_enabled": false
+        },
+        "YES": {
+          "last_sequence": null,
+          "status": "uninitialized",
+          "trading_enabled": false
+        }
+      },
+      "phase": "A_init",
+      "t_offset_s": 0.0,
+      "utc": "2026-09-10T02:00:57.438576+00:00"
+    },
+    {
+      "books": {
+        "NO": {
+          "ask_levels": 13,
+          "bid_levels": 36,
+          "fingerprint": "56795c5b198fa150",
+          "has_best_ask": true,
+          "has_best_bid": true,
+          "initialized": true
+        },
+        "YES": {
+          "ask_levels": 36,
+          "bid_levels": 13,
+          "fingerprint": "76c0e5f1620fd7c9",
+          "has_best_ask": true,
+          "has_best_bid": true,
+          "initialized": true
+        }
+      },
+      "event": "rest_snapshot_applied",
+      "health": {
+        "NO": {
+          "last_sequence": null,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": null,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "phase": "A_init",
+      "t_offset_s": 0.792,
+      "utc": "2026-09-10T02:00:58.229522+00:00"
+    },
+    {
+      "event": "ws_connect_and_subscribe",
+      "health": {
+        "NO": {
+          "last_sequence": null,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": null,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "phase": "B_steady",
+      "t_offset_s": 1.1,
+      "utc": "2026-09-10T02:00:58.538826+00:00"
+    },
+    {
+      "event": "pumped_2_deltas",
+      "health": {
+        "NO": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "phase": "B_steady",
+      "t_offset_s": 5.44,
+      "utc": "2026-09-10T02:01:02.878603+00:00"
+    },
+    {
+      "event": "watch_start",
+      "health": {
+        "NO": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "max_watch_s": 200.0,
+      "phase": "C_stale_watch",
+      "t_offset_s": 5.44,
+      "utc": "2026-09-10T02:01:02.878681+00:00"
+    },
+    {
+      "event": "feed_healthy",
+      "feed": "YES",
+      "health": {
+        "NO": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "phase": "C_stale_watch",
+      "t_offset_s": 5.44,
+      "utc": "2026-09-10T02:01:02.878720+00:00"
+    },
+    {
+      "event": "feed_healthy",
+      "feed": "NO",
+      "health": {
+        "NO": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": 2,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "phase": "C_stale_watch",
+      "t_offset_s": 5.441,
+      "utc": "2026-09-10T02:01:02.878720+00:00"
+    },
+    {
+      "delta_pumps": 199,
+      "event": "early_stop_market_too_active",
+      "health": {
+        "NO": {
+          "last_sequence": 201,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": 201,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "phase": "C_stale_watch",
+      "t_offset_s": 95.784,
+      "utc": "2026-09-10T02:02:33.220409+00:00"
+    },
+    {
+      "delta_pumps": 199,
+      "empty_pumps": 0,
+      "event": "watch_end",
+      "fail_closed_gate_rejections_while_stale": 0,
+      "fail_closed_gate_serves_while_healthy": 400,
+      "feeds_that_went_stale": [],
+      "health": {
+        "NO": {
+          "last_sequence": 201,
+          "status": "healthy",
+          "trading_enabled": true
+        },
+        "YES": {
+          "last_sequence": 201,
+          "status": "healthy",
+          "trading_enabled": true
+        }
+      },
+      "inconclusive": "market stayed active: every pump_one() returned a qualifying delta and no feed aged past max_staleness within the window \u2014 no stale interval to observe",
+      "lifecycle_observed": false,
+      "max_observed_stale_age_s": 0.0,
+      "max_pump_gap_s": 6.685,
+      "max_staleness_threshold_s": 30.0,
+      "phase": "C_stale_watch",
+      "stale_spans": [],
+      "t_offset_s": 95.785,
+      "utc": "2026-09-10T02:02:33.221356+00:00",
+      "watch_cap_s": 200.0,
+      "watch_elapsed_s": 90.345
+    }
+  ],
+  "venue": "kalshi",
+  "wall_elapsed_s": 170.232
+}
