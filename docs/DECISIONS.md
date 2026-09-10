@@ -1496,6 +1496,73 @@ gate cannot be checked on evidence.
 `docs/evidence/kalshi-live/livebook-runtime/SUMMARY_STALE.json`;
 `docs/API_SOURCES.md` K-LB-OBS-16 / K-LB-OBS-17.
 
+### D-030 — A Kalshi **DEMO-only** execution orchestrator (`demo_execution`), host-pinned; production trading stays disabled
+
+**Date:** 2026-09-10
+
+**Context.** The remaining real-money-gate evidence (#3 real paper execution end
+to end, #4 fee reconciliation against a real fee line, #6 real partial fills,
+#10 authenticated order/position/fill reconciliation) all need a *real venue
+round-trip* that the shipped `live_broker` package deliberately cannot do
+(D-023 / A-037 — no **production** order endpoint has primary evidence). The
+Kalshi **demo** order endpoints, by contrast, *are* evidence-backed
+(K-TR-04..10) and now OBSERVED end to end on demo shard 1 (K-TR-OBS-26..33). So
+the safe next step is a demo-only path that composes the existing components.
+
+**Decision.** Add `prediction_market_arbitrage.demo_execution` — a *composition*
+layer, not a redesign:
+
+- **`KalshiDemoLiveBroker(live_broker.LiveBroker)`** — the first concrete
+  `LiveBroker` with implemented `_do_*` hooks. It maps the K-TR-05 create body /
+  K-TR-06 + K-TR-08 responses to the existing venue-neutral value objects over
+  an injected **`DemoTransport`** seam (no networked implementation ships — same
+  posture as `livebook`'s socket, D-015). It calls
+  **`transport.assert_demo_host`** at construction: any production Kalshi host
+  marker, any non-`demo.kalshi.co` host, or a non-`https` URL is a hard
+  `DemoHostError`. It still runs *through* the unchanged `LiveTradingGate` +
+  `IdempotencyGuard` wrapper (`interface.LiveBroker`), so an unarmed gate fails
+  closed and a reused `client_order_id` never re-submits; a venue-side `409`
+  (K-TR-07) is surfaced as `DuplicateOrderError`.
+- **`DemoExecutionOrchestrator`** — accepts an already-approved
+  `LiveOrderRequest`, records it (`OrderEventRow` status `new`), runs the
+  **unchanged** `RiskManager.evaluate_order` (kill switch, position, order-size,
+  exposure, daily-loss, data-freshness/health, minimum edge — every configured
+  check, fail-closed), and **only on approval** submits through the demo broker;
+  a rejection records `rejected` with the reasons and never touches the venue.
+  `cancel` and `reconcile` are explicit follow-up steps. `reconcile` reads venue
+  order status + positions and records the resulting local state, failing closed
+  (`DemoCapabilityError`) on any missing / ambiguous field. Everything is
+  deterministic except the injected `DemoTransport` calls and `clock`.
+
+**Why not extend `KalshiLiveBroker`:** that class is, by D-023, a boundary with
+*no* implemented operation because no **production** endpoint has evidence.
+Keeping the demo implementation in a separate, host-pinned package preserves
+that invariant exactly — `KalshiLiveBroker` still raises
+`UnsupportedLiveOperationError` for everything.
+
+**Why not a recorder schema change:** the order lifecycle (intent → submit →
+cancel → reconcile) maps onto the existing `OrderEventRow` statuses + `reason`
+field and `record_position`; the full `RiskDecision` and raw venue body live in
+the orchestrator's returned `ExecutionOutcome` / `to_evidence_dict()`, not in
+the typed recorder. No new table, no schema-version bump.
+
+**Safety boundary.** DEMO host only (hard-fail otherwise); no production
+credential path (the demo credential/signing is a script concern, unchanged
+`observe_kalshi_demo*`); the production read-only WS credential path
+(`livebook` / `scripts/kalshi_signer` prod) is untouched; `LIVE_TRADING` is
+never read or set; no Polymarket US execution; no fund movement. **No network
+call is made by this milestone** — the concrete `DemoTransport` and the first
+actual demo order are a separate, explicitly-gated observation step.
+
+**Status:** ACTIVE. Does **not** by itself complete any real-money gate —
+offline tests prove the orchestration contract; the gate evidence needs the
+demo observation run.
+
+**Evidence:** `src/prediction_market_arbitrage/demo_execution/`;
+`tests/test_demo_execution.py`; `tests/demo_execution_support.py`;
+`docs/API_SOURCES.md` K-TR-04..10 / K-TR-OBS-26..33; `docs/ASSUMPTIONS.md`
+A-037 (unchanged — it governs the *production* boundary).
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

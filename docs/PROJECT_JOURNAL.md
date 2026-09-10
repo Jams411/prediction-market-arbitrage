@@ -1579,6 +1579,64 @@ no `LIVE_TRADING` change.
   unchanged. Full local quality gate green (ruff, mypy src+tests, 683 pytest,
   pre-commit). Not committed.
 
+## 2026-09-10 — M3.5: Kalshi DEMO-only execution orchestrator (offline; no order placed)
+
+- **Goal:** the smallest demo-only execution path that can later produce the
+  real-money-gate evidence (#3/#4/#6/#10) safely, by composing existing
+  components. Branch `feat/kalshi-demo-execution-orchestrator` off `main` @
+  17b5ef9. No network call made; no demo order placed.
+- **New package `prediction_market_arbitrage.demo_execution`** (see
+  `docs/DECISIONS.md` D-030):
+  - `transport.py` — `DemoTransport` protocol + `DemoResponse` + hard host guard
+    `assert_demo_host` (rejects any production Kalshi marker, any
+    non-`demo.kalshi.co` host, non-`https`, empty). **No networked
+    implementation** ships (same posture as `livebook`'s socket).
+  - `broker.py` — `KalshiDemoLiveBroker(live_broker.LiveBroker)`: the first
+    concrete `LiveBroker` with implemented `_do_*` hooks, mapping the K-TR-05
+    create body / K-TR-06+K-TR-08 responses to the venue-neutral value objects
+    over the injected transport. Host-pinned at construction. Still runs through
+    the unchanged `LiveTradingGate` + `IdempotencyGuard` wrapper; a venue `409`
+    (K-TR-07) → `DuplicateOrderError`.
+  - `orchestrator.py` — `DemoExecutionOrchestrator`: record intent → run the
+    **unchanged** `RiskManager.evaluate_order` (all configured fail-closed
+    checks) → submit only on approval → record the venue ack; explicit `cancel`
+    / `reconcile` follow-ups. `reconcile` reads venue order status + positions,
+    records local state, and fails closed (`DemoCapabilityError`) on any missing
+    / ambiguous field. Deterministic except the injected transport + clock.
+    Rejects a non-demo broker.
+- **No recorder schema change:** the lifecycle maps onto existing
+  `OrderEventRow` statuses + `reason` and `record_position`; the full
+  `RiskDecision` + raw venue body live in the returned `ExecutionOutcome` /
+  `to_evidence_dict()`.
+- **Changed:** `src/prediction_market_arbitrage/demo_execution/` (new, 5 files);
+  `tests/test_demo_execution.py` + `tests/demo_execution_support.py` (new, 27
+  deterministic offline tests, fake transport); `docs/DECISIONS.md` (D-030);
+  `docs/ASSUMPTIONS.md` (A-037 note — unchanged status, cross-ref D-030); this
+  entry. **No `src/` change outside the new package.**
+- **Tests prove:** production host / base URL rejected (guard + broker ctor);
+  risk rejection / kill switch / position / order-size / daily-loss /
+  data-freshness / min-edge each prevent the broker call (venue never touched);
+  local idempotency guard *and* a venue 409 prevent a second submission;
+  recorder captures intent→submit→cancel→reconcile + the local position row;
+  reconciliation is byte-identical across identical fake-response runs; a 2xx
+  create without an `order_id`, an ambiguous order status, and a failed
+  positions read all fail closed; a non-2xx create is recorded `rejected`, never
+  assumed placed.
+- **Gate impact:** none. #3/#4/#6/#10 stay UNCHECKED — offline orchestration
+  tests are not venue evidence (D-030). A-037 / D-023 unchanged (they govern the
+  *production* boundary, which still implements nothing).
+- **Required demo observation (next milestone):** implement the concrete
+  `DemoTransport` (openssl RSA-PSS signing + `urllib`, demo Keychain credential
+  — a `scripts/` concern), then run **one** minimal approved intent through the
+  orchestrator against Kalshi demo shard 1 and retain the sanitised
+  `ExecutionOutcome` + recorder rows as evidence for #3 (real execution), #4
+  (fee line if a fill occurs), #6 (real partial fill), #10 (authenticated
+  reconcile). Explicitly gated; not part of this milestone.
+- **Safety:** DEMO host only; `LIVE_TRADING` never read/set; no production
+  credential path; production read-only WS credential path untouched; no
+  Polymarket US; no fund movement; no network call this milestone. Full local
+  quality gate green (ruff, mypy src+tests, pytest, pre-commit). Not committed.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
