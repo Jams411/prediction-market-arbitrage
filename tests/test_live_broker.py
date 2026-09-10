@@ -300,3 +300,100 @@ def test_venue_adapter_defaults_to_disabled() -> None:
 def test_cannot_instantiate_the_abstract_interface() -> None:
     with pytest.raises(TypeError):
         LiveBroker()  # type: ignore[abstract]
+
+
+# ==================================================================== #
+# Real-money gate hardening (audit obs/realmoney-gates-9-11-15)
+#   #9  Duplicate-order prevention — local half, offline-provable
+#   #14 Credential isolation      — no-leak matrix + gitignore guard
+#   #15 Live mode cannot activate accidentally — near-miss / bypass cases
+# These lock the offline-provable behaviour only; A-037 / D-023 still
+# require a captured trading API + live run before any box is checked.
+# ==================================================================== #
+
+
+class _RaisingLiveBroker(RecordingLiveBroker):
+    """``_do_submit`` fails downstream — models a venue call that errored
+    *after* the interface already registered the ``client_order_id``."""
+
+    def _do_submit(self, request, *, now):  # type: ignore[no-untyped-def]
+        self.calls.append(f"submit:{request.client_order_id}")
+        raise RuntimeError("downstream venue failure")
+
+
+def test_gate9_duplicate_id_blocked_even_after_a_failed_submit() -> None:
+    broker = _RaisingLiveBroker(gate=_armed())
+    with pytest.raises(RuntimeError):
+        broker.submit_order(order_request(client_order_id="cid-x"), now=T0)
+    # the id was registered before the hook ran, so a re-send is refused
+    with pytest.raises(DuplicateOrderError):
+        broker.submit_order(order_request(client_order_id="cid-x"), now=T0)
+    assert broker.calls == ["submit:cid-x"]  # hook reached exactly once
+
+
+def test_gate9_duplicate_id_blocked_on_the_concrete_kalshi_adapter() -> None:
+    broker = KalshiLiveBroker(_kalshi(), gate=_armed())
+    with pytest.raises(UnsupportedLiveOperationError):
+        broker.submit_order(order_request(client_order_id="k-dup"), now=T0)
+    with pytest.raises(DuplicateOrderError):
+        broker.submit_order(order_request(client_order_id="k-dup"), now=T0)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        " I_UNDERSTAND_THIS_PLACES_REAL_ORDERS",
+        "I_UNDERSTAND_THIS_PLACES_REAL_ORDERS ",
+        "I_UNDERSTAND_THIS_PLACES_REAL_ORDERS\n",
+        "I_UNDERSTAND_THIS_PLACES_REAL_ORDERSX",
+        "XI_UNDERSTAND_THIS_PLACES_REAL_ORDERS",
+    ],
+)
+def test_gate15_from_env_requires_an_exact_match_no_trimming(value: str) -> None:
+    assert LiveTradingGate.from_env({"PMA_LIVE_TRADING": value}).active is False
+
+
+def test_gate15_phrase_without_the_enabled_flag_stays_inactive() -> None:
+    gate = LiveTradingGate(enabled=False, confirmation_phrase=REQUIRED_PHRASE)
+    assert gate.active is False
+    with pytest.raises(LiveTradingDisabledError):
+        gate.assert_live_allowed(operation="submit_order")
+
+
+def test_gate15_replace_cannot_sneak_enabled_past_post_init() -> None:
+    from dataclasses import replace
+
+    with pytest.raises(LiveTradingDisabledError):
+        replace(LiveTradingGate.disabled(), enabled=True)
+
+
+def test_gate15_from_env_defaults_to_disabled_when_the_var_is_absent() -> None:
+    assert LiveTradingGate.from_env({}).active is False
+    assert LiveTradingGate.from_env({"OTHER_VAR": REQUIRED_PHRASE}).active is False
+
+
+def test_gate14_trading_credentials_never_leak_via_format_or_exception() -> None:
+    cred = _kalshi()
+    renders = [
+        f"{cred}",
+        f"{cred!r}",
+        f"{cred!s}",
+        format(cred),
+        str([cred]),  # container repr
+        repr({"cred": cred}),
+    ]
+    for text in renders:
+        assert FAKE_KALSHI_PEM not in text
+        assert "NOT-A-REAL-TRADING-KEY" not in text
+    # a validation error names the field, never echoes the value
+    with pytest.raises(LiveBrokerCredentialError) as exc:
+        KalshiTradingCredentials("k-id", "")
+    assert "private_key_pem" in str(exc.value)
+
+
+def test_gate14_gitignore_excludes_key_material_and_env_files() -> None:
+    from pathlib import Path
+
+    body = (Path(__file__).resolve().parent.parent / ".gitignore").read_text()
+    for pattern in ("*.pem", "*.key", ".env", ".env.*"):
+        assert pattern in body, f".gitignore no longer excludes {pattern!r}"

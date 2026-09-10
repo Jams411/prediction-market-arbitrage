@@ -1431,6 +1431,76 @@ no `LIVE_TRADING` change.
   checkboxes unchanged. Full local quality gate run once after the code change.
   Not committed.
 
+## 2026-09-09 — Real-money gate audit: #9 / #11 / #12 / #13 / #14 / #15 — none completed; offline behaviour hardened
+
+- **Goal:** audit the six non-market-data real-money gates for whether current
+  repository evidence already meets the verification standard, and close any
+  small deterministic test gap. Branch `obs/realmoney-gates-9-11-15` off `main`
+  @ 973ea07. No architecture change, no network, no orders/balances/funds, no
+  `LIVE_TRADING`, no Polymarket US.
+- **Finding — repository evidence already adjudicates these gates.** `A-037`
+  and `D-023` state explicitly that the M3.4 `live_broker` package "does **not**
+  resolve any Real-money gate item" and that "Live mode cannot activate
+  accidentally", "Duplicate-order prevention", and "Credential isolation" are
+  *supported* by the boundary but **not verified — verification needs a captured
+  trading API and a live reconciliation run.** No box is checked; per AGENTS.md
+  the prompt cannot promote an assumption to fact.
+- **Per-gate classification (evidence status):**
+  - **#9 Duplicate-order prevention — TESTED (local half) / ASSUMPTION (venue).**
+    `IdempotencyGuard.register()` runs in `LiveBroker.submit_order` before
+    `_do_submit`; a repeat `client_order_id` raises `DuplicateOrderError`,
+    including after a submit whose hook already failed downstream, and on the
+    concrete `KalshiLiveBroker`. No execution intent is produced at all (every
+    `_do_submit` raises `UnsupportedLiveOperationError`). Venue-side idempotency
+    is unverified (A-037). **Not complete.**
+  - **#11 Kill switch — TESTED (veto behaviour), NOT on an execution path.**
+    `RiskManager._check_kill` rejects in both `evaluate_order` and
+    `evaluate_opportunity` when `RiskState.killed`; deterministic, fail-closed.
+    Nothing forces a caller through `RiskManager` before
+    `LiveBroker.submit_order`, and no execution path exists (D-023). **Not
+    complete** — an interface that vetoes is not proof it gates execution.
+  - **#12 Position limits — TESTED, NOT on an execution path.** `_check_position`
+    projects the signed quantity and rejects `abs(projected) > max_position`
+    (strict `>`, both signs), fails closed without positions. Same wiring gap as
+    #11. **Not complete.**
+  - **#13 Daily loss limits — TESTED, NOT on an execution path.**
+    `_check_daily_loss` uses a per-UTC-day realized-PnL ledger, rejects once
+    `loss >= max_daily_loss` (blocks *at* the limit), resets the next UTC day,
+    never blocks a net-profit day. Same wiring gap as #11. **Not complete.**
+  - **#14 Credential isolation — TESTED (isolation properties) / OBSERVED
+    (market-data creds).** Market-data prod creds: Keychain key-id + file-only
+    PEM (`scripts/kalshi_signer` — never CLI, env, or logged; `repr` shows the
+    path only), `.gitignore` excludes `*.pem` / `*.key` / `.env` / `.env.*`,
+    `repr`/`str`/`format`/`%`/exception paths all redacted (used read-only in the
+    prod WS runs, never leaked into evidence). Trading creds: separate types +
+    `KALSHI_TRADING_*` / `POLYMARKET_US_TRADING_*` env vars, redacted. Full
+    verification still needs the live trading path (A-037/D-023). **Not
+    complete.**
+  - **#15 Live mode cannot activate accidentally — TESTED (comprehensive,
+    multi-layer).** `LIVE_TRADING_ENABLED = False`; default `LiveTradingGate`
+    disabled; frozen (no setter); `enabled=True` without the exact
+    `REQUIRED_PHRASE` raises in `__post_init__` (including via
+    `dataclasses.replace`); `from_env` arms only on an exact
+    `PMA_LIVE_TRADING == REQUIRED_PHRASE` match — `"1"` / `"true"` / `"yes"` /
+    whitespace-padded / substring variants all yield a disabled gate; an armed
+    gate still hits `UnsupportedLiveOperationError` on every venue op. A-037/D-023
+    require a live path before this is verified end-to-end. **Not complete.**
+- **Changed — regression tests only (no src change):** +17 deterministic offline
+  tests locking the offline-provable behaviour of every gate —
+  `tests/test_live_broker.py` (#9 dup-after-failed-submit + concrete adapter;
+  #15 exact-match/near-miss/`replace` bypass/absent-var; #14 trading-cred no-leak
+  matrix + `.gitignore` guard), `tests/test_risk_manager.py` (#11 kill blocks
+  `evaluate_opportunity`; #12 boundary strict-`>` both signs; #13 blocks at
+  exactly the limit / never on a profit day), `tests/test_livebook_credentials.py`
+  (#14 market-data cred no-leak matrix + non-echoing validation error).
+- **Blocker (all six):** the real-money verification standard for these gates
+  requires a captured venue trading API and a live reconciliation run (A-037,
+  D-023); #11/#12/#13 additionally need the `RiskManager` veto bound to a real
+  execution path (no orchestrator wires `RiskManager` → `LiveBroker`, and no
+  live execution exists). Both are out of scope here (network + architecture).
+  ROADMAP real-money gate checkboxes unchanged.
+- Full local quality gate run once after the test-only change. Not committed.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
