@@ -408,19 +408,37 @@ def recommend_max_price(
             f"no open demo market has a two-sided YES book with >= "
             f"{MIN_BOOK_DEPTH} levels per side; raising --max-price cannot help",
         )
-    cheapest = min(c.best_ask for c in tradeable if c.best_ask is not None)
-    if cheapest <= current_max_price:
+    eligible = [
+        c
+        for c in tradeable
+        if c.best_ask is not None and c.best_ask <= current_max_price
+    ]
+    above_cap = [
+        c
+        for c in tradeable
+        if c.best_ask is not None and c.best_ask > current_max_price
+    ]
+    if eligible:
+        cheapest = min(c.best_ask for c in eligible if c.best_ask is not None)
+        above_cap_note = (
+            f"; {len(above_cap)} additional structurally tradeable market(s) "
+            "are above the active max-price"
+            if above_cap
+            else ""
+        )
         return (
             cheapest,
-            f"{len(tradeable)} market(s) already satisfy the picker rule at "
+            f"{len(eligible)} market(s) currently satisfy the picker rule at "
             f"--max-price {current_max_price}; tightest safe bound is best ask "
-            f"{cheapest} — an earlier empty result was transient, just retry",
+            f"{cheapest}{above_cap_note}",
         )
+    cheapest = min(c.best_ask for c in above_cap if c.best_ask is not None)
     return (
         None,
-        f"cheapest two-sided YES best ask is {cheapest}, above --max-price "
-        f"{current_max_price}; raising --max-price is an operator decision, "
-        f"not automatic",
+        f"0 markets currently satisfy the picker rule at --max-price "
+        f"{current_max_price}; {len(above_cap)} structurally tradeable market(s) "
+        f"are above the active max-price (cheapest best ask {cheapest}); raising "
+        "--max-price is an operator decision, not automatic",
     )
 
 
