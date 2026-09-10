@@ -35,7 +35,8 @@ Run modes::
         # markets with the YES-book facts the picker uses. No auth, no order.
         # --pages 1 (default) mirrors the picker; a higher N only widens the scan.
     PMA_KALSHI_DEMO_EXECUTE=1 \
-        python scripts/observe_kalshi_demo_execution.py --observe [--max-price 0.60]
+        python scripts/observe_kalshi_demo_execution.py --observe \
+        --ticker KX... [--max-price 0.60]
 
 Sanitised evidence -> ``docs/evidence/kalshi-demo/execution/``:
 ``SUMMARY.json`` (the ``ExecutionOutcome.to_evidence_dict()`` + a venue-vs-local
@@ -207,6 +208,56 @@ def pick_liquid_demo_market(max_price: Decimal) -> _Pick:
             f"no open demo market with a two-sided book and best ask <= {max_price}"
         )
     return best
+
+
+def pick_authorized_demo_market(ticker: str, max_price: Decimal) -> _Pick:
+    """Retrieve and revalidate exactly one operator-authorized Demo ticker.
+
+    Explicit selection is authorization to *evaluate* ``ticker``, never a
+    validation bypass. The exact market must exist, identify itself by the same
+    ticker, remain active, and satisfy the unchanged picker criteria.
+    """
+    target = ticker.strip()
+    if not target or target.startswith("--"):
+        raise SystemExit("--ticker must name one non-empty Kalshi Demo market")
+
+    client = KalshiClient(base_url=DEMO_BASE_URL)
+    adapter = KalshiMarketDataAdapter(client)
+    try:
+        raw_market = client.get_market(target)
+    except Exception as exc:  # noqa: BLE001 - unavailable/invalid target -> no order
+        raise SystemExit(
+            f"authorized demo ticker is unavailable ({type(exc).__name__}); no order"
+        ) from exc
+
+    returned_ticker = raw_market.get("ticker")
+    if returned_ticker != target:
+        raise SystemExit("authorized demo ticker response is ambiguous; no order")
+    status = raw_market.get("status")
+    if status != "active":
+        raise SystemExit(
+            f"authorized demo ticker is not active (status={status!r}); no order"
+        )
+
+    try:
+        books = adapter.get_order_books(target)
+    except Exception as exc:  # noqa: BLE001 - book/read failure -> no order
+        raise SystemExit(
+            f"authorized demo ticker book is unavailable ({type(exc).__name__}); no order"
+        ) from exc
+    candidate = assess_candidate(target, status, books.yes, max_price)
+    if not candidate.picker_eligible:
+        raise SystemExit(
+            f"authorized demo ticker is not eligible: {candidate.note}; no order"
+        )
+    best_ask = candidate.best_ask
+    if best_ask is None:  # defensive fail-closed guard; eligibility should imply this
+        raise SystemExit("authorized demo ticker has no best ask; no order")
+    return _Pick(
+        ticker=target,
+        contract_id=f"{target}:YES",
+        best_ask=best_ask,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -519,9 +570,13 @@ def _write_blocker(reason: str, session_start: datetime) -> None:
     )
 
 
-def run_observation(max_price: Decimal) -> int:
+def run_observation(max_price: Decimal, ticker: str) -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     session_start = utc_now()
+
+    # Public Demo market data only. Resolve the exact authorized target before
+    # loading execution credentials or constructing any authenticated client.
+    pick = pick_authorized_demo_market(ticker, max_price)
 
     key_id = read_keychain_password(KEYCHAIN_SERVICE)
     signer = OpensslRsaPssSigner(PEM_PATH)
@@ -542,7 +597,6 @@ def run_observation(max_price: Decimal) -> int:
         broker=broker, risk=risk, recorder=recorder, clock=utc_now
     )
 
-    pick = pick_liquid_demo_market(max_price)
     client_order_id = f"pma-demo-exec-{int(session_start.timestamp())}"
     intent = LiveOrderRequest(
         client_order_id=client_order_id,
@@ -706,6 +760,30 @@ def main(argv: list[str] | None = None) -> int:
     if "--pages" in args:
         pages = max(1, int(args[args.index("--pages") + 1]))
 
+    ticker: str | None = None
+    if mode == "--observe":
+        if args.count("--ticker") != 1:
+            print(
+                "Refusing to place a demo order: --observe requires exactly one "
+                "--ticker KX... argument.\n",
+                file=sys.stderr,
+            )
+            return 2
+        ticker_index = args.index("--ticker")
+        if ticker_index + 1 >= len(args):
+            print(
+                "Refusing to place a demo order: --ticker requires a value.\n",
+                file=sys.stderr,
+            )
+            return 2
+        ticker = args[ticker_index + 1].strip()
+        if not ticker or ticker.startswith("--"):
+            print(
+                "Refusing to place a demo order: --ticker requires a non-empty value.\n",
+                file=sys.stderr,
+            )
+            return 2
+
     # --diagnose is read-only public market data: no preflight, no credentials.
     if mode == "--diagnose":
         return run_diagnostic(max_price, pages)
@@ -720,7 +798,8 @@ def main(argv: list[str] | None = None) -> int:
         if report["ready"]:
             print(
                 f"Ready. {RUN_ENV_GUARD}=1 python "
-                "scripts/observe_kalshi_demo_execution.py --observe\n"
+                "scripts/observe_kalshi_demo_execution.py --observe "
+                "--ticker KX...\n"
             )
         else:
             print(
@@ -735,7 +814,8 @@ def main(argv: list[str] | None = None) -> int:
     if not report["ready"]:
         print("Refusing to connect: preflight did not pass.\n", file=sys.stderr)
         return 2
-    return run_observation(max_price)
+    assert ticker is not None  # validated above for --observe
+    return run_observation(max_price, ticker)
 
 
 if __name__ == "__main__":

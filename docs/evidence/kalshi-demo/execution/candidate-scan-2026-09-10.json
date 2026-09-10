@@ -1,0 +1,61 @@
+{
+  "evidence_status": "OBSERVED",
+  "observed_at_utc": "2026-09-10T16:43:41Z",
+  "environment": "Kalshi Demo",
+  "mode": "read-only public market data",
+  "command": ".venv/bin/python scripts/observe_kalshi_demo_execution.py --diagnose --max-price 0.60 --pages 10",
+  "pagination": {
+    "response_field": "cursor",
+    "representation": "opaque string",
+    "sample_cursor_length": 60,
+    "request_parameter": "cursor",
+    "termination": "empty or absent cursor, or requested page limit",
+    "pages_inspected": 10,
+    "page_size": 100
+  },
+  "summary": {
+    "markets_inspected": 1000,
+    "non_empty_yes_books": 282,
+    "two_sided_yes_books": 47,
+    "usable_candidates": 3,
+    "max_price": "0.60"
+  },
+  "usable_candidates": [
+    {
+      "ticker": "KXMLBHR-26SEP101305HOUPHI-PHILARRAEZ1-1",
+      "best_bid": "0.0600",
+      "best_ask": "0.0800",
+      "available_size_at_best_ask": "27083.29",
+      "bid_levels": 4,
+      "ask_levels": 3
+    },
+    {
+      "ticker": "KXMLBHR-26SEP101305HOUPHI-PHIBSTOTT5-1",
+      "best_bid": "0.1200",
+      "best_ask": "0.1300",
+      "available_size_at_best_ask": "15384.60",
+      "bid_levels": 4,
+      "ask_levels": 3
+    },
+    {
+      "ticker": "KXMLBHR-26SEP101305HOUPHI-HOUTTRAMMELL26-1",
+      "best_bid": "0.1200",
+      "best_ask": "0.1300",
+      "available_size_at_best_ask": "15384.60",
+      "bid_levels": 4,
+      "ask_levels": 3
+    }
+  ],
+  "recommended_target": "KXMLBHR-26SEP101305HOUPHI-PHILARRAEZ1-1",
+  "safety": {
+    "authenticated_calls": false,
+    "orders_submitted": false,
+    "orders_cancelled": false,
+    "account_positions_fills_calls": false,
+    "production_access": false,
+    "max_price_changed": false,
+    "risk_limits_changed": false,
+    "live_trading_enabled": false,
+    "polymarket_us_access": false
+  }
+}

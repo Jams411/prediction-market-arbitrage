@@ -1,0 +1,56 @@
+{
+  "evidence_status": "OBSERVED",
+  "observed_at_utc": "2026-09-10T16:56:22Z",
+  "environment": "Kalshi Demo",
+  "result": "BLOCKED - order not submitted",
+  "target": "KXMLBHR-26SEP101305HOUPHI-PHILARRAEZ1-1",
+  "target_revalidation": {
+    "market_status": "active",
+    "best_bid": "0.0600",
+    "best_ask": "0.0800",
+    "bid_levels": 4,
+    "ask_levels": 3,
+    "available_size_at_best_ask": "83333.20",
+    "max_price": "0.60",
+    "picker_eligible": true,
+    "reason": "picker-eligible"
+  },
+  "preflight": {
+    "openssl_on_path": true,
+    "demo_private_key_present": true,
+    "demo_keychain_key_id_present": true,
+    "demo_host_guard_passes": true,
+    "execution_env_guard_set": false,
+    "ready": true
+  },
+  "supported_path_blocker": {
+    "command": "PMA_KALSHI_DEMO_EXECUTE=1 python scripts/observe_kalshi_demo_execution.py --observe",
+    "reason": "The supported observer accepts no target ticker and its picker inspects only the first 100 open Demo markets.",
+    "first_page_markets_inspected": 100,
+    "first_page_eligible_markets": 0,
+    "authorized_target_on_first_page": false,
+    "consequence": "The existing path could not select the authorized target; implementation changes were out of scope, so execution failed closed before the guard was set or any account/order call occurred."
+  },
+  "requested_order": {
+    "quantity": "1",
+    "side": "buy",
+    "order_type": "limit",
+    "time_in_force": "gtc",
+    "candidate_limit_price": "0.0800",
+    "submitted": false
+  },
+  "safety": {
+    "orders_submitted": false,
+    "orders_cancelled": false,
+    "position_calls": false,
+    "balance_calls": false,
+    "fill_calls": false,
+    "production_access": false,
+    "live_trading_enabled": false,
+    "code_changed": false
+  },
+  "limitations": [
+    "No venue execution response or order ID exists because no order was submitted.",
+    "The market-data observation is not proof of execution readiness, fill behavior, or realized profitability."
+  ]
+}

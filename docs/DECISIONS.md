@@ -1645,6 +1645,38 @@ would help — without loosening any bound or touching the order path.
 `tests/test_observe_kalshi_demo_execution.py`; PROJECT_JOURNAL 2026-09-10
 entry with the first OBSERVED demo scan.
 
+### D-033 — Bounded Demo execution requires an explicit operator-authorized ticker
+
+**Date:** 2026-09-10
+
+**Context.** A paginated read-only diagnostic found an eligible Demo market
+outside the first discovery page. The first authorized bounded attempt then
+failed closed because `--observe` had no target argument and always used the
+non-paginated discovery picker. Changing discovery order or silently choosing a
+different market would not preserve the operator's authorization.
+
+**Decision.** Require exactly one `--ticker KX...` argument for `--observe`.
+The execution harness retrieves that exact ticker from the Demo market endpoint,
+requires the response ticker to match and status to be `active`, obtains its
+current YES book, and applies the existing `assess_candidate` criteria before
+loading execution credentials or constructing an authenticated client. Explicit
+selection authorizes evaluation only; it does not bypass the unchanged
+`--max-price 0.60` default, two-sided-book and two-level depth requirements,
+one-contract limit, position/risk/duplicate checks, Demo host guard, or
+cancellation/reconciliation behavior. Missing, repeated, blank, unavailable,
+mismatched, inactive, or ineligible targets fail closed before submission.
+
+The existing discovery picker and read-only paginated diagnostic remain
+unchanged and available for candidate discovery. This milestone makes no
+network call and submits no order.
+
+**Status:** ACTIVE. Completes no real-money gate; the explicit-target Demo
+execution still requires a separately authorized observation.
+
+**Evidence:** `scripts/observe_kalshi_demo_execution.py`;
+`tests/test_observe_kalshi_demo_execution.py`; PROJECT_JOURNAL 2026-09-10
+explicit-target milestone entry.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
