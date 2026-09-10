@@ -1757,6 +1757,74 @@ no `LIVE_TRADING` change.
   account data / production call; `--max-price` never changed automatically; no
   order submitted or cancelled; `LIVE_TRADING` untouched.
 
+## 2026-09-10 — M3.6 follow-up: paginated Kalshi Demo candidate observation
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **OBSERVED:** the existing read-only `--diagnose` path inspected 10 pages / 1,000
+  open Kalshi Demo markets at the unchanged `--max-price 0.60`. The API returned
+  pagination as a top-level opaque string `cursor`, passed back as the next
+  request's `cursor` parameter; the observed cursor was non-empty, 60 characters,
+  and changed between the first two pages.
+- **Liquidity:** 282 markets had a non-empty YES book, 47 had a two-sided YES
+  book, and 3 passed the existing picker rule (two-sided, at least 2 levels per
+  side, and `0 < best ask <= 0.60`). Recommended observed target:
+  `KXMLBHR-26SEP101305HOUPHI-PHILARRAEZ1-1`, YES best bid `0.0600`, best ask
+  `0.0800`, size at best ask `27083.29`, with 4 bid / 3 ask levels.
+- **Evidence:**
+  `docs/evidence/kalshi-demo/execution/candidate-scan-2026-09-10.json`.
+- **Fresh revalidation (OBSERVED 2026-09-10T16:50:04Z):** the exact recommended
+  target remained `active` and picker-eligible: YES best bid `0.0600`, best ask
+  `0.0800`, 4 bid / 3 ask levels, and `64583.23` available at the best ask.
+  Evidence:
+  `docs/evidence/kalshi-demo/execution/candidate-revalidation-2026-09-10.json`.
+  This read-only snapshot is not evidence of execution readiness, fill behavior,
+  or realized profitability.
+- **First bounded execution attempt blocked safely (OBSERVED
+  2026-09-10T16:56:22Z):** host-level preflight passed, and an immediate public
+  revalidation again found the target `active` and picker-eligible at YES bid
+  `0.0600`, ask `0.0800`, 4 bid / 3 ask levels, with `83333.20` at the best ask.
+  However, the supported `--observe` path accepts no ticker and its picker scans
+  only the first 100 open Demo markets; a mirror diagnostic found 0 eligible
+  markets on that page and did not include the authorized target. Execution
+  therefore failed closed before the environment guard was set or any account,
+  position, order, cancel, balance, or fill call occurred. No code was changed.
+  Evidence:
+  `docs/evidence/kalshi-demo/execution/bounded-execution-blocked-2026-09-10.json`.
+- **Safety:** public Kalshi Demo market data only; no credentials, orders,
+  cancellations, account/position/fill calls, production access, risk-limit or
+  max-price changes, `LIVE_TRADING`, or Polymarket US work.
+
+## 2026-09-10 — M3.6 follow-up: explicit target for bounded Demo execution
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Root cause:** `run_observation` always used the first-page discovery picker,
+  and the CLI had no ticker argument. An eligible market found on a later page
+  therefore could not be selected without changing the supported path.
+- **Changed:** `--observe` now requires exactly one `--ticker KX...` argument.
+  `pick_authorized_demo_market` retrieves that exact Demo market, checks response
+  identity and `active` status, reads its current YES book, and reuses
+  `assess_candidate` before credentials or authenticated clients are loaded.
+  Discovery/diagnostic behavior is unchanged when explicit targeting is not
+  requested.
+- **Safety preserved:** unchanged `Decimal("0.60")` default cap,
+  `MIN_BOOK_DEPTH = 2`, one-contract quantity/risk limits, Demo-only host and
+  credentials, environment guard, pre-submit real position check, orchestrator
+  duplicate protection, cancellation/reconciliation, evidence sanitization, and
+  disabled production real-money path. Explicit ticker selection is
+  authorization to evaluate, not proof of eligibility.
+- **Tests:** 11 targeted cases added/updated for mandatory single-ticker CLI
+  routing, exact retrieval independent of discovery ordering, missing,
+  unavailable, mismatched, inactive, over-cap, insufficient-depth, and one-sided
+  targets, unchanged discovery behavior, and continued position/orchestrator
+  sequencing. Full local gate: `ruff check .`, `mypy src tests`, `pytest`, and
+  `pre-commit run --all-files`.
+- **No execution:** no Demo order, account call, production request, credential
+  change, `LIVE_TRADING` change, or Polymarket US work occurred.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
