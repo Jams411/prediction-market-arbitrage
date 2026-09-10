@@ -1501,6 +1501,84 @@ no `LIVE_TRADING` change.
   ROADMAP real-money gate checkboxes unchanged.
 - Full local quality gate run once after the test-only change. Not committed.
 
+## 2026-09-10 — Real-money gate audit: #3 / #4 / #5 / #6 / #10 — none completed; paper-execution pipeline proven offline
+
+- **Goal:** audit the paper-execution / fee / equivalence / partial-fill /
+  reconciliation gates and close any small deterministic offline gap. Branch
+  `obs/realmoney-gates-3-4-5-6-10` off `main` @ a768497. No architecture change,
+  no network, no orders/balances/funds, no `LIVE_TRADING`, no Polymarket US.
+- **Per-gate classification (evidence status):**
+  - **#3 Successful paper execution — TESTED end-to-end (offline), NOT complete.**
+    Before this pass the chain existed only as isolated component tests
+    (`test_arbitrage_engine`, `test_paper_broker`, `test_recorder`,
+    `test_replay`); `test_failure_scenarios` joins the imports but only for
+    injected fail-closed seams, and `replay_support.build_recording` hand-writes
+    the order/fill/position rows rather than running `PaperBroker`. Added
+    `tests/test_paper_execution_pipeline.py`: `ArbitrageEngine.evaluate` →
+    `PaperBroker` (real two-level depth match, partial fill) → derived
+    position/fees → `Recorder` (DuckDB) → `ReplaySession`, asserting the
+    replayed fills fold to the replayed position and two runs record
+    identically. **Residual (the "real market data" clause):** the books are
+    synthetic; no *recorded real venue market-data session* has been driven
+    through the chain. Blocker → *required future observation.*
+  - **#4 Fee reconciliation — model TESTED vs published schedule; reconciliation
+    vs observed venue fees UNKNOWN. NOT complete.** `KalshiTradingFeeModel` /
+    `PolymarketUsTradingFeeModel` match the retained published fee-schedule
+    extracts (A-024 / A-025) and `test_arbitrage_fees` checks the worked
+    examples; the new pipeline test also confirms the model is applied per fill
+    slice inside `PaperBroker` (non-zero, matches `FeeModel` output). But **no
+    actual venue fee from a real fill has ever been compared** — the funded Kalshi
+    **demo** order lifecycle (K-TR-OBS-26..33) produced **no fill** (A-038), and
+    A-026 (per-slice rounding of a multi-level sweep) stays explicitly
+    UNVERIFIED. No fee schedule invented. Blocker → *required future
+    observation.*
+  - **#5 Contract equivalence — mechanism TESTED; the gate itself UNKNOWN. NOT
+    complete.** `registry/data/market_pairs.toml` ships **zero pairs** by
+    design; the fail-closed loader + VERIFIED-only `eligible()` + 11-item
+    checklist + `live_use_eligible` forced false (D-011) are covered by
+    `test_market_pair_registry`, and `test_failure_scenarios` proves the engine
+    rejects a non-verified pair and books that do not match a pair record. There
+    is **no economically-equivalent pair** to point at — nothing to verify,
+    nothing unsafe. No safety gap found; no change. A-001 / A-013 / A-015 /
+    A-016 remain the standing blockers on ever adding one.
+  - **#6 Partial-fill behavior — simulated TESTED; venue behavior UNKNOWN. NOT
+    complete.** `PaperBroker` walks depth and emits `PARTIALLY_FILLED` /
+    working-remainder / IOC-cancel deterministically (`test_paper_broker`,
+    `test_failure_scenarios`, and now the pipeline test's two-level walk).
+    Actual venue partial-fill behavior has **never been observed** — the demo
+    order produced no fill at all (A-038). Blocker → *required future
+    observation.*
+  - **#10 Position/order reconciliation — offline replay reconstruction TESTED;
+    authenticated venue reconciliation UNKNOWN. NOT complete.** The recorder is
+    append-only DuckDB (D-016); `test_failure_scenarios` proves a recording
+    survives a process restart and a reopened file continues ids append-only;
+    `ReplaySession` streams orders/fills/positions/pnl and
+    `test_two_identical_recordings_replay_identically` proves determinism. The
+    new pipeline test adds the missing link: recorded fills **fold back to** the
+    recorded position, and two independent runs produce byte-identical rows.
+    There is **no** component that reconciles recorded/expected state against
+    **authenticated venue** order/position/fill state — `LiveBroker.get_order` /
+    `get_positions` raise `UnsupportedLiveOperationError` (A-037 / D-023).
+    Blocker → *required future observation.*
+- **Changed — regression test only (no src change):**
+  `tests/test_paper_execution_pipeline.py` (+2 deterministic offline tests).
+- **Required future observations (to advance the blocked gates):**
+  - #3: capture a bounded **real** Kalshi book session to a `Recorder` DuckDB
+    file, then replay it through engine → paper broker → positions/PnL and
+    retain the recording as evidence.
+  - #4 / #6: a **real or demo** order that actually fills (ideally partially
+    across levels), so the venue fee line and partial-fill semantics can be
+    reconciled against the model. Requires a read-only-plus-one-order demo
+    observation — out of scope for this milestone.
+  - #10: an authenticated venue `get_order` / `get_positions` / fills read
+    reconciled against a recorded expected state — requires a captured trading
+    API (A-037 / D-023).
+- **Not done:** no production execution orchestrator, no live execution path, no
+  network calls, no orders/balances/positions/fills, no funds, no
+  `LIVE_TRADING`, no Polymarket US. ROADMAP real-money gate checkboxes
+  unchanged. Full local quality gate green (ruff, mypy src+tests, 683 pytest,
+  pre-commit). Not committed.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
