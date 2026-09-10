@@ -233,6 +233,44 @@ def test_safe_outcome_key_set_is_a_fixed_allowlist() -> None:
     assert set(safe) == set(harness._SAFE_OUTCOME_KEYS) | {"risk_reason_count"}
 
 
+def test_safe_execution_outcome_persists_only_allowlisted_rejection_metadata() -> None:
+    tr = FakeDemoTransport(
+        create=DemoResponse(
+            401,
+            {
+                "code": "permission_denied",
+                "message": "contains unrestricted venue text",
+                "ticker": "KXSECRET-TICKER",
+            },
+        )
+    )
+    outcome = _orch(_broker(tr)).execute(
+        _INTENT,
+        positions={},
+        health=harness._fresh_health(T0),
+    )
+
+    safe = harness._safe_execution_outcome(outcome)
+    assert safe["venue_rejection"] == {
+        "http_status": "401",
+        "venue_error_category": "authentication_or_authorization",
+        "venue_error_code": "permission_denied",
+    }
+    assert "unrestricted venue text" not in str(safe)
+    assert "KXSECRET" not in str(safe)
+
+
+def test_rejection_evidence_boundary_revalidates_values() -> None:
+    assert harness._safe_rejection(
+        {
+            "http_status": "401; leaked",
+            "venue_error_category": "arbitrary_category",
+            "venue_error_code": "unsafe code with spaces",
+            "message": "must never persist",
+        }
+    ) == {}
+
+
 # --------------------------------------------------------------------------- #
 # pre-submit real position read -> risk projection (fail closed on a bad read)
 # --------------------------------------------------------------------------- #

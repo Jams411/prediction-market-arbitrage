@@ -1,0 +1,66 @@
+{
+  "environment": "demo",
+  "market_ticker": "<redacted>",
+  "order": {
+    "limit_price": "<redacted>",
+    "quantity": "1",
+    "side": "buy",
+    "time_in_force": "gtc"
+  },
+  "outcome": {
+    "blocked_reason": "venue_rejected",
+    "cancelled": false,
+    "duplicate": false,
+    "order_status_state": null,
+    "reconciled": false,
+    "risk_allowed": true,
+    "risk_checks_run": [
+      "kill_switch",
+      "max_daily_loss",
+      "max_order_size",
+      "feed_health",
+      "max_position"
+    ],
+    "risk_reason_count": 0,
+    "submitted": false,
+    "venue_accepted": false,
+    "venue_state": "rejected"
+  },
+  "path": "demo_execution.DemoExecutionOrchestrator + KalshiDemoRestTransport",
+  "safety": [
+    "DEMO host only (assert_demo_host); production Kalshi never called",
+    "no production credentials; LIVE_TRADING never read or set; no fund movement",
+    "no Polymarket US; single 1-contract order; remainder cancelled"
+  ],
+  "session_end_utc": "2026-09-10T18:54:49.277611+00:00",
+  "session_start_utc": "2026-09-10T18:54:47.117949+00:00",
+  "steps": [
+    {
+      "name": "01_execute",
+      "outcome": {
+        "blocked_reason": "venue_rejected",
+        "cancelled": false,
+        "duplicate": false,
+        "order_status_state": null,
+        "reconciled": false,
+        "risk_allowed": true,
+        "risk_checks_run": [
+          "kill_switch",
+          "max_daily_loss",
+          "max_order_size",
+          "feed_health",
+          "max_position"
+        ],
+        "risk_reason_count": 0,
+        "submitted": false,
+        "venue_accepted": false,
+        "venue_state": "rejected"
+      }
+    }
+  ],
+  "venue": "kalshi",
+  "venue_vs_local": {
+    "reached_venue": false
+  },
+  "wall_elapsed_s": 2.16
+}

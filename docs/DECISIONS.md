@@ -1677,6 +1677,42 @@ execution still requires a separately authorized observation.
 `tests/test_observe_kalshi_demo_execution.py`; PROJECT_JOURNAL 2026-09-10
 explicit-target milestone entry.
 
+### D-034 — Persist create rejections as a strict status/code allowlist
+
+**Date:** 2026-09-10
+
+**Context.** The first explicit-target bounded Demo create was rejected before an
+order ID was created. The REST transport retained the HTTP status and parsed
+error body, but the broker flattened every non-409 failure to a generic rejected
+acknowledgement and the observation harness omitted acknowledgement metadata.
+The durable evidence therefore cannot distinguish request, authorization,
+rate-limit, or venue-server rejection classes.
+
+**Decision.** For failed create responses, the Demo broker retains only the HTTP
+status, an internal status-derived category, and a venue error `code` that
+matches a conservative bounded token alphabet. It discards venue `message`,
+`details`, arbitrary scalar fields, nested bodies, headers, signatures, request
+bodies, and identifiers. The observation harness independently allowlists those
+three fields before persistence. Both the current documented top-level error
+shape and the older observed nested `error.code` shape are supported.
+
+**Alternatives considered.** Persist the raw response (rejected as an
+unrestricted disclosure surface); retain no diagnostic data (rejected because
+it makes safe rejection classes indistinguishable); infer the past rejection
+from current documentation (rejected because the exact response was not
+retained).
+
+**Trade-offs / consequences.** A future bounded observation can identify a
+stable rejection class without storing sensitive or arbitrary venue text. The
+past rejection remains undiagnosed, and an undocumented code outside the safe
+alphabet is deliberately omitted.
+
+**Status:** ACTIVE. Diagnostic-only; it changes no request, execution, risk,
+host, position, duplicate, quantity, price, cancellation, or live-trading gate.
+
+**Evidence:** `demo_execution.broker._rejection_metadata`;
+`observe_kalshi_demo_execution._safe_execution_outcome`; targeted offline tests.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
