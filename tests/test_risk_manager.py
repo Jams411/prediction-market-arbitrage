@@ -325,3 +325,48 @@ def test_bad_limits_raise() -> None:
 def test_evaluate_order_requires_an_order_request() -> None:
     with pytest.raises(RiskError, match="OrderRequest"):
         _mgr().evaluate_order("not an order", now=at(0))  # type: ignore[arg-type]
+
+
+# --------------------------------------------------------------------------- #
+# Real-money gate hardening (audit obs/realmoney-gates-9-11-15)
+#   #11 Kill switch      — also gates evaluate_opportunity
+#   #12 Position limits  — boundary is strict-greater-than, both signs
+#   #13 Daily loss       — blocks AT the limit; never on a profit day
+# The RiskManager veto is deterministic and fail-closed; it is NOT yet wired
+# to an execution path (none exists — D-023), so these lock the check
+# behaviour, not gate completion.
+# --------------------------------------------------------------------------- #
+
+
+def test_gate11_kill_switch_also_blocks_evaluate_opportunity() -> None:
+    mgr = _mgr(min_net_edge_per_unit=D("0.01"))
+    good = opportunity(net_edge_total="0.50")
+    assert mgr.evaluate_opportunity(good, now=at(0)).allowed is True
+    mgr.kill("panic")
+    decision = mgr.evaluate_opportunity(good, now=at(1))
+    assert decision.rejected
+    assert any("kill switch engaged: panic" in r for r in decision.reasons)
+    mgr.resume()
+    assert mgr.evaluate_opportunity(good, now=at(2)).allowed is True
+
+
+def test_gate12_position_limit_boundary_is_strict_greater_than_both_signs() -> None:
+    mgr = _mgr(max_position=D("100"))
+    pos = {CONTRACT_ID: position(quantity="90")}
+    assert mgr.evaluate_order(  # projected 100 == limit -> allowed
+        order(quantity="10"), now=at(0), positions=pos
+    ).allowed is True
+    assert mgr.evaluate_order(  # projected 101 -> rejected
+        order(quantity="11"), now=at(0), positions=pos
+    ).rejected
+    assert mgr.evaluate_order(  # sell flips sign to -160, |.| > 100 -> rejected
+        order(side="sell", quantity="250"), now=at(0), positions=pos
+    ).rejected
+
+
+def test_gate13_daily_loss_blocks_at_exactly_the_limit_and_not_on_a_profit_day() -> None:
+    mgr = _mgr(max_daily_loss=D("100"))
+    mgr.record_realized_pnl(D("-100"), at=at(0))
+    assert mgr.evaluate_order(order(), now=at(1)).rejected  # loss == limit
+    mgr.record_realized_pnl(D("300"), at=at(2))  # day now net +200
+    assert mgr.evaluate_order(order(), now=at(3)).allowed is True
