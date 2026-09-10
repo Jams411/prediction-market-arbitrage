@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -111,6 +112,18 @@ _SAFE_OUTCOME_KEYS = (
     "cancelled",
     "reconciled",
 )
+_SAFE_REJECTION_CATEGORIES = frozenset(
+    {
+        "invalid_request",
+        "authentication_or_authorization",
+        "conflict",
+        "rate_limited",
+        "client_error",
+        "venue_server_error",
+        "http_error",
+    }
+)
+_SAFE_ERROR_CODE = re.compile(r"[A-Za-z0-9_.:-]{1,100}\Z")
 
 
 def utc_now() -> datetime:
@@ -135,6 +148,34 @@ def _safe_outcome(evidence: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {k: evidence.get(k) for k in _SAFE_OUTCOME_KEYS}
     out["risk_reason_count"] = len(evidence.get("risk_reasons", ()) or ())
     return out
+
+
+def _safe_execution_outcome(outcome: Any) -> dict[str, Any]:
+    """Sanitise an outcome and retain only allowlisted rejection metadata."""
+    safe = _safe_outcome(outcome.to_evidence_dict())
+    ack = outcome.ack
+    if ack is not None and not ack.accepted:
+        rejection = _safe_rejection(ack.raw)
+        if rejection:
+            safe["venue_rejection"] = rejection
+    return safe
+
+
+def _safe_rejection(raw: dict[str, str]) -> dict[str, str]:
+    """Validate rejection values again at the durable-evidence boundary."""
+    result: dict[str, str] = {}
+    status = raw.get("http_status")
+    if isinstance(status, str) and status.isascii() and status.isdigit():
+        value = int(status)
+        if 100 <= value <= 599:
+            result["http_status"] = status
+    category = raw.get("venue_error_category")
+    if category in _SAFE_REJECTION_CATEGORIES:
+        result["venue_error_category"] = category
+    code = raw.get("venue_error_code")
+    if isinstance(code, str) and _SAFE_ERROR_CODE.fullmatch(code):
+        result["venue_error_code"] = code
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -543,7 +584,7 @@ def _venue_step(name: str, body: Any) -> dict[str, Any]:
 
 
 def _outcome_step(name: str, outcome: Any) -> dict[str, Any]:
-    return {"name": name, "outcome": _safe_outcome(outcome.to_evidence_dict())}
+    return {"name": name, "outcome": _safe_execution_outcome(outcome)}
 
 
 def _write_blocker(reason: str, session_start: datetime) -> None:
@@ -688,7 +729,7 @@ def run_observation(max_price: Decimal, ticker: str) -> int:
             "side": "buy",
             "time_in_force": "gtc",
         },
-        "outcome": None if outcome is None else _safe_outcome(outcome.to_evidence_dict()),
+        "outcome": None if outcome is None else _safe_execution_outcome(outcome),
         "venue_vs_local": recon,
         "steps": steps,
         "safety": [

@@ -1825,6 +1825,87 @@ no `LIVE_TRADING` change.
 - **No execution:** no Demo order, account call, production request, credential
   change, `LIVE_TRADING` change, or Polymarket US work occurred.
 
+## 2026-09-10 — M3.6: first explicit-target bounded Kalshi Demo attempt
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** reviewed PR #40 was verified at head
+  `e62d15d4cf4072aafcad183c7ed871ec5e203389` with green GitHub CI and no
+  GitHub review blocker, then squash-merged as
+  `5b42b4dc512b961ffd82f40c8b8aaf8d830d4651` before this observation.
+- **Attempt (OBSERVED 2026-09-10T18:54:47Z):** the merged explicit-target path
+  evaluated `KXMLBHR-26SEP101305HOUPHI-PHILARRAEZ1-1` on Kalshi Demo. Identity,
+  `active` status, two-sided YES book, minimum 2 levels per side, and the
+  unchanged `--max-price 0.60` constraint passed. The harness selected the
+  current best ask `0.0800` for exactly 1 contract. The harness did not emit or
+  persist the contemporaneous best bid or exact level counts, so those values
+  remain unavailable; only the minimum depth pass is evidenced.
+- **Pre-submit checks:** Demo host/environment guard passed; the authenticated
+  current-position read returned 0 contracts. Risk was allowed with checks
+  `kill_switch`, `max_daily_loss`, `max_order_size`, `feed_health`, and
+  `max_position`; reason count 0. Duplicate flag was false.
+- **Outcome:** exactly one create request was attempted. Kalshi Demo rejected it;
+  `venue_accepted = false`, `venue_state = rejected`, and no venue order ID was
+  created. Submitted/accepted quantity was 0; fill quantity was 0. With no
+  accepted order, cancellation and order/position reconciliation were not
+  applicable; the summary records `reached_venue = false` in that lifecycle
+  sense. No retry was made.
+- **Evidence:** sanitized harness output
+  `docs/evidence/kalshi-demo/execution/SUMMARY.json`. The ignored local
+  `recording.duckdb` is not durable evidence.
+- **Gate impact:** none. This is OBSERVED Demo rejection evidence, not proof of
+  successful execution, fill behavior, realized profit, or production readiness;
+  no real-money gate is promoted.
+- **Safety:** no production endpoint, real money, `LIVE_TRADING`, cross-venue
+  execution, fund movement, or second create attempt.
+
+## 2026-09-10 — M3.6: Kalshi Demo create-rejection diagnosis and safe observability
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Diagnosis:** the exact venue rejection cause is **UNKNOWN** because the prior
+  sanitized evidence retained neither HTTP status nor venue error code. Current
+  official Create Order V2 documentation matches the implemented request:
+  `POST /portfolio/events/orders`; ticker; YES-side `bid`; string count `"1"`;
+  fixed-point dollar price `"0.0800"`; `good_till_canceled`; `maker` self-trade
+  prevention; client order ID; and omitted `exchange_index` auto-routing by
+  ticker. No confirmed request/API mismatch was found.
+- **Authentication:** the transport signs timestamp milliseconds + uppercase
+  method + `/trade-api/v2` path without query, using RSA-PSS/SHA-256 and the
+  documented headers. The successful authenticated position GET supports key
+  and signer correctness for that read, but does not prove create authorization.
+  K-TR-16 is superseded: current docs expose `read`, `write`, and `write::trade`
+  key scopes (K-TR-22), plus a region-attestation expiry that can bar Sports
+  trading (K-TR-23). The configured key's current scope/attestation was not read.
+- **Ranked hypotheses (UNVERIFIED):** (1) missing collateral/provisioning on the
+  target's routed shard — official docs place new baseball events on shard 3
+  after 2026-08-24 and require preallocated shard collateral, while retained
+  project evidence establishes only the earlier shard-1 funding; the target's
+  authoritative `exchange_index` was not retained; (2) expired/missing API-key
+  location attestation for a Sports market; (3) configured key missing current
+  `write`/`write::trade` scope; (4) a transient market/account validation change
+  between the public read and create. None can be promoted without the discarded
+  response metadata or a separately authorized read.
+- **Detail-loss path:** `urllib_sender` and `KalshiDemoRestTransport` made the
+  non-2xx HTTP status and parsed error object available. The broker omitted the
+  status and flattened only top-level scalars (dropping older nested
+  `error.code`); the orchestrator classified every non-409 non-2xx response as
+  generic `venue_rejected`; the observation evidence then omitted `ack.raw`.
+- **Changed (D-034):** failed creates now retain only HTTP status, a fixed
+  internal category, and a conservative allowlisted venue error code; venue
+  message/details, arbitrary response fields, request data, headers, signatures,
+  and identifiers remain discarded. The harness independently allowlists these
+  fields before persistence. Current top-level and older nested code envelopes
+  are covered by offline tests.
+- **Evidence status:** this change cannot retroactively diagnose the existing
+  OBSERVED rejection. It only makes a future separately authorized attempt more
+  diagnosable. No new evidence file was manufactured for the missing response.
+- **Safety:** offline code/docs/tests only. No order, cancel, authenticated venue
+  request, production access, credential access/change, `LIVE_TRADING` change,
+  risk/price/quantity change, or Polymarket work occurred.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

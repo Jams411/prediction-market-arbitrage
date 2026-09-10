@@ -19,6 +19,7 @@ disabled (D-002); ``LIVE_TRADING`` is never read or set here.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -39,7 +40,7 @@ from prediction_market_arbitrage.live_broker import (
 )
 
 from .errors import DemoCapabilityError, DemoExecutionError
-from .transport import DemoTransport, assert_demo_host
+from .transport import DemoResponse, DemoTransport, assert_demo_host
 
 _TIME_IN_FORCE = {
     "gtc": "good_till_canceled",
@@ -53,6 +54,8 @@ _KALSHI_STATUS = {
     "canceled": LiveOrderState.CANCELED,
     "cancelled": LiveOrderState.CANCELED,
 }
+
+_SAFE_ERROR_CODE = re.compile(r"[A-Za-z0-9_.:-]{1,100}\Z")
 
 
 def _plain(value: Decimal) -> str:
@@ -82,6 +85,44 @@ def _str_map(body: Mapping[str, Any]) -> dict[str, str]:
     (structural echo only; the orchestrator is responsible for sanitising
     anything it persists)."""
     return {str(k): str(v) for k, v in body.items() if not isinstance(v, (dict, list))}
+
+
+def _rejection_metadata(response: DemoResponse) -> dict[str, str]:
+    """Return a strict, non-sensitive summary of a failed create response.
+
+    Kalshi documents error bodies as ``{code, message, details}``, while older
+    observed responses used ``{error: {code, message}}``.  Preserve only the
+    HTTP status, a code made solely from a conservative token alphabet, and an
+    internal status category.  Venue text and every other response field are
+    deliberately discarded.
+    """
+    status = response.status
+    if status == 400:
+        category = "invalid_request"
+    elif status in (401, 403):
+        category = "authentication_or_authorization"
+    elif status == 409:
+        category = "conflict"
+    elif status == 429:
+        category = "rate_limited"
+    elif 400 <= status < 500:
+        category = "client_error"
+    elif 500 <= status < 600:
+        category = "venue_server_error"
+    else:
+        category = "http_error"
+
+    result = {
+        "http_status": str(status),
+        "venue_error_category": category,
+    }
+    code: object = response.body.get("code")
+    nested = response.body.get("error")
+    if not isinstance(code, str) and isinstance(nested, Mapping):
+        code = nested.get("code")
+    if isinstance(code, str) and _SAFE_ERROR_CODE.fullmatch(code):
+        result["venue_error_code"] = code
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,7 +199,7 @@ class KalshiDemoLiveBroker(LiveBroker):
                 state=LiveOrderState.REJECTED,
                 accepted=False,
                 as_of=now,
-                raw=_str_map(resp.body),
+                raw=_rejection_metadata(resp),
             )
         order_id = resp.body.get("order_id")
         if not isinstance(order_id, str) or not order_id.strip():

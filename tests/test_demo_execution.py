@@ -308,6 +308,39 @@ def test_non_2xx_create_is_recorded_rejected_not_assumed_placed() -> None:
     assert _statuses(rec) == ["new", "rejected"]
 
 
+@pytest.mark.parametrize(
+    ("body", "expected_code"),
+    [
+        ({"code": "insufficient_balance", "message": "do not persist"}, "insufficient_balance"),
+        (
+            {"error": {"code": "authentication_error", "message": "do not persist"}},
+            "authentication_error",
+        ),
+        ({"code": "unsafe code with spaces", "message": "do not persist"}, None),
+    ],
+)
+def test_create_rejection_retains_only_allowlisted_metadata(
+    body: dict[str, object], expected_code: str | None
+) -> None:
+    body["details"] = "secret diagnostic text"
+    body["ticker"] = "KXSECRET-TICKER"
+    tr = FakeDemoTransport(create=DemoResponse(400, body))
+    orch, _tr, _risk, _rec = _setup(transport=tr)
+
+    outcome = orch.execute(_intent("safe-rejection"))
+
+    assert outcome.ack is not None
+    expected = {
+        "http_status": "400",
+        "venue_error_category": "invalid_request",
+    }
+    if expected_code is not None:
+        expected["venue_error_code"] = expected_code
+    assert outcome.ack.raw == expected
+    assert "secret" not in str(outcome.ack.raw)
+    assert "KXSECRET" not in str(outcome.ack.raw)
+
+
 def test_cancelling_something_that_never_reached_the_venue_is_an_error() -> None:
     orch, _tr, risk, _rec = _setup()
     risk.kill("halt")
