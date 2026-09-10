@@ -183,3 +183,61 @@ venue error code without arbitrary venue text or secrets. No execution was run.
 `scripts/observe_kalshi_demo_execution.py`.
 **Quality note:** no order/cancel/authenticated request, production action,
 safety-limit change, credential change, or historical attribution rewrite.
+
+### PR #41 merge and finalized-target fail-closed observation — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** verified and squash-merged reviewed PR #41, then performed one exact
+target public Kalshi Demo market/book check under the unchanged eligibility
+rules.
+**Validation:** PR head/CI/review state, merge commit, clean synced main, and
+JSON evidence-format validation.
+**Outcome:** the authorized target was finalized on exchange index 3 with an
+empty YES book and was ineligible. The bounded execution command was not run;
+there was no authenticated venue call, position/duplicate/risk check, create,
+cancel, fill, or replacement selection.
+**Evidence:** `docs/PROJECT_JOURNAL.md` and
+`docs/evidence/kalshi-demo/execution/target-finalized-2026-09-10.json`.
+**Quality note:** fail-closed read-only evidence only; no production or
+real-money action and no historical attribution change.
+
+### Paginated Kalshi Demo replacement-candidate observation — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** preserved the existing finalized-target evidence and ran the shipped
+public, credential-free 10-page Demo diagnostic at the unchanged `0.60` cap and
+two-level-per-side rule.
+**Validation:** command exited successfully; 1,000 diagnostic rows were parsed
+locally; evidence JSON and documentation diffs validated.
+**Outcome:** 123 non-empty YES books, 27 two-sided books, and one eligible
+candidate: `KXUCLSPREAD-26SEP10BMUBOG-BMU5` at `0.0500` / `0.0700`, depth 4/3,
+size `11896.81` at ask. A pre-existing advisory-count wording discrepancy was
+recorded without changing code.
+**Evidence:** `docs/PROJECT_JOURNAL.md` and
+`docs/evidence/kalshi-demo/execution/candidate-scan-2026-09-10T2051Z.json`.
+**Quality note:** OBSERVED public data only; no credentials, authentication,
+execution, production action, risk-limit change, or historical attribution
+rewrite.
+
+### Kalshi Demo diagnostic advisory-count correction — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** corrected `recommend_max_price` wording/count semantics without
+changing candidate assessment, execution selection, depth rules, or the active
+price cap.
+**Validation:** focused observer tests plus the complete local Ruff, mypy,
+pytest, and pre-commit gate.
+**Outcome:** only under-cap candidates are now called picker-eligible; additional
+two-sided/depth-qualified candidates are explicitly labeled above-cap and
+ineligible under the current rule. Historical scan evidence remains unchanged.
+**Evidence:** `scripts/observe_kalshi_demo_execution.py`,
+`tests/test_observe_kalshi_demo_execution.py`, and `docs/PROJECT_JOURNAL.md`.
+**Quality note:** straightforward diagnostic correction; no architectural
+decision entry, venue request, safety-control change, or historical attribution
+rewrite.
