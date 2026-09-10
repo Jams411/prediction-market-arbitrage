@@ -1563,6 +1563,88 @@ demo observation run.
 `docs/API_SOURCES.md` K-TR-04..10 / K-TR-OBS-26..33; `docs/ASSUMPTIONS.md`
 A-037 (unchanged — it governs the *production* boundary).
 
+### D-031 — Concrete Kalshi DEMO REST transport (stdlib `urllib` + injected signer + injected HTTP seam) and an unrun observation harness
+
+**Date:** 2026-09-10
+
+**Context.** D-030 shipped the demo orchestrator with `DemoTransport` as a bare
+seam. To produce the #3/#4/#6/#10 evidence a real demo round-trip is needed —
+but without a new runtime dependency, without a networked call in the test
+suite, and without touching the production credential path.
+
+**Decision.** Add `demo_execution.rest_transport`:
+
+- **`KalshiDemoRestTransport(DemoTransport)`** — standard library `urllib` only.
+  It builds the K-TR-03 signed string `timestamp_ms + METHOD + "/trade-api/v2" +
+  path` (path **without** query) and the three K-TR-02 auth headers; the RSA-PSS
+  signature comes from an **injected `livebook.Signer`** (the concrete openssl
+  signer stays in `scripts/kalshi_signer` — this package still imports no
+  crypto). The HTTP call itself is behind an **injected `HttpSender`** seam
+  (`urllib_sender` is the default), so every test runs offline.
+- Host-pinned: `assert_demo_host(base_url)` at construction — a production host
+  is a hard `DemoHostError` before any request is built.
+- **Fail-closed parsing:** a non-JSON / non-object body becomes `{}` (the broker
+  then refuses a 2xx create with no `order_id`); a transport/timeout error is a
+  `DemoTransportError` carrying only method + path + exception *class* — never
+  the URL host, headers, key id, signature, or the underlying message. Non-2xx
+  HTTP statuses (401/409/429/5xx) flow through as a `DemoResponse` for the
+  broker's existing mapping (409 → `DuplicateOrderError`).
+
+- **`scripts/observe_kalshi_demo_execution.py`** — a bounded observation harness
+  (env-guarded `PMA_KALSHI_DEMO_EXECUTE=1` + `--observe`; `--check` default
+  makes **no** network call). It selects one liquid demo market (read-only
+  `KalshiMarketDataAdapter` on the demo base), submits **one 1-contract** limit
+  bid at the best ask (max notional ≈ `--max-price`, default $0.60) through the
+  orchestrator, observes / reconciles / cancels any remainder, fetches
+  fills/positions, compares venue vs local recorded state, and writes sanitised
+  evidence (`observe_kalshi_demo.sanitise_body`, D-024). **It is not run in this
+  milestone.**
+
+**Status:** ACTIVE. Still completes no real-money gate — the harness must be run
+once against Kalshi demo to produce the evidence.
+
+**Evidence:** `src/prediction_market_arbitrage/demo_execution/rest_transport.py`;
+`tests/test_demo_rest_transport.py`; `scripts/observe_kalshi_demo_execution.py`;
+`docs/API_SOURCES.md` K-TR-01..14.
+
+### D-032 — The demo market-selection diagnostic is read-only and never recommends *raising* `--max-price`
+
+**Date:** 2026-09-10
+
+**Context.** The first bounded demo `--observe` (D-031 harness) exited safely
+with "no open demo market with a two-sided book and best ask <= 0.60". Before
+retrying, an operator needs to know *why* the picker
+(`pick_liquid_demo_market`) found nothing and whether a different `--max-price`
+would help — without loosening any bound or touching the order path.
+
+**Decision.** Add a `--diagnose` mode to
+`scripts/observe_kalshi_demo_execution.py`:
+
+- **Read-only, credential-free.** Public `GET /markets*` on the demo host only
+  (`KalshiClient` + `KalshiMarketDataAdapter`, the same code the picker uses).
+  No preflight, no signer, no order, no cancel, no evidence file, no production
+  host, `LIVE_TRADING` never referenced.
+- **Reports exactly the picker's inputs** per open demo market: ticker, venue
+  `status`, YES best bid / best ask, two-sided?, level count per side, size at
+  best ask, and pass/fail against the picker rule at the supplied
+  `--max-price`. `MIN_BOOK_DEPTH = 2` is now a shared constant so the picker
+  and the diagnostic cannot drift.
+- **`recommend_max_price` is advisory only and asymmetric.** It may report the
+  *tightest already-satisfiable* bound (the cheapest two-sided best ask that is
+  `<= current --max-price`, exact, no rounding). When the cheapest two-sided
+  best ask is *above* the current bound it returns `None` and only cites that
+  number in the reason string — a `--max-price` **increase is never surfaced as
+  a recommendation**, because widening the risk bound is an operator decision,
+  and the script never applies the value regardless. When no market has a
+  two-sided book it returns `None` ("raising `--max-price` cannot help").
+
+**Status:** ACTIVE. Completes no real-money gate; changes no picker behaviour.
+
+**Evidence:** `scripts/observe_kalshi_demo_execution.py` (`run_diagnostic`,
+`assess_candidate`, `recommend_max_price`);
+`tests/test_observe_kalshi_demo_execution.py`; PROJECT_JOURNAL 2026-09-10
+entry with the first OBSERVED demo scan.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

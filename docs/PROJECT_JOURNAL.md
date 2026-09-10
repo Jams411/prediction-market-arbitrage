@@ -1637,6 +1637,126 @@ no `LIVE_TRADING` change.
   Polymarket US; no fund movement; no network call this milestone. Full local
   quality gate green (ruff, mypy src+tests, pytest, pre-commit). Not committed.
 
+## 2026-09-10 — M3.6: concrete Kalshi DEMO REST transport + unrun one-order observation harness
+
+- **Goal:** turn the M3.5 demo orchestrator into a real Kalshi-demo execution
+  path (no production safety weakened), and prepare — **without running** — one
+  bounded demo execution observation. Branch `feat/kalshi-demo-transport` off
+  `main` @ b8f80b5. No network call made.
+- **New:**
+  - `src/prediction_market_arbitrage/demo_execution/rest_transport.py` —
+    `KalshiDemoRestTransport(DemoTransport)`: stdlib `urllib` only, K-TR-03
+    signed string + K-TR-02 headers, **injected `livebook.Signer`** (openssl
+    signer stays in `scripts/`), **injected `HttpSender`** seam
+    (`urllib_sender` default) so tests are offline. `assert_demo_host` at
+    construction. Fail-closed: non-JSON/non-object body → `{}`;
+    transport/timeout → `DemoTransportError` with only method + path +
+    exception class (no host/headers/key/signature/message); 401/409/429/5xx
+    flow through as a `DemoResponse` (409 → `DuplicateOrderError` in the
+    broker).
+  - `tests/test_demo_rest_transport.py` (+22 offline): exact signed-string
+    construction (POST/GET/DELETE, path without query); demo host accepted /
+    production+bad host rejected at ctor; empty api_key_id rejected;
+    create/get/cancel/fills/positions request + response parsing; non-2xx and
+    409 flow through, not raised; malformed / empty / array / scalar body →
+    `{}`; transport failure → `DemoTransportError` with no secret material;
+    `urllib_sender` maps `URLError`/`TimeoutError` → `DemoTransportError` and
+    returns `HTTPError` bodies; create-order body shape through the real
+    transport (K-TR-05 fields); duplicate client intent cannot issue a second
+    create via the real transport; reconcile deterministic with fake venue
+    state via the real transport.
+  - `scripts/observe_kalshi_demo_execution.py` — the bounded one-order demo
+    harness (see "Observation command" below). **Not run.**
+- **Docs:** D-031 (the concrete transport + harness); D-030 evidence line
+  extended; `ASSUMPTIONS.md` M3.4 note extended (A-037 still UNCHANGED).
+- **Changed:** `src/prediction_market_arbitrage/demo_execution/rest_transport.py`
+  + `__init__.py` (exports); `tests/test_demo_rest_transport.py`;
+  `scripts/observe_kalshi_demo_execution.py`; `docs/DECISIONS.md`;
+  `docs/ASSUMPTIONS.md`; this entry. No change to `demo_execution/broker.py` /
+  `orchestrator.py` / `transport.py`; no change to `live_broker`, `risk`,
+  `recorder`, or the production credential / WS path.
+- **Full local gate green:** ruff, mypy (src+tests, +the harness), 731 pytest,
+  pre-commit. Not committed.
+- **Gate impact:** none. Offline tests are not venue evidence.
+- **Future-evidence reassessment (what the pending one-order demo run can /
+  cannot advance):**
+  - **#3 Successful paper execution — the demo run can add a *real venue*
+    end-to-end trace** (detector-sized intent → risk → demo submit → venue
+    order state → recorder) to sit beside the offline pipeline test; still
+    "paper"/demo, not production. Plausible to CHECK #3 on demo evidence if the
+    gate owner accepts demo as "real market data".
+  - **#4 Fee reconciliation — advances only if the 1-contract order actually
+    fills.** A demo fill returns `average_fee_paid` (K-TR-06) / `fee_cost` per
+    fill (K-TR-09), which can be reconciled against `KalshiTradingFeeModel`
+    output. A resting/cancelled order yields no fee line — blocker persists
+    (A-024/25/26).
+  - **#6 Partial-fill behavior — advances only on a *partial* demo fill**
+    (count taken across levels with `remaining_count_fp` > 0). A tiny
+    1-contract order rarely partials; may need a 2–3 contract order against a
+    1-lot top level in a follow-up. Simulated partials already TESTED.
+  - **#9 Duplicate-order prevention — the demo run adds the venue half**: a
+    re-`POST` of the same `client_order_id` → HTTP 409 (K-TR-07/K-TR-OBS-29),
+    now flowing through `KalshiDemoRestTransport` → `DuplicateOrderError`. Local
+    half already TESTED; demo 409 is OBSERVED-ready.
+  - **#10 Position/order reconciliation — the demo run exercises the
+    authenticated read + fold**: `get_order` + `get_positions` + `get_fills`
+    vs the recorder rows, deterministically. Demo (not production) authenticated
+    state; production reconciliation still needs a captured production API
+    (A-037).
+  - **#11 Kill switch / #12 Position limits / #13 Daily loss limits — now on a
+    real execution path.** The orchestrator runs `RiskManager.evaluate_order`
+    (all these checks, fail-closed) *before* the demo submit; the offline tests
+    prove the venue is never touched on a veto. A demo run can OBSERVE that the
+    veto blocks a real submit — the "not wired to execution" gap from the
+    2026-09-09 audit is closed **for the demo path**.
+  - **#14 Credential isolation — the concrete transport keeps the property**:
+    the demo key id + RSA key load via the existing Keychain / file-only
+    pattern (`scripts/kalshi_signer`), never logged; `DemoTransportError`
+    messages carry no secret (regression-tested). Production credential path
+    untouched. Full gate still needs the production trading path (A-037).
+  - **#15 Live mode cannot activate accidentally — unchanged and preserved**:
+    the demo broker still requires an armed `LiveTradingGate`; `LIVE_TRADING`
+    is never read/set; `assert_demo_host` makes a production base URL a hard
+    failure, so an armed gate cannot reach production through this package.
+- **Safety:** DEMO host only (hard-fail); no production credentials / requests /
+  balances / positions / fills; no fund movement; no Polymarket US;
+  `LIVE_TRADING` untouched; production `LiveBroker` interface not broadened; no
+  network call this milestone.
+
+## 2026-09-10 — M3.6: read-only `--diagnose` for demo market selection (no order)
+
+- **Why:** the first bounded demo `--observe` exited safely with "no open demo
+  market with a two-sided book and best ask <= 0.60". Needed to see *what the
+  picker sees* before touching `--max-price` or the order path.
+- **Changed:** `scripts/observe_kalshi_demo_execution.py` — new `--diagnose`
+  mode (public `GET /markets*` on the demo host only; no auth, no preflight, no
+  order, no evidence file). Reuses `KalshiClient` + `KalshiMarketDataAdapter`.
+  Reports per open demo market: ticker, venue `status`, YES best bid / best ask,
+  two-sided?, level count per side, size at best ask, and whether it passes the
+  picker rule at the given `--max-price`. New pure helpers `assess_candidate`
+  (scores one YES book against the exact picker rule) and `recommend_max_price`
+  (advisory only — see DECISIONS). Extracted `MIN_BOOK_DEPTH = 2` and
+  `DIAG_MARKET_LIMIT = 100` and pointed the picker at them (no behaviour
+  change). Optional `--pages N` widens the read-only scan past page 1 (default
+  1 = exactly what the picker scans).
+- **OBSERVED 2026-09-10 (demo, read-only):** page 1 of
+  `GET /markets?status=open&limit=100` is entirely one-sided or empty YES books
+  — hourly metals ladders (`KXPLATINUMH` / `KXPALLADIUMH` / `KXSILVERH`, a
+  handful with a single 0.01 bid and no ask) and `KXMVECROSSCATEGORY-SHARD1`
+  markets with no levels at all. **0** markets have a two-sided YES book, so the
+  picker correctly selected nothing. The blocker is book *shape* (no resting
+  asks), not price — raising `--max-price` cannot help. Recommendation:
+  **keep `--max-price 0.60` unchanged**; re-run `--diagnose` (optionally
+  `--pages 3+`, slower) later or when demo liquidity is present.
+- **Tests:** `tests/test_observe_kalshi_demo_execution.py` +12 offline cases
+  (mode routing skips preflight/observation; `assess_candidate` for one-sided /
+  in-range / above-max / sub-depth books; `recommend_max_price` never surfaces a
+  `--max-price` increase as a recommendation; `MIN_BOOK_DEPTH` matches the
+  picker). Full local gate green (ruff, mypy, pytest 759, pre-commit).
+- **Safety:** read-only public market data on the DEMO host; no credentials /
+  account data / production call; `--max-price` never changed automatically; no
+  order submitted or cancelled; `LIVE_TRADING` untouched.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.
