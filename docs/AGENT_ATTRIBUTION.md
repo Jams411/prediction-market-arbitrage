@@ -146,3 +146,40 @@ ineligible targets stop before credentials or submission. No order was run.
 `tests/test_observe_kalshi_demo_execution.py`.
 **Quality note:** narrow script/test/docs change only; no execution architecture,
 risk limits, production gates, dependencies, or historical attribution changed.
+
+### First explicit-target bounded Kalshi Demo attempt — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** verified and squash-merged reviewed PR #40, then ran exactly one
+explicit-target, 1-contract, `--max-price 0.60` attempt through the merged Demo
+orchestrator and preserved its sanitized evidence.
+**Validation:** merged-head/CI/review verification; Demo preflight and exact
+target validation; focused observer tests and evidence-format checks.
+**Outcome:** pre-submit position was 0 and risk was allowed, but the single create
+request was venue-rejected with no order ID, accepted quantity, fill,
+cancellation, or retry. No real-money gate advanced.
+**Evidence:** `docs/PROJECT_JOURNAL.md` and
+`docs/evidence/kalshi-demo/execution/SUMMARY.json`.
+**Quality note:** outcome is classified as an OBSERVED Demo rejection, not a
+successful execution; no production or real-money action occurred.
+
+### Kalshi Demo create-rejection diagnosis and safe observability — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** compared the failed Demo create path with current official request,
+signing, error, sharding, API-key scope, and location-attestation documentation;
+added a narrow rejection-metadata allowlist for future bounded observations.
+**Validation:** targeted offline broker, REST transport, and observation-harness
+tests plus the complete local quality gate.
+**Outcome:** no request/API mismatch or exact past rejection cause was proven.
+Future failures can preserve HTTP status, a stable internal category, and a safe
+venue error code without arbitrary venue text or secrets. No execution was run.
+**Evidence:** D-034; K-TR-22/23; `docs/PROJECT_JOURNAL.md`;
+`src/prediction_market_arbitrage/demo_execution/broker.py`;
+`scripts/observe_kalshi_demo_execution.py`.
+**Quality note:** no order/cancel/authenticated request, production action,
+safety-limit change, credential change, or historical attribution rewrite.
