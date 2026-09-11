@@ -17,6 +17,10 @@ from prediction_market_arbitrage.adapters.kalshi.client import KalshiClient
 from prediction_market_arbitrage.adapters.polymarket_us.client import PolymarketClient
 from prediction_market_arbitrage.pair_discovery import (
     CandidatePair,
+    DiscoveryDiagnostics,
+    RejectedNearMiss,
+    SemanticContract,
+    diagnose_candidates,
     discover_candidates,
     from_kalshi_market,
     from_polymarket_us_market,
@@ -32,6 +36,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--polymarket-pages", type=int, default=1)
     parser.add_argument("--page-size", type=int, default=100)
     parser.add_argument("--top", type=int, default=20)
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="include reconciled gate counts and bounded below-threshold near misses",
+    )
+    parser.add_argument("--near-misses", type=int, default=20)
     return parser
 
 
@@ -43,16 +53,30 @@ def main() -> int:
         raise SystemExit("page size must be between 1 and 100")
     if args.top <= 0:
         raise SystemExit("--top must be positive")
+    if not 1 <= args.near_misses <= 100:
+        raise SystemExit("--near-misses must be between 1 and 100")
 
     kalshi_raw = _kalshi_markets(KalshiClient(), args.kalshi_pages, args.page_size)
     polymarket_raw = _polymarket_markets(
         PolymarketClient(), args.polymarket_pages, args.page_size
     )
-    candidates = discover_candidates(
-        (from_kalshi_market(item) for item in kalshi_raw),
-        (from_polymarket_us_market(item) for item in polymarket_raw),
-        limit=args.top,
-    )
+    kalshi_profiles = tuple(from_kalshi_market(item) for item in kalshi_raw)
+    polymarket_profiles = tuple(from_polymarket_us_market(item) for item in polymarket_raw)
+    diagnostics: DiscoveryDiagnostics | None = None
+    if args.diagnose:
+        diagnostics = diagnose_candidates(
+            kalshi_profiles,
+            polymarket_profiles,
+            candidate_limit=args.top,
+            near_miss_limit=args.near_misses,
+        )
+        candidates = diagnostics.passed_candidates
+    else:
+        candidates = discover_candidates(
+            kalshi_profiles,
+            polymarket_profiles,
+            limit=args.top,
+        )
     output = {
         "status": "UNVERIFIED",
         "warning": _WARNING,
@@ -63,6 +87,8 @@ def main() -> int:
         },
         "candidate_pairs": [_candidate_json(candidate) for candidate in candidates],
     }
+    if diagnostics is not None:
+        output["candidate_generation_diagnostics"] = _diagnostics_json(diagnostics)
     print(json.dumps(output, indent=2, sort_keys=True))
     return 0
 
@@ -140,6 +166,56 @@ def _candidate_json(candidate: CandidatePair) -> dict[str, object]:
             for comparison in candidate.comparisons
             if comparison.classification.value in {"MISMATCH", "UNKNOWN"}
         ],
+    }
+
+
+def _diagnostics_json(diagnostics: DiscoveryDiagnostics) -> dict[str, object]:
+    return {
+        "status": diagnostics.status,
+        "warning": diagnostics.warning,
+        "threshold": str(diagnostics.threshold),
+        "prefilter": "none; every Kalshi × Polymarket US record is considered",
+        "comparisons_considered": diagnostics.considered,
+        "passed_threshold": diagnostics.passed,
+        "rejected_below_threshold": diagnostics.rejected,
+        "counts_reconcile": diagnostics.passed + diagnostics.rejected
+        == diagnostics.considered,
+        "top_below_threshold_near_misses": [
+            _near_miss_json(item) for item in diagnostics.near_misses
+        ],
+    }
+
+
+def _near_miss_json(item: RejectedNearMiss) -> dict[str, object]:
+    return {
+        "status": item.status,
+        "warning": item.warning,
+        "lexical_generation_signal": str(item.lexical_signal),
+        "rejection_reason": item.rejection_reason,
+        "kalshi": _diagnostic_leg(item.kalshi, item.kalshi_keys.all_tokens),
+        "polymarket_us": _diagnostic_leg(
+            item.polymarket_us, item.polymarket_us_keys.all_tokens
+        ),
+        "shared_tokens": item.shared_tokens,
+        "kalshi_unique_tokens": item.kalshi_unique_tokens,
+        "polymarket_us_unique_tokens": item.polymarket_us_unique_tokens,
+        "coarse_signals": {
+            signal.field: {
+                "classification": signal.classification.value,
+                "kalshi": signal.kalshi_value,
+                "polymarket_us": signal.polymarket_us_value,
+            }
+            for signal in item.coarse_signals
+        },
+        "missing_metadata_fields": item.missing_metadata_fields,
+    }
+
+
+def _diagnostic_leg(contract: SemanticContract, tokens: tuple[str, ...]) -> dict[str, object]:
+    return {
+        "identifier": contract.identifier,
+        "title": contract.title,
+        "normalized_matching_tokens": tokens,
     }
 
 

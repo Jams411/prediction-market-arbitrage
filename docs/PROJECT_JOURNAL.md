@@ -2052,6 +2052,28 @@ no `LIVE_TRADING` change.
   order-book/account call, strategy evaluation, registry write, pair approval,
   order/cancel, production execution, or real-money action.
 
+## 2026-09-11 — Candidate-generation rejection diagnostics
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Gap closed:** extended the read-only discovery CLI with reconciled gate
+  counters and streaming, bounded top-N diagnostics for below-threshold rows.
+  Output shows normalized/shared/unique tokens, coarse event/entity/category/
+  date/threshold signals, missing metadata, and the rejection reason without
+  changing the `0.20` threshold, ranking, or registry gate.
+- **Result (TESTED):** focused discovery/registry tests cover a strong same-event
+  near miss, generic-token collision, deterministic tokens and top-N, explicit
+  missing metadata, exact counter reconciliation, and registry isolation.
+- **Observation (OBSERVED 2026-09-11T12:45:05Z):** 1,000 × 1,000 public records
+  produced 1,000,000 comparisons: 34 passed and 999,966 rejected. The top 20
+  rejected rows had zero extracted coarse matches and were participant-name
+  collisions involving Kalshi multivariate combos. Evidence supports a mixed
+  universe-overlap/normalization bottleneck, not a threshold-recall conclusion.
+- **Safety:** public metadata only; no credentials, authentication, books,
+  account data, strategy/execution, registry write, order/cancel, production
+  execution, or real-money action.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.
