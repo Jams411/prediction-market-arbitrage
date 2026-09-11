@@ -354,3 +354,25 @@ matched on authoritative event or date, so all candidates remain UNVERIFIED.
 **Quality note:** no threshold bypass, registry approval/write, credential,
 authentication, book/account call, strategy/paper execution, order/cancel,
 production execution, real-money action, or historical attribution rewrite.
+
+### Venue-universe overlap audit — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** squash-merged reviewed PR #47, then aggregated one bounded public
+metadata snapshot by authoritative category, league, event identity/date, and
+participant/entity without changing matcher or verification logic.
+**Validation:** reconciled 1,000 market rows per venue to 100 Kalshi and 77 used
+Polymarket US parent events; derived category distributions, shared-league date
+sets, politics/race coverage, and conservative event-overlap keys.
+**Outcome:** zero strong and zero possible event overlaps were found in the
+observed slice. Final classification is COVERAGE_INSUFFICIENT because the two
+bounded samples have materially different category, ordering, time-horizon, and
+child-market weighting biases.
+**Evidence:**
+`docs/evidence/contract-discovery/venue-universe-overlap-audit-2026-09-11.json`.
+**Quality note:** OBSERVED public metadata plus deterministic DERIVED analysis;
+no equivalence verification, credential, authentication, order book, registry
+write, strategy execution, order/cancel, production execution, real-money
+action, or historical attribution rewrite.
