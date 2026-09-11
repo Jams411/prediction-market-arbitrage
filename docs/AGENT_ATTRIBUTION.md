@@ -399,3 +399,26 @@ review next.
 credential, authentication, order book, account call, registry write,
 strategy/paper/live execution, order/cancel, production execution, real-money
 action, or historical attribution rewrite.
+
+### Arizona–Chargers contract-equivalence verification — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** squash-merged reviewed PR #49, then compared the target-specific
+public Kalshi and Polymarket US child-contract metadata and official sports-rule
+guidance without fetching books or entering the verified registry.
+**Validation:** reconciled exact event, child-market, and outcome-side IDs;
+classified every requested settlement dimension as `MATCH`, `MISMATCH`,
+`UNKNOWN`, or `NOT_APPLICABLE`; parsed the evidence JSON and checked its
+classification and identifier invariants.
+**Outcome:** `REJECTED` because postponement/rescheduling triggers, expiration
+windows, and resulting exceptional-state fair-market treatment differ
+materially. Direct normal-outcome mappings were established, but several other
+material edge cases remain `UNKNOWN`; none were promoted to `MATCH`.
+**Evidence:**
+`docs/evidence/contract-discovery/contract-equivalence-kxnflgame-arilac-2026-09-11T214556Z.json`.
+**Quality note:** OBSERVED public metadata plus DERIVED comparison only; no
+credential, authentication, order book, account call, registry write,
+strategy/paper/live execution, order/cancel, production execution, real-money
+action, or historical attribution rewrite.
