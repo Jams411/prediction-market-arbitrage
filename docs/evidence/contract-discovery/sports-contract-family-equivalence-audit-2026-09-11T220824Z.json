@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-11T22:08:24Z",
+  "repository_main_sha": "d36aeccd080a183ced8df654f7599bea07681e01",
+  "agent": "Codex",
+  "model": "GPT-5",
+  "reviewer": "ChatGPT",
+  "scope": "Bounded public metadata and official rules research; no order books, registry writes, strategy, or execution",
+  "evidence_status": {
+    "public_metadata_and_rules": "OBSERVED",
+    "family_comparison": "DERIVED",
+    "pair_equivalence": "NOT_ESTABLISHED"
+  },
+  "strict_standard": "Complementary positions must have equivalent payoff treatment across every material settlement state.",
+  "primary_sources": [
+    {
+      "venue": "Kalshi",
+      "kind": "public_series_metadata",
+      "urls": [
+        "https://external-api.kalshi.com/trade-api/v2/series/KXNFLGAME",
+        "https://external-api.kalshi.com/trade-api/v2/series/KXMLBGAME"
+      ]
+    },
+    {
+      "venue": "Kalshi",
+      "kind": "series_contract_terms",
+      "urls": [
+        "https://assets.kalshi.com/contract_terms/FOOTBALLGAMEWIN.pdf",
+        "https://assets.kalshi.com/contract_terms/BASEBALLGAMEWIN.pdf"
+      ]
+    },
+    {
+      "venue": "Kalshi",
+      "kind": "representative_events_with_nested_markets",
+      "url_template": "https://external-api.kalshi.com/trade-api/v2/events/{event_ticker}?with_nested_markets=true"
+    },
+    {
+      "venue": "Polymarket US",
+      "kind": "official_sports_rules",
+      "url": "https://docs.polymarket.us/faqs/sports-faqs"
+    },
+    {
+      "venue": "Polymarket US",
+      "kind": "representative_event_metadata",
+      "url_template": "https://gateway.polymarket.us/v1/events/slug/{event_slug}"
+    }
+  ],
+  "family_rule_provenance": {
+    "kalshi": "Each public series record links a contract-terms PDF. Those terms state that they apply to the contract; representative child rules repeat the relevant exceptional-state windows.",
+    "polymarket_us": "The official Sports FAQs state default game-level rules unless contract terms specify otherwise. Representative moneyline descriptions provide target-specific postponement language and end times.",
+    "precedence_boundary": "Observed target-specific language is retained separately from generic venue guidance; conflicts remain material and are not normalized away."
+  },
+  "families": {
+    "NFL_GAME_WINNER_MONEYLINE": {
+      "kalshi_series": "KXNFLGAME",
+      "kalshi_family_summary": {
+        "winner": "Official final result; team must score strictly more points.",
+        "overtime": "Included unless otherwise specified.",
+        "tie": "Two tied team strikes settle to 0.50 when no tie strike exists.",
+        "postponement": "Rescheduled game must begin within 48 hours of the originally scheduled date; otherwise last fair market price.",
+        "suspension": "Before 55 minutes and not scheduled to resume within 48 hours generally yields last fair price; after 55 minutes or when the league declares the game final, observed results govern.",
+        "correction": "A clearly erroneous first official result may be corrected before contract expiration; later corrections are ignored.",
+        "sources": "Governing league first, followed by a Kalshi-defined media/broadcaster hierarchy.",
+        "expiration": "Family terms permit latest expiration one week after the time period; sampled child contracts expire approximately 48 hours after scheduled kickoff and can expire early after a winner is declared.",
+        "settlement": "No later than the day after expiration unless outcome review applies.",
+        "fair_market": "Determined by Kalshi/the Exchange in its sole discretion."
+      },
+      "polymarket_us_family_summary": {
+        "winner": "Official final result from the governing body.",
+        "overtime": "Included for game-level winner contracts unless target terms say otherwise.",
+        "tie": "Winner-without-tie contracts settle to 0.50 when no winner is declared.",
+        "postponement": "Generic guidance carries a game to a rescheduled game before contract expiration, typically two weeks; sampled NFL target descriptions instead use rescheduled to a date within two days.",
+        "suspension": "Official game threshold controls; if no official result and completion does not occur before expiration, last fair market price applies.",
+        "correction": "Official review delays settlement; a full replay before expiration governs, while a replay after expiration does not alter the original result.",
+        "sources": "Governing body first, then Polymarket-defined secondary and tertiary source groups.",
+        "expiration": "All three sampled moneylines end two weeks after scheduled kickoff.",
+        "settlement": "Exact final settlement interval was not established.",
+        "fair_market": "Prevailing fair market price at a specified event, typically the official announcement."
+      },
+      "comparison": [
+        {"field": "underlying_event_definition", "classification": "MATCH", "reason": "Both describe the same identified full NFL game."},
+        {"field": "winner_definition", "classification": "MATCH", "reason": "Both use the official final game winner."},
+        {"field": "overtime", "classification": "MATCH", "reason": "Both family rules include overtime for full-game winners."},
+        {"field": "tie_handling", "classification": "MATCH", "reason": "Both settle each team outcome at 0.50 when no winner is declared."},
+        {"field": "postponement_trigger", "classification": "MISMATCH", "reason": "Kalshi requires play to begin within 48 hours; Polymarket family guidance uses completion/rescheduling before expiration, typically two weeks, while target text uses a differently worded two-day rescheduling condition."},
+        {"field": "rescheduling_trigger", "classification": "MISMATCH", "reason": "Kalshi measures when play begins; Polymarket guidance measures whether the rescheduled game falls before expiration, and sampled target wording measures the date to which it is rescheduled."},
+        {"field": "cancellation_no_contest", "classification": "MISMATCH", "reason": "The venues use different continuation windows and fair-market reference policies; Kalshi target/family rules do not separately establish the same no-contest rule."},
+        {"field": "suspension_abandonment", "classification": "UNKNOWN", "reason": "Kalshi defines a 55-minute and 48-hour framework; Polymarket defers to the sport's official-game threshold and contract expiration. Exact NFL-state equivalence was not established."},
+        {"field": "corrections_replay", "classification": "UNKNOWN", "reason": "Both are expiration-bounded, but correction and replay treatment is not stated in identical terms."},
+        {"field": "governing_result_source", "classification": "MATCH", "reason": "The governing league is the primary result authority."},
+        {"field": "fallback_source", "classification": "MISMATCH", "reason": "The venues publish different fallback hierarchies, which can matter when the primary source is unavailable."},
+        {"field": "close_expiration_window", "classification": "MISMATCH", "reason": "Sampled Kalshi children expire about 48 hours after kickoff; sampled Polymarket moneylines end two weeks after kickoff."},
+        {"field": "settlement_timing", "classification": "UNKNOWN", "reason": "Kalshi defines a post-expiration deadline; equivalent Polymarket timing was not established."},
+        {"field": "void_refund_fair_market", "classification": "MISMATCH", "reason": "Trigger timing and fair-market reference/discretion are not equivalent."},
+        {"field": "outcome_space_completeness", "classification": "MATCH", "reason": "The two team outcomes, including equal 0.50 tie treatment, cover ordinary full-game results."},
+        {"field": "guaranteed_complementarity_all_material_states", "classification": "MISMATCH", "reason": "Different continuation, expiration, fallback-source, and fair-market rules can produce unequal exceptional-state payouts."}
+      ],
+      "classification": "SYSTEMATICALLY_INCOMPATIBLE"
+    },
+    "MLB_GAME_WINNER_MONEYLINE": {
+      "kalshi_series": "KXMLBGAME",
+      "kalshi_family_summary": {
+        "winner": "Official final result; team must score strictly more runs.",
+        "extra_innings": "Included unless otherwise specified.",
+        "tie": "Two team strikes settle to 0.50 if the full game ends tied and no tie strike exists.",
+        "postponement": "Rescheduled game must start within 48 hours of original start; otherwise last fair market price.",
+        "suspension": "Official shortened result governs when MLB records a winner; otherwise a suspended game must resume within 48 hours or last fair market price applies.",
+        "correction": "A clearly erroneous first official result may be corrected before contract expiration; later corrections are ignored.",
+        "sources": "Governing league first, followed by a Kalshi-defined media/broadcaster hierarchy.",
+        "expiration": "Family terms permit latest expiration one week after the time period; sampled contracts expire about three days after scheduled start and can expire early after a winner is declared.",
+        "settlement": "No later than the day after expiration unless outcome review applies.",
+        "fair_market": "Determined by the Exchange in its sole discretion."
+      },
+      "polymarket_us_family_summary": {
+        "winner": "Official MLB game winner.",
+        "extra_innings": "Included if played.",
+        "tie": "Generic winner-without-tie rule settles to 0.50 when no winner is declared.",
+        "postponement": "All sampled moneylines allow delayed, postponed, or suspended games to be rescheduled within two weeks; otherwise last fair market price.",
+        "suspension": "Official game threshold controls; if unfinished without an official result through expiration, last fair market price applies.",
+        "correction": "Official review/replay treatment is bounded by expiration.",
+        "sources": "MLB/governing body first, followed by Polymarket-defined secondary and tertiary sources.",
+        "expiration": "All three sampled moneylines end two weeks after scheduled start.",
+        "settlement": "Exact final settlement interval was not established.",
+        "fair_market": "Prevailing fair market price at a specified event, typically the official announcement."
+      },
+      "comparison": [
+        {"field": "underlying_event_definition", "classification": "MATCH", "reason": "Both describe the same identified full MLB game."},
+        {"field": "winner_definition", "classification": "MATCH", "reason": "Both use the official final game winner."},
+        {"field": "extra_innings", "classification": "MATCH", "reason": "Both include extra innings for full-game winners."},
+        {"field": "tie_handling", "classification": "MATCH", "reason": "Both generic winner rules use 0.50 when no winner exists."},
+        {"field": "postponement_trigger", "classification": "MISMATCH", "reason": "Kalshi permits 48 hours; Polymarket permits two weeks in every sampled MLB moneyline."},
+        {"field": "rescheduling_trigger", "classification": "MISMATCH", "reason": "Kalshi requires the rescheduled game to start within 48 hours; Polymarket uses its two-week expiration horizon."},
+        {"field": "cancellation_no_contest", "classification": "MISMATCH", "reason": "Continuation windows and fair-market reference policies differ materially."},
+        {"field": "suspension_abandonment", "classification": "MISMATCH", "reason": "Kalshi applies an official-result-or-48-hour framework; Polymarket applies official threshold/completion before its later expiration."},
+        {"field": "corrections_replay", "classification": "UNKNOWN", "reason": "Both are expiration-bounded, but target-equivalent correction and replay semantics were not fully established."},
+        {"field": "governing_result_source", "classification": "MATCH", "reason": "MLB/the governing league is primary."},
+        {"field": "fallback_source", "classification": "MISMATCH", "reason": "The published fallback hierarchies differ."},
+        {"field": "close_expiration_window", "classification": "MISMATCH", "reason": "Sampled Kalshi contracts expire about three days after scheduled start; sampled Polymarket moneylines end two weeks after scheduled start."},
+        {"field": "settlement_timing", "classification": "UNKNOWN", "reason": "Equivalent final settlement timing was not established."},
+        {"field": "void_refund_fair_market", "classification": "MISMATCH", "reason": "Trigger timing and fair-market reference/discretion differ."},
+        {"field": "outcome_space_completeness", "classification": "MATCH", "reason": "The two team outcomes cover ordinary full-game winner results."},
+        {"field": "guaranteed_complementarity_all_material_states", "classification": "MISMATCH", "reason": "Different continuation, expiration, fallback-source, and fair-market rules can produce unequal exceptional-state payouts."}
+      ],
+      "classification": "SYSTEMATICALLY_INCOMPATIBLE"
+    }
+  },
+  "representative_samples": {
+    "NFL": [
+      {
+        "kalshi_event": "KXNFLGAME-26SEP13ARILAC",
+        "kalshi_children": ["KXNFLGAME-26SEP13ARILAC-ARI", "KXNFLGAME-26SEP13ARILAC-LAC"],
+        "polymarket_event": "nfl-ari-lac-2026-09-13",
+        "polymarket_moneyline_id": "381963",
+        "conformance": "Both Kalshi children repeat the 48-hour start rule; Polymarket uses the sampled NFL two-day rescheduled-date wording and a two-week end time."
+      },
+      {
+        "kalshi_event": "KXNFLGAME-26SEP13ATLPIT",
+        "kalshi_children": ["KXNFLGAME-26SEP13ATLPIT-ATL", "KXNFLGAME-26SEP13ATLPIT-PIT"],
+        "polymarket_event": "nfl-atl-pit-2026-09-13",
+        "polymarket_moneyline_id": "381956",
+        "conformance": "Same family templates and expiration pattern as the first sample."
+      },
+      {
+        "kalshi_event": "KXNFLGAME-26SEP13BALIND",
+        "kalshi_children": ["KXNFLGAME-26SEP13BALIND-BAL", "KXNFLGAME-26SEP13BALIND-IND"],
+        "polymarket_event": "nfl-bal-ind-2026-09-13",
+        "polymarket_moneyline_id": "381955",
+        "conformance": "Same family templates and expiration pattern as the first sample."
+      }
+    ],
+    "MLB": [
+      {
+        "kalshi_event": "KXMLBGAME-26SEP111840COLDET",
+        "kalshi_children": ["KXMLBGAME-26SEP111840COLDET-COL", "KXMLBGAME-26SEP111840COLDET-DET"],
+        "polymarket_event": "mlb-col-det-2026-09-11",
+        "polymarket_moneyline_id": "730630",
+        "conformance": "Kalshi uses a two-day/48-hour continuation rule; Polymarket uses two weeks."
+      },
+      {
+        "kalshi_event": "KXMLBGAME-26SEP111845LAAWSH",
+        "kalshi_children": ["KXMLBGAME-26SEP111845LAAWSH-LAA", "KXMLBGAME-26SEP111845LAAWSH-WSH"],
+        "polymarket_event": "mlb-laa-wsh-2026-09-11",
+        "polymarket_moneyline_id": "730584",
+        "conformance": "Same family templates and expiration pattern as the first sample."
+      },
+      {
+        "kalshi_event": "KXMLBGAME-26SEP111905NYMNYY",
+        "kalshi_children": ["KXMLBGAME-26SEP111905NYMNYY-NYM", "KXMLBGAME-26SEP111905NYMNYY-NYY"],
+        "polymarket_event": "mlb-nym-nyy-2026-09-11",
+        "polymarket_moneyline_id": "730610",
+        "conformance": "Same family templates and expiration pattern as the first sample."
+      }
+    ]
+  },
+  "target_specific_overrides": {
+    "kalshi": "No sampled game deviated from its series' relevant continuation rule.",
+    "polymarket_us_nfl": "All three target descriptions use a two-day rescheduled-date condition while the generic Sports FAQ uses expiration, typically two weeks. This consistent template-level conflict is retained as material ambiguity, not treated as equivalence.",
+    "polymarket_us_mlb": "All three target descriptions conform to the generic two-week expiration policy."
+  },
+  "strategic_consequence": "Do not continue target-by-target strict-equivalence review of NFL or MLB game-winner/moneyline pairs under the currently observed family rules. Exclude these two family relationships from strict cross-venue arbitrage discovery only through a separate reviewed implementation milestone.",
+  "recommended_next_milestone": "Add a deterministic, documented discovery exclusion for Kalshi KXNFLGAME/KXMLBGAME versus Polymarket US NFL/MLB moneyline families, preserving diagnostics and the manual VERIFIED-only registry gate; add regression tests and do not generalize to other sports.",
+  "registry_modified": false,
+  "safety": {
+    "public_metadata_only": true,
+    "order_books_fetched": false,
+    "authenticated_requests": false,
+    "account_calls": false,
+    "registry_writes": false,
+    "strategy_or_execution_run": false,
+    "orders_or_cancels": false,
+    "production_or_real_money_action": false
+  }
+}

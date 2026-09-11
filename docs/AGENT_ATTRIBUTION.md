@@ -422,3 +422,25 @@ material edge cases remain `UNKNOWN`; none were promoted to `MATCH`.
 credential, authentication, order book, account call, registry write,
 strategy/paper/live execution, order/cancel, production execution, real-money
 action, or historical attribution rewrite.
+
+### NFL/MLB game-winner family equivalence audit — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** squash-merged reviewed PR #50, then audited the Kalshi professional
+football/baseball game-winner and Polymarket US NFL/MLB moneyline families from
+official rules and three matching public contracts per league.
+**Validation:** parsed the evidence JSON; reconciled two 16-field matrices, six
+event relationships, 12 Kalshi child tickers, six Polymarket moneyline IDs, and
+family/sample classifications; documentation diff checks passed.
+**Outcome:** both families are `SYSTEMATICALLY_INCOMPATIBLE` under strict
+all-material-states complementarity. The 48-hour Kalshi continuation window,
+Polymarket expiration/two-week behavior, different fallback hierarchies, and
+different fair-market triggers can produce divergent exceptional-state payouts.
+**Evidence:**
+`docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json`.
+**Quality note:** OBSERVED public rules/metadata plus DERIVED family comparison;
+no credential, authentication, order book, account call, registry write,
+strategy/paper/live execution, order/cancel, production execution, real-money
+action, or historical attribution rewrite.
