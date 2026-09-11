@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-11T21:45:56Z",
+  "evidence_status": {
+    "venue_metadata_and_rules": "OBSERVED",
+    "comparison": "DERIVED",
+    "contract_equivalence": "REJECTED"
+  },
+  "agent": "Codex",
+  "model": "GPT-5",
+  "reviewer": "ChatGPT",
+  "repository_main_sha": "8071b6c45fb6b10436c8e0366d7fa71d8781ba9a",
+  "target": {
+    "kalshi_event": "KXNFLGAME-26SEP13ARILAC",
+    "polymarket_us_event": "nfl-ari-lac-2026-09-13"
+  },
+  "sources": [
+    {
+      "venue": "Kalshi",
+      "kind": "public_event_with_nested_markets",
+      "url": "https://external-api.kalshi.com/trade-api/v2/events/KXNFLGAME-26SEP13ARILAC?with_nested_markets=true"
+    },
+    {
+      "venue": "Kalshi",
+      "kind": "official_get_event_documentation",
+      "url": "https://docs.kalshi.com/api-reference/events/get-event"
+    },
+    {
+      "venue": "Kalshi",
+      "kind": "official_market_rules_guidance",
+      "url": "https://help.kalshi.com/en/articles/13823822-market-rules"
+    },
+    {
+      "venue": "Kalshi",
+      "kind": "official_market_outcomes_guidance",
+      "url": "https://help.kalshi.com/en/articles/13823826-market-outcomes"
+    },
+    {
+      "venue": "Polymarket US",
+      "kind": "public_event_by_slug",
+      "url": "https://gateway.polymarket.us/v1/events/slug/nfl-ari-lac-2026-09-13"
+    },
+    {
+      "venue": "Polymarket US",
+      "kind": "official_events_documentation",
+      "url": "https://docs.polymarket.us/api-reference/events/overview"
+    },
+    {
+      "venue": "Polymarket US",
+      "kind": "official_sports_rules_guidance",
+      "url": "https://docs.polymarket.us/faqs/sports-faqs"
+    }
+  ],
+  "kalshi": {
+    "event_title": "Arizona vs Los Angeles C",
+    "event_subtitle": "ARI vs LAC (Sep 13)",
+    "category": "Sports",
+    "competition": "Pro Football",
+    "scope": "Game",
+    "mutually_exclusive": true,
+    "settlement_source_name": "the Governing League",
+    "settlement_source_url": "https://www.nfl.com/",
+    "children": [
+      {
+        "ticker": "KXNFLGAME-26SEP13ARILAC-ARI",
+        "title": "Arizona vs Los Angeles C Pro Football game: Arizona wins?",
+        "subtitle": "Arizona",
+        "yes_outcome": "Arizona wins",
+        "rules_digest": "YES if Arizona wins the named game originally scheduled September 13, 2026; a tie pays 0.50; a postponement remains open if the game begins within 48 hours, otherwise it resolves at fair market price.",
+        "latest_expiration_time": "2026-09-15T20:25:00Z"
+      },
+      {
+        "ticker": "KXNFLGAME-26SEP13ARILAC-LAC",
+        "title": "Arizona vs Los Angeles C Pro Football game: Los Angeles C wins?",
+        "subtitle": "Los Angeles C",
+        "yes_outcome": "Los Angeles Chargers wins",
+        "rules_digest": "YES if Los Angeles C wins the named game originally scheduled September 13, 2026; a tie pays 0.50; a postponement remains open if the game begins within 48 hours, otherwise it resolves at fair market price.",
+        "latest_expiration_time": "2026-09-15T20:25:00Z"
+      }
+    ]
+  },
+  "polymarket_us": {
+    "event_id": "74909",
+    "event_title": "Arizona vs Los Angeles C",
+    "game_id": "19466",
+    "sportradar_game_id": "02635d1a-30ff-4a78-ace7-96dd3581e736",
+    "scheduled_start": "2026-09-13T20:25:00Z",
+    "moneyline_market": {
+      "market_id": "381963",
+      "slug": "aec-nfl-ari-lac-2026-09-13",
+      "market_type": "moneyline",
+      "sports_market_type": "football_team_full_game_winner",
+      "question": "Who will win ARI vs LAC scheduled for September 13, 2026 at 20:25 UTC?",
+      "rules_digest": "Settles to the winner; overtime is included if played; a tie pays 0.50; if delayed, postponed, or suspended and not rescheduled to a date within two days of the original date, it resolves at last fair market price; the relevant governing body determines the outcome.",
+      "end_time": "2026-09-27T20:25:00Z",
+      "sides": [
+        {
+          "side_id": "763440",
+          "description": "Cardinals",
+          "team_id": "48",
+          "team_abbreviation": "ARI",
+          "long": true
+        },
+        {
+          "side_id": "763441",
+          "description": "Chargers",
+          "team_id": "65",
+          "team_abbreviation": "LAC",
+          "long": false
+        }
+      ]
+    }
+  },
+  "comparison": [
+    {
+      "field": "underlying_game_identity",
+      "classification": "MATCH",
+      "reason": "Both records identify the Arizona Cardinals versus Los Angeles Chargers NFL game scheduled September 13, 2026."
+    },
+    {
+      "field": "teams",
+      "classification": "MATCH",
+      "reason": "ARI/Arizona/Cardinals and LAC/Los Angeles C/Chargers map consistently."
+    },
+    {
+      "field": "scheduled_date",
+      "classification": "MATCH",
+      "reason": "Both contract records identify September 13, 2026."
+    },
+    {
+      "field": "scheduled_kickoff_time",
+      "classification": "UNKNOWN",
+      "reason": "Polymarket US states 20:25 UTC; the Kalshi contract text states the date but not kickoff time. Kalshi occurrence_datetime is not treated as kickoff evidence."
+    },
+    {
+      "field": "win_definition",
+      "classification": "MATCH",
+      "reason": "Both use the governing body's official game winner for ordinary completion."
+    },
+    {
+      "field": "overtime_treatment",
+      "classification": "UNKNOWN",
+      "reason": "Polymarket US expressly includes overtime if played; the observed Kalshi contract rules do not state overtime treatment separately."
+    },
+    {
+      "field": "tie_treatment",
+      "classification": "MATCH",
+      "reason": "Both observed contract rules pay 0.50 to each team outcome on a tie."
+    },
+    {
+      "field": "no_contest_treatment",
+      "classification": "UNKNOWN",
+      "reason": "Polymarket US guidance specifies last fair market price; the observed Kalshi contract rules do not explicitly address no contest."
+    },
+    {
+      "field": "postponement_rescheduling",
+      "classification": "MISMATCH",
+      "reason": "Kalshi requires the game to begin within 48 hours of the original start; Polymarket US target text conditions fair-market settlement on whether the game is rescheduled to a date within two days. These are not the same trigger."
+    },
+    {
+      "field": "cancellation_abandonment",
+      "classification": "UNKNOWN",
+      "reason": "The observed Kalshi child rules do not fully specify cancellation, abandonment, or suspended-game treatment comparable to the Polymarket US sports guidance."
+    },
+    {
+      "field": "stat_correction_official_review",
+      "classification": "UNKNOWN",
+      "reason": "Polymarket US guidance describes official review and replay handling; equivalent Kalshi target-specific handling was not observed."
+    },
+    {
+      "field": "governing_result_source",
+      "classification": "MATCH",
+      "reason": "Both primarily defer to the relevant governing league/body for the game result."
+    },
+    {
+      "field": "settlement_source_fallbacks",
+      "classification": "UNKNOWN",
+      "reason": "Kalshi names NFL.com; Polymarket US target metadata has no specific resolutionSource and its general guidance contains fallback sources."
+    },
+    {
+      "field": "market_close_expiration_window",
+      "classification": "MISMATCH",
+      "reason": "Kalshi latest expiration is 2026-09-15T20:25:00Z; the Polymarket US moneyline end time is 2026-09-27T20:25:00Z."
+    },
+    {
+      "field": "settlement_timing",
+      "classification": "UNKNOWN",
+      "reason": "The observed fields do not establish equivalent final settlement timing across all ordinary and exceptional states."
+    },
+    {
+      "field": "void_refund_fair_market",
+      "classification": "MISMATCH",
+      "reason": "Both use fair-market settlement in some exceptional states, but the triggering conditions and expiration windows differ materially."
+    },
+    {
+      "field": "market_reopening_rescheduling",
+      "classification": "UNKNOWN",
+      "reason": "Equivalent reopening behavior was not established from the target-specific records."
+    },
+    {
+      "field": "multiple_winner_possibility",
+      "classification": "NOT_APPLICABLE",
+      "reason": "This is one game with two team-winner outcomes; a tie is handled by a stated 0.50 payout rather than multiple winners."
+    },
+    {
+      "field": "binary_completeness_under_normal_completion",
+      "classification": "MATCH",
+      "reason": "Arizona and Chargers winner outcomes span normal official game-winner results."
+    },
+    {
+      "field": "economic_complementarity_in_all_material_states",
+      "classification": "MISMATCH",
+      "reason": "Different postponement triggers and expiration windows can cause different exceptional-state settlement values."
+    }
+  ],
+  "outcome_mapping": [
+    {
+      "kalshi_ticker": "KXNFLGAME-26SEP13ARILAC-ARI",
+      "kalshi_payoff": "YES when Arizona wins",
+      "polymarket_us_market_id": "381963",
+      "polymarket_us_side_id": "763440",
+      "polymarket_us_payoff": "Cardinals side when Arizona wins",
+      "mapping": "IDENTICAL",
+      "inversion_required": false
+    },
+    {
+      "kalshi_ticker": "KXNFLGAME-26SEP13ARILAC-LAC",
+      "kalshi_payoff": "YES when Los Angeles Chargers wins",
+      "polymarket_us_market_id": "381963",
+      "polymarket_us_side_id": "763441",
+      "polymarket_us_payoff": "Chargers side when Los Angeles Chargers wins",
+      "mapping": "IDENTICAL",
+      "inversion_required": false
+    }
+  ],
+  "final_classification": "REJECTED",
+  "decision_reason": "Explicit material mismatches in postponement/rescheduling triggers, expiration windows, and resulting exceptional-state fair-market treatment prevent economic equivalence. Additional material fields remain UNKNOWN and were not promoted to MATCH.",
+  "registry_modified": false,
+  "next_action": "Do not capture order books for this relationship. A different strong event overlap may receive a separate primary-source review.",
+  "safety": {
+    "public_metadata_only": true,
+    "order_books_fetched": false,
+    "authenticated_requests": false,
+    "account_calls": false,
+    "orders_or_cancels": false,
+    "strategy_or_execution_run": false,
+    "production_or_real_money_action": false
+  }
+}

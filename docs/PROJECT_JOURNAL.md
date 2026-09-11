@@ -2178,6 +2178,33 @@ no `LIVE_TRADING` change.
   books, accounts, registry writes, strategy/paper/live execution,
   order/cancel, production execution, or real-money action.
 
+## 2026-09-11 — Arizona–Chargers contract-equivalence verification
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** reviewed PR #49 remained open at
+  `1f4ad2d0659a0c5e9cca419b7b552a3a0a484c15`, with green GitHub CI run #99
+  and no new blocker, then was squash-merged into main at
+  `8071b6c45fb6b10436c8e0366d7fa71d8781ba9a`.
+- **Observation (OBSERVED 2026-09-11T21:45:56Z):** public target-specific event
+  metadata and child rules identified Kalshi Arizona/Chargers binary winner
+  contracts and the Polymarket US Arizona–Chargers moneyline sides. Normal
+  team-winner outcomes and tie payouts map directly.
+- **Finding (DERIVED):** `REJECTED`. Kalshi requires a postponed game to begin
+  within 48 hours and expires on 2026-09-15; the Polymarket US target text uses
+  a rescheduled-date-within-two-days trigger and its moneyline ends on
+  2026-09-27. Those material trigger/window differences can produce unequal
+  exceptional-state payouts. Overtime, no-contest, abandonment, correction,
+  fallback-source, and reopening equivalence also remains `UNKNOWN`.
+- **Evidence:**
+  `docs/evidence/contract-discovery/contract-equivalence-kxnflgame-arilac-2026-09-11T214556Z.json`.
+  The canonical verified-pair registry was not modified, and no order books
+  were captured.
+- **Safety:** public metadata/rules only; no credential, authentication,
+  account call, order book, registry write, strategy execution, order/cancel,
+  production execution, or real-money action.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.
