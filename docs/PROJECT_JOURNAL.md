@@ -2149,6 +2149,35 @@ no `LIVE_TRADING` change.
   account data, registry write, strategy execution, order/cancel, production
   execution, or real-money action.
 
+## 2026-09-11 — Stratified venue-universe overlap audit
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** reviewed PR #48 remained open at
+  `10d66b2d8bf5be80c7e8cd0fa3d247af32e78871`, with green GitHub CI run #97
+  and no new blocker, then was squash-merged as
+  `e6000eafbde6097ed227d00b1d4c2297a522e307`.
+- **Observation (OBSERVED 2026-09-11T18:09:51.473661Z):** bounded public,
+  server-filtered MLB/NFL, 2026 politics, and company/IPO metadata strata found
+  73 strong event relationships (45 MLB games; 28 NFL games) and 68 possible
+  relationships (60 2026 office/race keys; eight company/IPO event pairs).
+- **Finding (DERIVED):** exact league, scheduled date, and structured team
+  identities establish broad sports event overlap that the generic first-page
+  samples missed. Representative child metadata exposes Kalshi binary
+  team-winner contracts and Polymarket US moneyline contracts, but resolution,
+  postponement, cancellation, void/fair-market, orientation, and timing rules
+  remain unverified.
+- **Conclusion:** `STRATIFIED_COVERAGE_ADEQUATE` for the stated priority strata
+  and `HEALTHY_OVERLAP` for the observed current MLB/NFL game-event universe.
+  No contract pair was approved; the next milestone is primary-source
+  equivalence verification for one representative sports game.
+- **Evidence:**
+  `docs/evidence/contract-discovery/stratified-venue-universe-overlap-audit-2026-09-11T180951Z.json`.
+- **Safety:** public metadata GETs only; no credentials, authentication, order
+  books, accounts, registry writes, strategy/paper/live execution,
+  order/cancel, production execution, or real-money action.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.
