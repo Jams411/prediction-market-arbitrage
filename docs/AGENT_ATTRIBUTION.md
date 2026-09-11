@@ -376,3 +376,26 @@ child-market weighting biases.
 no equivalence verification, credential, authentication, order book, registry
 write, strategy execution, order/cancel, production execution, real-money
 action, or historical attribution rewrite.
+
+### Stratified venue-universe overlap audit — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** squash-merged reviewed PR #48, then replaced generic first-page
+sampling with bounded public metadata strata for MLB, NFL, 2026 elections, and
+six company/IPO subjects without changing discovery or verification code.
+**Validation:** reconciled parent-event and child-market counts, exact scheduled
+dates and structured team identities, 73 strong sports event relationships,
+and 68 possible politics/company relationships; JSON parsing, count assertions,
+and documentation diff checks passed.
+**Outcome:** coverage is adequate for the priority strata and observed current
+MLB/NFL game overlap is healthy. All relationships remain UNVERIFIED; one
+representative sports event should receive primary-source contract-equivalence
+review next.
+**Evidence:**
+`docs/evidence/contract-discovery/stratified-venue-universe-overlap-audit-2026-09-11T180951Z.json`.
+**Quality note:** public metadata and deterministic derived analysis only; no
+credential, authentication, order book, account call, registry write,
+strategy/paper/live execution, order/cancel, production execution, real-money
+action, or historical attribution rewrite.
