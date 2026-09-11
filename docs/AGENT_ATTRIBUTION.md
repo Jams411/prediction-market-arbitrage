@@ -241,3 +241,20 @@ ineligible under the current rule. Historical scan evidence remains unchanged.
 **Quality note:** straightforward diagnostic correction; no architectural
 decision entry, venue request, safety-control change, or historical attribution
 rewrite.
+
+### Deterministic synthetic paper-arbitrage lifecycle — 2026-09-10
+
+**Implementer:** Codex
+**Model:** unknown
+**Reviewer:** ChatGPT
+**Scope:** added the narrow offline glue and additive recorder linkage required
+to exercise registry → two-book evaluation → risk → two-leg paper fills →
+positions/P&L → replay using clearly synthetic identifiers.
+**Validation:** focused lifecycle/recorder/replay tests plus the complete local
+quality gate. Exact expected economics, fills, positions, risk-before-submit,
+depth bound, persistent associations, and replay reconciliation are asserted.
+**Outcome:** deterministic synthetic end-to-end lifecycle is TESTED; real pair,
+real-market, Demo/live execution, and production-readiness evidence remain open.
+**Evidence:** D-035; `tests/test_offline_paper_arbitrage_lifecycle.py`.
+**Quality note:** no live/authenticated/order/production action and no historical
+Claude attribution rewrite.
