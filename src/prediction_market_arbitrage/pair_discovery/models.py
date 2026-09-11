@@ -29,6 +29,7 @@ class SemanticContract:
     identifier: str
     title: str
     rule_sources: tuple[str, ...] = ()
+    category: str | None = None
     underlying_event: str | None = None
     binary_proposition: str | None = None
     participant_outcome: str | None = None
@@ -85,3 +86,65 @@ class CandidatePair:
             raise ValueError("discovery candidates must remain UNVERIFIED")
         if not 0 <= self.verification_priority <= 100:
             raise ValueError("verification_priority must be between 0 and 100")
+
+
+@dataclass(frozen=True, slots=True)
+class MatchingKeys:
+    """Exact normalized tokens used by the lexical candidate gate."""
+
+    all_tokens: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CoarseSignal:
+    """One deterministic diagnostic signal; never an equivalence decision."""
+
+    field: str
+    classification: ComparisonClass
+    kalshi_value: str | None
+    polymarket_us_value: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RejectedNearMiss:
+    """Bounded diagnostic detail for a pair below the unchanged lexical gate."""
+
+    kalshi: SemanticContract
+    polymarket_us: SemanticContract
+    lexical_signal: Decimal
+    kalshi_keys: MatchingKeys
+    polymarket_us_keys: MatchingKeys
+    shared_tokens: tuple[str, ...]
+    kalshi_unique_tokens: tuple[str, ...]
+    polymarket_us_unique_tokens: tuple[str, ...]
+    coarse_signals: tuple[CoarseSignal, ...]
+    missing_metadata_fields: tuple[str, ...]
+    rejection_reason: str
+    status: str = "UNVERIFIED"
+    warning: str = "UNVERIFIED — diagnostic only; human/primary-source verification required"
+
+    def __post_init__(self) -> None:
+        if self.status != "UNVERIFIED":
+            raise ValueError("diagnostic near misses must remain UNVERIFIED")
+
+
+@dataclass(frozen=True, slots=True)
+class DiscoveryDiagnostics:
+    """Reconciled, bounded visibility into candidate-gate decisions."""
+
+    considered: int
+    passed: int
+    rejected: int
+    threshold: Decimal
+    passed_candidates: tuple[CandidatePair, ...]
+    near_misses: tuple[RejectedNearMiss, ...]
+    status: str = "UNVERIFIED"
+    warning: str = "UNVERIFIED — diagnostic only; human/primary-source verification required"
+
+    def __post_init__(self) -> None:
+        if self.considered < 0 or self.passed < 0 or self.rejected < 0:
+            raise ValueError("diagnostic counts must be non-negative")
+        if self.passed + self.rejected != self.considered:
+            raise ValueError("passed + rejected must equal considered")
+        if self.status != "UNVERIFIED":
+            raise ValueError("discovery diagnostics must remain UNVERIFIED")
