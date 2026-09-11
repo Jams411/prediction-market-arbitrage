@@ -1,0 +1,168 @@
+{
+  "status": "OBSERVED",
+  "analysis_status": "DERIVED",
+  "equivalence_status": "UNVERIFIED",
+  "observed_at": "2026-09-11T18:09:51.473661Z",
+  "repository_main_sha": "e6000eafbde6097ed227d00b1d4c2297a522e307",
+  "scope": "bounded unauthenticated public metadata; no order books, registry writes, strategy, or execution",
+  "api_capabilities": {
+    "kalshi": {
+      "category": "SERVER_FILTERED on GET /series; league family CLIENT_FILTERED from structured series metadata",
+      "league": "CLIENT_FILTERED from structured series metadata, then child events SERVER_FILTERED by series_ticker",
+      "series": "SERVER_FILTERED on GET /events with series_ticker",
+      "event": "SERVER_FILTERED by event_ticker on market listing; direct event detail is available",
+      "date_time": "CLIENT_FILTERED for scheduled event date; server close/update bounds are not comparable scheduled-event ordering",
+      "status": "SERVER_FILTERED",
+      "pagination": "SERVER_FILTERED cursor",
+      "ordering": "NOT_AVAILABLE"
+    },
+    "polymarket_us": {
+      "category": "SERVER_FILTERED on GET /v1/events",
+      "league": "SERVER_FILTERED on GET /v2/leagues/{slug}/events",
+      "series": "SERVER_FILTERED by seriesId on GET /v1/events",
+      "event": "CLIENT_FILTERED within bounded league/category results; direct event detail is available",
+      "date_time": "SERVER_FILTERED on GET /v1/events",
+      "status": "SERVER_FILTERED",
+      "pagination": "SERVER_FILTERED limit/offset",
+      "ordering": "SERVER_FILTERED on GET /v1/events"
+    }
+  },
+  "sources": [
+    {
+      "venue": "Kalshi",
+      "endpoint": "GET https://external-api.kalshi.com/trade-api/v2/series",
+      "parameters": "category=Sports|Elections|Politics|Financials; include_product_metadata=true"
+    },
+    {
+      "venue": "Kalshi",
+      "endpoint": "GET https://external-api.kalshi.com/trade-api/v2/events",
+      "parameters": "status=open; with_nested_markets=true; series_ticker=<selected>; limit=200; two pages maximum for sports and one per politics/company series"
+    },
+    {
+      "venue": "Polymarket US",
+      "endpoint": "GET https://gateway.polymarket.us/v2/leagues/{nfl|mlb}/events",
+      "parameters": "type=sport|futures; limit=100; two pages maximum per league/type"
+    },
+    {
+      "venue": "Polymarket US",
+      "endpoint": "GET https://gateway.polymarket.us/v1/events",
+      "parameters": "active=true; closed=false; archived=false; categories=politics|finance; limit=100; orderBy=startTime; orderDirection=asc; two pages maximum"
+    }
+  ],
+  "sampling": {
+    "public_get_calls_in_final_aggregation": 109,
+    "primary_metric": "unique parent-event relationship",
+    "child_markets": "reported for family visibility only; not weighted as independent universe observations",
+    "sports": {
+      "MLB": {
+        "kalshi_parent_events": 48,
+        "kalshi_child_markets": 150,
+        "kalshi_scheduled_date_range": ["2026-09-11", "2026-11-01"],
+        "polymarket_us_parent_events": 87,
+        "polymarket_us_child_markets": 1264,
+        "polymarket_us_scheduled_date_range": ["2026-06-11", "2026-11-27"],
+        "sport_and_futures_pages_complete_within_bound": true
+      },
+      "NFL": {
+        "kalshi_parent_events": 40,
+        "kalshi_child_markets": 124,
+        "kalshi_scheduled_date_range": ["2026-09-13", "2027-02-08"],
+        "polymarket_us_parent_events": 231,
+        "polymarket_us_child_markets": 13365,
+        "polymarket_us_scheduled_date_range": ["2026-08-24", "2027-02-12"],
+        "sport_pages_complete_within_bound": true,
+        "futures_pages_complete_within_bound": false
+      }
+    },
+    "politics_2026": {
+      "kalshi_series_sampled": 80,
+      "kalshi_parent_events": 81,
+      "kalshi_child_markets": 169,
+      "kalshi_per_series_pages_complete_within_bound": true,
+      "polymarket_us_parent_events": 200,
+      "polymarket_us_child_markets": 453,
+      "polymarket_us_pages_complete_within_bound": false,
+      "reference_window": "2026 election cycle; Polymarket US exposes 2026-11-03 while sampled Kalshi state/office events expose the 2026 election year and inauguration/sworn-in settlement timestamps"
+    },
+    "companies_ipo": {
+      "subjects": ["Anthropic", "Brex", "Deel", "OpenAI", "Ramp", "Rippling"],
+      "kalshi_parent_events": 6,
+      "kalshi_child_markets": 67,
+      "kalshi_child_reference_range": ["2026-08-01", "2027-06-01"],
+      "kalshi_pages_complete_within_bound": true,
+      "polymarket_us_parent_events": 11,
+      "polymarket_us_child_markets": 85,
+      "polymarket_us_child_reference_range": ["2026-06-30", "2027-06-30"],
+      "polymarket_us_pages_complete_within_bound": true
+    }
+  },
+  "overlap_method": {
+    "strong_event_overlap": "same structured league, exact scheduled local date, and both structured team abbreviations present in the other venue event identity",
+    "possible_politics_overlap": "same jurisdiction, office, and 2026 election year; exact Kalshi election date unavailable in sampled structured fields",
+    "possible_company_overlap": "same company and IPO-announcement family; child threshold dates or settlement definitions remain non-identical or unverified",
+    "missing_material_field": "UNKNOWN; never promoted to MATCH",
+    "contract_equivalence": "not assessed and not implied"
+  },
+  "results": {
+    "STRONG_EVENT_OVERLAP": 73,
+    "POSSIBLE_EVENT_OVERLAP": 68,
+    "strong_by_stratum": {"MLB_game": 45, "NFL_game": 28, "politics": 0, "companies_ipo": 0},
+    "possible_by_stratum": {"sports": 0, "politics_2026": 60, "companies_ipo": 8}
+  },
+  "representative_strong_event_overlaps": [
+    {
+      "kalshi_event": "KXNFLGAME-26SEP13ARILAC",
+      "polymarket_us_event": "nfl-ari-lac-2026-09-13",
+      "event_date": "2026-09-13",
+      "shared_identity": "NFL; Arizona and Los Angeles Chargers",
+      "potentially_comparable_child_family": "game winner / moneyline"
+    },
+    {
+      "kalshi_event": "KXNFLGAME-26SEP13ATLPIT",
+      "polymarket_us_event": "nfl-atl-pit-2026-09-13",
+      "event_date": "2026-09-13",
+      "shared_identity": "NFL; Atlanta and Pittsburgh",
+      "potentially_comparable_child_family": "game winner / moneyline"
+    },
+    {
+      "kalshi_event": "KXNFLGAME-26SEP13BALIND",
+      "polymarket_us_event": "nfl-bal-ind-2026-09-13",
+      "event_date": "2026-09-13",
+      "shared_identity": "NFL; Baltimore and Indianapolis",
+      "potentially_comparable_child_family": "game winner / moneyline"
+    },
+    {
+      "kalshi_event": "KXNFLGAME-26SEP13BUFHOU",
+      "polymarket_us_event": "nfl-buf-hou-2026-09-13",
+      "event_date": "2026-09-13",
+      "shared_identity": "NFL; Buffalo and Houston",
+      "potentially_comparable_child_family": "game winner / moneyline"
+    },
+    {
+      "kalshi_event": "KXNFLGAME-26SEP13CHICAR",
+      "polymarket_us_event": "nfl-chi-car-2026-09-13",
+      "event_date": "2026-09-13",
+      "shared_identity": "NFL; Chicago and Carolina",
+      "potentially_comparable_child_family": "game winner / moneyline"
+    }
+  ],
+  "child_family_observation": {
+    "kalshi": "representative NFL and MLB game events each expose two binary team-winner children",
+    "polymarket_us": "representative NFL and MLB events expose a structured SPORTS_MARKET_TYPE_MONEYLINE child plus spread and total families",
+    "remaining_verification": "resolution, tie, postponement, cancellation, void/fair-market, outcome orientation, and settlement timing require primary-source comparison before VERIFIED status"
+  },
+  "coverage_limitations": [
+    "Polymarket US NFL futures exceeded the two-page bound; current game-event pages were complete within the bound.",
+    "Polymarket US politics exceeded the two-page bound, so the audit does not estimate all 2026 race overlap.",
+    "Kalshi scheduled election dates are not exposed consistently in sampled state/office fields; politics relationships remain POSSIBLE.",
+    "Company IPO dates use different month-end/month-start boundaries and full IPO definitions were not compared.",
+    "No primary-source contract-rule equivalence review was performed."
+  ],
+  "coverage_adequacy": "STRATIFIED_COVERAGE_ADEQUATE",
+  "coverage_adequacy_reason": "The server-filtered MLB and NFL game strata were complete inside the stated bounds and produced 73 exact same-league, same-team, same-scheduled-date event relationships. Incomplete futures and politics pagination limits exhaustive breadth but no longer blocks the existence/overlap judgment.",
+  "strategic_classification": "HEALTHY_OVERLAP",
+  "strategic_scope": "observed current MLB/NFL game-event universe; not a statement that any contract pair is equivalent or profitable",
+  "interpretation": "The prior zero-overlap result was materially caused by non-comparable generic sampling. Current public metadata supports continued Kalshi-Polymarket US discovery, focused next on primary-source contract equivalence for one sports game rather than matcher tuning.",
+  "recommended_next_milestone": "Manually verify one representative strong NFL or MLB game-winner relationship against both venues' primary contract rules; do not capture books or run strategy until the canonical VERIFIED-pair gate is satisfied.",
+  "safety": "No credentials, authentication, order books, accounts, balances, positions, fills, registry writes, strategy/paper/live execution, orders, cancels, production execution, or real-money action."
+}
