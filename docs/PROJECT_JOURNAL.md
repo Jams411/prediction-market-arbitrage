@@ -2031,6 +2031,27 @@ no `LIVE_TRADING` change.
   required`; no order books, credentials, account data, registry writes,
   strategy evaluation, authentication, orders, or production execution.
 
+## 2026-09-11 — Broader bounded contract-discovery observation
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** PR #44 remained open at reviewed head
+  `39aad872e5992bd7fd9cbfa2307786019a24b959`, with green CI and no new review
+  blocker, then was squash-merged as `a687f779225ff945961d98de8f25774c959b2dd5`.
+- **Observation (OBSERVED 2026-09-11T06:31:05Z):** the unchanged maximum-bounds
+  public CLI inspected 1,000 Kalshi and 1,000 Polymarket US market records and
+  surfaced 16 `UNVERIFIED` rows. All had priority 2, zero semantic MATCH fields,
+  and were lexical false positives linking Kalshi cross-category combo titles
+  to Polymarket US NFL futures through shared team-name tokens.
+- **Finding:** UNKNOWN dominated 112 of 224 comparisons; 80 were MISMATCH and 32
+  NOT_APPLICABLE. The current output does not retain below-threshold comparisons,
+  so same-event records failing the lexical gate cannot be distinguished from
+  universe-coverage gaps. No matching logic was changed during this observation.
+- **Safety:** public metadata/rules only; no credentials, authentication,
+  order-book/account call, strategy evaluation, registry write, pair approval,
+  order/cancel, production execution, or real-money action.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.
