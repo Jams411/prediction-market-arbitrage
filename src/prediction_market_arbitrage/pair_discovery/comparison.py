@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from .models import CandidatePair, ComparisonClass, FieldComparison, SemanticContract
+from .models import (
+    CandidatePair,
+    CoarseSignal,
+    ComparisonClass,
+    DiscoveryDiagnostics,
+    FieldComparison,
+    MatchingKeys,
+    RejectedNearMiss,
+    SemanticContract,
+)
 
 _WORDS = re.compile(r"[a-z0-9]+")
 _STOPWORDS = frozenset(
@@ -64,6 +74,17 @@ _MATERIAL_FIELDS = frozenset(
         "yes_no_mapping_confidence",
     }
 )
+DEFAULT_MINIMUM_LEXICAL_SIGNAL = Decimal("0.20")
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedProfile:
+    contract: SemanticContract
+    tokens: frozenset[str]
+    keys: MatchingKeys
+    event: str | None
+    participant: str | None
+    category: str | None
 
 
 def compare_contracts(kalshi: SemanticContract, polymarket_us: SemanticContract) -> CandidatePair:
@@ -148,7 +169,7 @@ def discover_candidates(
     polymarket_us_contracts: Iterable[SemanticContract],
     *,
     limit: int = 20,
-    minimum_lexical_signal: Decimal = Decimal("0.20"),
+    minimum_lexical_signal: Decimal = DEFAULT_MINIMUM_LEXICAL_SIGNAL,
 ) -> tuple[CandidatePair, ...]:
     """Return deterministically ranked triage candidates.
 
@@ -174,6 +195,62 @@ def discover_candidates(
         )
     )
     return tuple(candidates[:limit])
+
+
+def diagnose_candidates(
+    kalshi_contracts: Iterable[SemanticContract],
+    polymarket_us_contracts: Iterable[SemanticContract],
+    *,
+    candidate_limit: int = 20,
+    near_miss_limit: int = 20,
+    minimum_lexical_signal: Decimal = DEFAULT_MINIMUM_LEXICAL_SIGNAL,
+) -> DiscoveryDiagnostics:
+    """Explain the unchanged lexical gate with bounded, streaming examples.
+
+    The full cross-product is counted, but only ``candidate_limit`` passed rows
+    and ``near_miss_limit`` rejected rows are retained.  No registry or strategy
+    type is created.
+    """
+    if candidate_limit <= 0 or near_miss_limit <= 0:
+        raise ValueError("candidate and near-miss limits must be positive")
+    kalshi = tuple(_prepare(item) for item in kalshi_contracts)
+    polymarket = tuple(_prepare(item) for item in polymarket_us_contracts)
+    passed = 0
+    rejected = 0
+    passed_examples: list[CandidatePair] = []
+    near_misses: list[RejectedNearMiss] = []
+
+    for left in kalshi:
+        for right in polymarket:
+            signal = _token_signal(left.tokens, right.tokens)
+            if signal >= minimum_lexical_signal:
+                passed += 1
+                _retain_passed(
+                    passed_examples,
+                    compare_contracts(left.contract, right.contract),
+                    candidate_limit,
+                )
+                continue
+            rejected += 1
+            rank = _near_miss_rank(left, right, signal)
+            if len(near_misses) < near_miss_limit or rank < _near_miss_sort_key(
+                near_misses[-1]
+            ):
+                _retain_near_miss(
+                    near_misses,
+                    _near_miss(left, right, signal, minimum_lexical_signal),
+                    near_miss_limit,
+                )
+
+    considered = passed + rejected
+    return DiscoveryDiagnostics(
+        considered=considered,
+        passed=passed,
+        rejected=rejected,
+        threshold=minimum_lexical_signal,
+        passed_candidates=tuple(passed_examples),
+        near_misses=tuple(near_misses),
+    )
 
 
 def _text_comparison(
@@ -249,12 +326,23 @@ def _priority(comparisons: tuple[FieldComparison, ...], lexical_signal: Decimal)
 
 
 def _lexical_signal(left: SemanticContract, right: SemanticContract) -> Decimal:
-    left_tokens = _tokens(
-        " ".join(filter(None, (left.title, left.underlying_event, left.participant_outcome)))
+    left_tokens = _contract_tokens(left)
+    right_tokens = _contract_tokens(right)
+    return _token_signal(left_tokens, right_tokens)
+
+
+def _contract_tokens(contract: SemanticContract) -> frozenset[str]:
+    return _tokens(
+        " ".join(
+            filter(
+                None,
+                (contract.title, contract.underlying_event, contract.participant_outcome),
+            )
+        )
     )
-    right_tokens = _tokens(
-        " ".join(filter(None, (right.title, right.underlying_event, right.participant_outcome)))
-    )
+
+
+def _token_signal(left_tokens: frozenset[str], right_tokens: frozenset[str]) -> Decimal:
     union = left_tokens | right_tokens
     if not union:
         return Decimal(0)
@@ -267,3 +355,153 @@ def _tokens(value: str) -> frozenset[str]:
 
 def _normalize(value: str) -> str:
     return " ".join(_WORDS.findall(value.casefold()))
+
+
+def _prepare(contract: SemanticContract) -> _PreparedProfile:
+    tokens = _contract_tokens(contract)
+    return _PreparedProfile(
+        contract=contract,
+        tokens=tokens,
+        keys=MatchingKeys(all_tokens=tuple(sorted(tokens))),
+        event=_optional_normalize(contract.underlying_event),
+        participant=_optional_normalize(contract.participant_outcome),
+        category=_optional_normalize(contract.category),
+    )
+
+
+def _optional_normalize(value: str | None) -> str | None:
+    return _normalize(value) if value is not None else None
+
+
+def _coarse_match_count(left: _PreparedProfile, right: _PreparedProfile) -> int:
+    pairs: tuple[tuple[object | None, object | None], ...] = (
+        (left.event, right.event),
+        (left.participant, right.participant),
+        (left.category, right.category),
+        (left.contract.event_time_window, right.contract.event_time_window),
+        (left.contract.threshold, right.contract.threshold),
+    )
+    return sum(a is not None and b is not None and a == b for a, b in pairs)
+
+
+def _near_miss_rank(
+    left: _PreparedProfile, right: _PreparedProfile, signal: Decimal
+) -> tuple[int, Decimal, str, str]:
+    return (
+        -_coarse_match_count(left, right),
+        -signal,
+        left.contract.identifier,
+        right.contract.identifier,
+    )
+
+
+def _near_miss_sort_key(item: RejectedNearMiss) -> tuple[int, Decimal, str, str]:
+    matches = sum(
+        signal.classification is ComparisonClass.MATCH for signal in item.coarse_signals
+    )
+    return (-matches, -item.lexical_signal, item.kalshi.identifier, item.polymarket_us.identifier)
+
+
+def _retain_passed(items: list[CandidatePair], item: CandidatePair, limit: int) -> None:
+    items.append(item)
+    items.sort(
+        key=lambda candidate: (
+            -candidate.verification_priority,
+            -candidate.lexical_signal,
+            candidate.kalshi.identifier,
+            candidate.polymarket_us.identifier,
+        )
+    )
+    del items[limit:]
+
+
+def _retain_near_miss(
+    items: list[RejectedNearMiss], item: RejectedNearMiss, limit: int
+) -> None:
+    items.append(item)
+    items.sort(key=_near_miss_sort_key)
+    del items[limit:]
+
+
+def _near_miss(
+    left: _PreparedProfile,
+    right: _PreparedProfile,
+    signal: Decimal,
+    threshold: Decimal,
+) -> RejectedNearMiss:
+    shared = left.tokens & right.tokens
+    return RejectedNearMiss(
+        kalshi=left.contract,
+        polymarket_us=right.contract,
+        lexical_signal=signal,
+        kalshi_keys=left.keys,
+        polymarket_us_keys=right.keys,
+        shared_tokens=tuple(sorted(shared)),
+        kalshi_unique_tokens=tuple(sorted(left.tokens - shared)),
+        polymarket_us_unique_tokens=tuple(sorted(right.tokens - shared)),
+        coarse_signals=(
+            _coarse_signal(
+                "underlying_event",
+                left.contract.underlying_event,
+                right.contract.underlying_event,
+            ),
+            _coarse_signal(
+                "participant",
+                left.contract.participant_outcome,
+                right.contract.participant_outcome,
+            ),
+            _coarse_signal("category", left.contract.category, right.contract.category),
+            _coarse_signal(
+                "event_date",
+                left.contract.event_time_window,
+                right.contract.event_time_window,
+            ),
+            _coarse_signal("threshold", left.contract.threshold, right.contract.threshold),
+        ),
+        missing_metadata_fields=_missing_metadata(left.contract, right.contract),
+        rejection_reason=f"lexical signal {signal} is below unchanged threshold {threshold}",
+    )
+
+
+def _coarse_signal(field: str, left: object | None, right: object | None) -> CoarseSignal:
+    if left is None or right is None:
+        classification = ComparisonClass.UNKNOWN
+    elif _coarse_value(left) == _coarse_value(right):
+        classification = ComparisonClass.MATCH
+    else:
+        classification = ComparisonClass.MISMATCH
+    return CoarseSignal(
+        field=field,
+        classification=classification,
+        kalshi_value=str(left) if left is not None else None,
+        polymarket_us_value=str(right) if right is not None else None,
+    )
+
+
+def _coarse_value(value: object) -> object:
+    return _normalize(value) if isinstance(value, str) else value
+
+
+def _missing_metadata(
+    left: SemanticContract, right: SemanticContract
+) -> tuple[str, ...]:
+    fields = (
+        "category",
+        "underlying_event",
+        "participant_outcome",
+        "measurement_unit",
+        "event_time_window",
+        "close_conditions",
+        "resolution_source",
+        "cancellation_postponement",
+        "multiple_winner_treatment",
+        "void_refund_fair_market",
+        "settlement_backstop",
+        "yes_no_mapping",
+    )
+    return tuple(
+        f"{venue}.{field}"
+        for venue, contract in (("kalshi", left), ("polymarket_us", right))
+        for field in fields
+        if getattr(contract, field) is None
+    )

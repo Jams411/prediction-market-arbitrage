@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "evidence_status": "OBSERVED",
+  "observed_at": "2026-09-11T12:45:05Z",
+  "agent": "Codex",
+  "model": "GPT-5",
+  "reviewer": "ChatGPT",
+  "command": ".venv/bin/python scripts/discover_contract_pairs.py --kalshi-pages 10 --polymarket-pages 10 --page-size 100 --top 20 --diagnose --near-misses 20",
+  "scope": "public read-only market metadata; no authentication or execution",
+  "status": "UNVERIFIED",
+  "markets_inspected": {"kalshi": 1000, "polymarket_us": 1000},
+  "candidate_generation": {
+    "threshold": "0.20",
+    "prefilter": "none",
+    "comparisons_considered": 1000000,
+    "passed_threshold": 34,
+    "rejected_below_threshold": 999966,
+    "counts_reconcile": true,
+    "passed_examples_retained": 20,
+    "near_miss_examples_retained": 20
+  },
+  "passed_example_summary": {
+    "verification_priority_distribution": {"2": 19, "3": 1},
+    "semantic_classifications": {
+      "MATCH": 0,
+      "MISMATCH": 104,
+      "UNKNOWN": 136,
+      "NOT_APPLICABLE": 40
+    },
+    "strongest": {
+      "verification_priority": 3,
+      "lexical_generation_signal": "0.3",
+      "kalshi": "KXMVECROSSCATEGORY-SHARD1-S2026245A0475536-D6F3DCBBBBF",
+      "polymarket_us": "tec-nfl-nfcchamp-2027-01-31-w-nyg"
+    }
+  },
+  "below_threshold_summary": {
+    "coarse_match_counts_in_priority_order": {"0": 20},
+    "interpretation": "Coarse-match count is the primary near-miss ordering key. Zero matches in every retained row means no rejected comparison had an exact extracted event, participant, category, event-date, or threshold match.",
+    "strongest": [
+      {
+        "lexical_generation_signal": "0.1904761904761904761904761905",
+        "kalshi": "KXMVECROSSCATEGORY-SHARD1-S2026166D2F1C522-F0C487A662B",
+        "polymarket_us": "aachc-mlb-hrs-2026-09-29-leader-ellcru",
+        "shared_tokens": ["cruz", "de", "elly", "la"],
+        "coarse_matches": 0,
+        "missing_metadata_fields": 11
+      },
+      {
+        "lexical_generation_signal": "0.1904761904761904761904761905",
+        "kalshi": "KXMVECROSSCATEGORY-SHARD1-S20263B1C113BAA5-84F8B43872F",
+        "polymarket_us": "aachc-mlb-hrs-2026-09-29-leader-ellcru",
+        "shared_tokens": ["cruz", "de", "elly", "la"],
+        "coarse_matches": 0,
+        "missing_metadata_fields": 11
+      },
+      {
+        "lexical_generation_signal": "0.1875",
+        "kalshi": "KXMVECROSSCATEGORY-SHARD1-S20264C2E692721C-001301BE491",
+        "polymarket_us": "tec-nfl-afcwest-2027-01-10-w-lac",
+        "shared_tokens": ["angeles", "c", "los"],
+        "coarse_matches": 0,
+        "missing_metadata_fields": 10
+      }
+    ]
+  },
+  "bottleneck_diagnosis": {
+    "classification": "mixed",
+    "supported_findings": [
+      "The unchanged lexical threshold did not hide a record with any exact currently extracted coarse signal.",
+      "Passed and rejected examples were dominated by participant-name tokens inside Kalshi cross-category multivariate combo titles.",
+      "Kalshi category and event-time signals were absent in retained near misses, and rule-treatment fields were frequently missing."
+    ],
+    "remaining_unknown": "True same-event overlap may be absent from the bounded universe or present but obscured by profile normalization; this observation cannot distinguish those cases."
+  },
+  "safety": {
+    "credentials_used": false,
+    "authenticated_requests": false,
+    "order_book_requests": false,
+    "strategy_or_arbitrage_execution": false,
+    "orders_or_cancels": false,
+    "registry_writes": false,
+    "production_execution": false,
+    "real_money_action": false
+  }
+}

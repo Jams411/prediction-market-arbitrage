@@ -296,3 +296,23 @@ OBSERVED triage evidence, not equivalence, arbitrage, or readiness evidence.
 **Quality note:** no code/config change, credential, authentication, book/account
 call, strategy execution, registry approval/write, order/cancel, production
 execution, real-money action, or historical attribution rewrite.
+
+### Candidate-generation rejection diagnostics — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** added bounded streaming diagnostics around the unchanged lexical
+candidate gate: reconciled considered/passed/rejected counts plus top-N rejected
+examples with exact token keys, coarse signals, missing fields, and reasons.
+**Validation:** focused discovery/registry tests cover below-threshold same-event
+signals, unrelated/generic collisions, deterministic ordering and bounds,
+missing metadata, count reconciliation, UNVERIFIED status, and registry
+isolation. One maximum-bounds public observation reconciled 1,000,000 rows.
+**Outcome:** diagnostics are TESTED; the observation is OBSERVED. It found 34
+passes and 999,966 rejections, with no coarse match among the highest-priority
+near misses. The current bottleneck is mixed universe coverage and normalization,
+not shown to be the unchanged threshold.
+**Quality note:** no approval semantics, registry/ranking/threshold change,
+credential, authentication, book/account call, strategy execution, order/cancel,
+production execution, real-money action, or historical attribution rewrite.
