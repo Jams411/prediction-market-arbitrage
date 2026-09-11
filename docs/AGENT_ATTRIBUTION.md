@@ -258,3 +258,23 @@ real-market, Demo/live execution, and production-readiness evidence remain open.
 **Evidence:** D-035; `tests/test_offline_paper_arbitrage_lifecycle.py`.
 **Quality note:** no live/authenticated/order/production action and no historical
 Claude attribution rewrite.
+
+### Read-only contract-equivalence discovery triage — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** added a small deterministic semantic-profile/comparison module and a
+bounded public-metadata CLI that ranks plausible Kalshi / Polymarket US pairs
+for human review without writing to the canonical registry.
+**Validation:** focused discovery and registry tests plus the complete local
+Ruff, mypy, pytest, and pre-commit gate. A single bounded public observation
+inspected 100 markets per venue and returned zero candidates above the
+conservative generation threshold.
+**Outcome:** candidate triage is TESTED; the live observation is OBSERVED only.
+Every result remains explicitly UNVERIFIED, missing fields remain UNKNOWN, and
+only the existing human-authored VERIFIED registry boundary can admit a pair to
+strategy code.
+**Quality note:** no credentials, account or order-book calls, authentication,
+registry approval, strategy execution, order/cancel, production execution,
+real-money action, safety-limit change, or historical attribution rewrite.

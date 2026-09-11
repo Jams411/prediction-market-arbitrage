@@ -2010,6 +2010,27 @@ no `LIVE_TRADING` change.
 
 ## Journal rules
 
+## 2026-09-11 — Read-only contract-equivalence discovery triage
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Gap closed:** added a deterministic, bounded discovery surface that turns
+  existing public Kalshi and Polymarket US market metadata into ranked,
+  field-by-field candidates for human contract review. It cannot create a
+  registry record or make a pair strategy-eligible.
+- **Result (TESTED):** synthetic fixtures cover exact and material semantic
+  matches, cancellation/void and multiple-winner differences, threshold and
+  inclusivity differences, unknown fields, Decimal precision, deterministic
+  ordering, and the unchanged VERIFIED-only registry gate.
+- **Observation (OBSERVED 2026-09-11):** one bounded unauthenticated run inspected
+  100 public markets per venue and surfaced zero candidates above the
+  conservative lexical generation threshold. This limited first-page result is
+  not evidence that no cross-venue pair exists.
+- **Safety:** output is always `UNVERIFIED — human/primary-source verification
+  required`; no order books, credentials, account data, registry writes,
+  strategy evaluation, authentication, orders, or production execution.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.
