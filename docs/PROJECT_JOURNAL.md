@@ -2121,6 +2121,34 @@ no `LIVE_TRADING` change.
   authentication, book/account, registry write, strategy/paper execution,
   order/cancel, production execution, or real-money action.
 
+## 2026-09-11 — Venue-universe overlap audit
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** reviewed PR #47 remained at
+  `e68838615fdedff7c3d7894eee066541dadd6a8b` with green CI and no new blocker,
+  then was squash-merged as `6aa30237e875a34d963eb061329ef65e57b60977`.
+- **Observation (OBSERVED 2026-09-11T17:41:21Z):** a bounded public snapshot
+  inspected 1,000 markets per venue. Kalshi reached that limit through 100
+  ordinary parent events; Polymarket US markets joined to 77 of 100 fetched
+  parent events. Deterministic broad-category and event-key aggregation found
+  zero STRONG_EVENT_OVERLAP and zero POSSIBLE_EVENT_OVERLAP rows.
+- **Finding:** shared structured league families were MLB/baseball and
+  NFL/football, but their observed date sets did not intersect. Politics covered
+  different races/time horizons. Six company names overlapped around IPOs, but
+  the propositions and event windows were different or incomplete.
+- **Conclusion:** `COVERAGE_INSUFFICIENT`. The zero-overlap slice raises the
+  probability of limited venue overlap, but Kalshi was 69% macroeconomic ladders
+  and Polymarket US was 88.3% sports by market row; default ordering, event-first
+  versus market-first sampling, and child-count weighting prevent a venue-wide
+  conclusion.
+- **Evidence:**
+  `docs/evidence/contract-discovery/venue-universe-overlap-audit-2026-09-11.json`.
+- **Safety:** public metadata only; no credentials, authentication, books,
+  account data, registry write, strategy execution, order/cancel, production
+  execution, or real-money action.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.

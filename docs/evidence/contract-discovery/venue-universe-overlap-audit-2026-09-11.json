@@ -1,0 +1,169 @@
+{
+  "status": "OBSERVED",
+  "analysis_status": "DERIVED",
+  "equivalence_status": "UNVERIFIED",
+  "observed_at": "2026-09-11T17:41:21Z",
+  "scope": "bounded unauthenticated public metadata; no order books or execution",
+  "repository_main_sha": "6aa30237e875a34d963eb061329ef65e57b60977",
+  "sources": {
+    "kalshi": "GET https://external-api.kalshi.com/trade-api/v2/events?status=open&with_nested_markets=true",
+    "polymarket_us_markets": "GET https://gateway.polymarket.us/v1/markets?active=true&closed=false&archived=false",
+    "polymarket_us_events": "GET https://gateway.polymarket.us/v1/events?active=true&closed=false&archived=false"
+  },
+  "coverage": {
+    "kalshi": {
+      "market_records": 1000,
+      "parent_event_records_fetched": 100,
+      "parent_events_used": 100,
+      "dated_market_records": 901,
+      "dated_market_range": [
+        "2026-11-01",
+        "2099-01-01"
+      ]
+    },
+    "polymarket_us": {
+      "market_records": 1000,
+      "parent_event_records_fetched": 100,
+      "parent_events_used": 77,
+      "dated_market_records": 1000,
+      "dated_market_range": [
+        "2026-02-21",
+        "2027-07-01"
+      ]
+    }
+  },
+  "broad_category_mapping": {
+    "method": "deterministic aggregation of authoritative venue categories; Financials/finance records were assigned to companies_business only when their observed event titles identified IPO/company-leadership subjects",
+    "kalshi_market_counts": {
+      "sports": 84,
+      "politics_elections": 149,
+      "economics_macroeconomic": 690,
+      "crypto_financial_markets": 0,
+      "companies_business": 18,
+      "weather_climate": 5,
+      "entertainment_awards": 33,
+      "technology_science": 18,
+      "other": 3,
+      "unknown": 0
+    },
+    "kalshi_event_counts": {
+      "sports": 16,
+      "politics_elections": 14,
+      "economics_macroeconomic": 48,
+      "crypto_financial_markets": 0,
+      "companies_business": 5,
+      "weather_climate": 5,
+      "entertainment_awards": 3,
+      "technology_science": 6,
+      "other": 3,
+      "unknown": 0
+    },
+    "polymarket_us_market_counts": {
+      "sports": 883,
+      "politics_elections": 45,
+      "economics_macroeconomic": 0,
+      "crypto_financial_markets": 0,
+      "companies_business": 32,
+      "weather_climate": 0,
+      "entertainment_awards": 40,
+      "technology_science": 0,
+      "other": 0,
+      "unknown": 0
+    },
+    "polymarket_us_event_counts": {
+      "sports": 49,
+      "politics_elections": 22,
+      "economics_macroeconomic": 0,
+      "crypto_financial_markets": 0,
+      "companies_business": 3,
+      "weather_climate": 0,
+      "entertainment_awards": 3,
+      "technology_science": 0,
+      "other": 0,
+      "unknown": 0
+    }
+  },
+  "sports_overlap": {
+    "shared_normalized_leagues": {
+      "MLB": {
+        "kalshi_label": "Pro Baseball",
+        "kalshi_events": 4,
+        "kalshi_markets": 34,
+        "polymarket_us_label": "MLB",
+        "polymarket_us_events": 22,
+        "polymarket_us_markets": 525,
+        "shared_observed_event_dates": []
+      },
+      "NFL": {
+        "kalshi_label": "Pro Football",
+        "kalshi_events": 8,
+        "kalshi_markets": 25,
+        "polymarket_us_label": "NFL",
+        "polymarket_us_events": 14,
+        "polymarket_us_markets": 180,
+        "shared_observed_event_dates": []
+      }
+    },
+    "finding": "Shared league labels did not produce a same-date, same-entity event. Kalshi records concerned player debut/retirement and long-horizon milestones; Polymarket US records concerned current season championships, divisions, games, and props."
+  },
+  "politics_overlap": {
+    "kalshi_events": 14,
+    "kalshi_markets": 149,
+    "polymarket_us_events": 22,
+    "polymarket_us_markets": 45,
+    "shared_races": 0,
+    "finding": "Kalshi records were primarily long-horizon successor, leadership, and 2032 presidential questions; Polymarket US records were primarily 2026 US House, Senate, and gubernatorial races. Democratic/Republican labels were generic participant collisions, not same-race evidence."
+  },
+  "other_category_overlap": {
+    "shared_company_entities": [
+      "Anthropic",
+      "Brex",
+      "Deel",
+      "OpenAI",
+      "Ramp",
+      "Rippling"
+    ],
+    "finding": "The company names overlap, but Kalshi asks which company will IPO first while Polymarket US asks whether or when an IPO will be confirmed. Missing or incompatible event windows and different propositions prevent event-overlap classification. No macroeconomic, weather, technology/science, or entertainment event overlap was observed."
+  },
+  "overlap_method": {
+    "strong_event_overlap": "same broad category, exact normalized authoritative event title, and exact non-missing event date",
+    "possible_event_overlap": "same structured league/category, exact non-missing event date, and exact normalized participant/entity; politics additionally requires the same jurisdiction and office/race",
+    "missing_material_field": "UNKNOWN rather than MATCH",
+    "strong_count": 0,
+    "possible_count": 0
+  },
+  "nearest_non_overlaps": [
+    {
+      "kalshi": "KXDEELRIP-40",
+      "polymarket_us": "2026ipos",
+      "classification": "UNKNOWN",
+      "shared_signal": "Deel and Rippling; IPO subject",
+      "blocker": "different proposition and missing/incompatible event window"
+    },
+    {
+      "kalshi": "KXOAIANTH-40",
+      "polymarket_us": "openai / anthropic / 2026ipos",
+      "classification": "UNKNOWN",
+      "shared_signal": "OpenAI and Anthropic; IPO subject",
+      "blocker": "first-to-IPO versus confirmation-by-date propositions"
+    },
+    {
+      "kalshi": "KXNFLENDSTREAK-40NYJ",
+      "polymarket_us": "NFL 2026-27 event family",
+      "classification": "NO_EVENT_OVERLAP",
+      "shared_signal": "NFL/New York Jets context",
+      "blocker": "playoff-drought milestone versus current-season championship markets; dates differ"
+    }
+  ],
+  "coverage_limitations": [
+    "Kalshi reached 1000 active child markets from only the first 100 ordinary parent events; 69 percent of market rows were economics ladders.",
+    "Polymarket US returned 1000 market rows linked to 77 parent events; 88.3 percent of market rows were sports.",
+    "The venues were sampled through different event-first and market-first boundaries.",
+    "Neither bounded request specifies a common deterministic ordering, and the official APIs permit pagination/filtering beyond this slice.",
+    "Markets with many child contracts receive more weight in market-row counts than single-contract events."
+  ],
+  "classification": "COVERAGE_INSUFFICIENT",
+  "interpretation": "The observed slice contains zero strong or possible event overlaps and therefore provides no current pair candidate. It increases the probability of limited overlap, but its category, time-horizon, ordering, and child-count biases do not justify a venue-wide VERY_LIMITED_OR_NONE conclusion.",
+  "recommended_next_milestone": "A bounded category-, league-, and date-stratified public metadata audit using explicit API filters and deterministic ordering, with no matcher or verification-rule changes.",
+  "safety": "No credentials, authentication, order books, accounts, strategy execution, registry writes, orders, cancels, production execution, or real-money action."
+}
