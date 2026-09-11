@@ -74,6 +74,27 @@ class PolymarketClient:
         payload = self._get_json(f"/market/slug/{urllib.parse.quote(slug)}", None)
         return _unwrap(payload, "market", ctx=f"GET /market/slug/{slug}")
 
+    def list_events(
+        self,
+        *,
+        active: bool | None = None,
+        closed: bool | None = None,
+        archived: bool | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> _JsonObject:
+        """``GET /events`` — public parent-event metadata with nested markets."""
+        return self._get_json(
+            "/events",
+            {
+                "active": _bool_param(active),
+                "closed": _bool_param(closed),
+                "archived": _bool_param(archived),
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+
     def get_market_by_id(self, market_id: str) -> _JsonObject:
         """``GET /market/id/{id}`` — returns the inner ``market`` object."""
         if not market_id or not market_id.strip():

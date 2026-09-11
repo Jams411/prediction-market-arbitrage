@@ -2,7 +2,7 @@
 
 `scripts/discover_contract_pairs.py` is a bounded, deterministic triage tool for
 finding plausible Kalshi / Polymarket US contract pairs. It reads only public
-market metadata and rules through the repository's existing GET-only clients.
+market and parent-event metadata through the repository's GET-only clients.
 It does not request credentials, fetch account data, inspect prices, or execute
 orders.
 
@@ -15,6 +15,15 @@ Run a one-page observation with:
 
 Page counts are capped at 10 and page size at 100. Output is compact JSON. Raw
 API responses are not emitted or persisted.
+
+Kalshi discovery uses `GET /events?with_nested_markets=true`, which supplies one
+authoritative parent record for its child markets and excludes multivariate
+events at the venue boundary. Polymarket US retains the bounded `GET /markets`
+scan and joins each child to bounded `GET /events` pages. Both paths build an
+in-run parent index and report event records fetched, parents used, cache reuse,
+missing/ambiguous parents, and structured combo handling. No persistent cache is
+created. A missing or ambiguous parent remains unknown rather than being
+guessed.
 
 To explain the existing lexical gate without changing it:
 
@@ -36,7 +45,9 @@ metadata fields. Coarse agreement is diagnostic evidence only.
 
 `verification_priority` is deterministic review triage, not an equivalence
 probability or approval score. Candidate generation uses normalized lexical
-overlap only as an initial signal. Priority then rewards exact matches and
+overlap as its unchanged initial signal, now including authoritative parent
+event titles when available. The minimum remains exactly `0.20`; participant or
+category agreement does not bypass it. Priority then rewards exact matches and
 strongly penalizes material mismatches across:
 
 - underlying event/entity and proposition;

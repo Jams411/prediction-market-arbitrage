@@ -54,6 +54,7 @@ class KalshiClient:
         series_ticker: str | None = None,
         event_ticker: str | None = None,
         tickers: str | None = None,
+        mve_filter: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
     ) -> _JsonObject:
@@ -65,6 +66,7 @@ class KalshiClient:
                 "series_ticker": series_ticker,
                 "event_ticker": event_ticker,
                 "tickers": tickers,
+                "mve_filter": mve_filter,
                 "limit": limit,
                 "cursor": cursor,
             },
@@ -80,6 +82,25 @@ class KalshiClient:
                 f"GET /markets/{ticker}: response is missing the 'market' object"
             )
         return cast("_JsonObject", market)
+
+    def list_events(
+        self,
+        *,
+        status: str | None = None,
+        with_nested_markets: bool | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> _JsonObject:
+        """``GET /events`` — public parent-event metadata."""
+        return self._get_json(
+            "/events",
+            {
+                "status": status,
+                "with_nested_markets": _bool_param(with_nested_markets),
+                "limit": limit,
+                "cursor": cursor,
+            },
+        )
 
     def get_market_orderbook(self, ticker: str, *, depth: int | None = None) -> _JsonObject:
         """``GET /markets/{ticker}/orderbook`` — returns the raw ``{orderbook_fp: ...}`` object."""
@@ -137,3 +158,9 @@ def _http_error(response: HttpResponse) -> KalshiHTTPError:
             code = raw_code if isinstance(raw_code, str) else None
             message = raw_message if isinstance(raw_message, str) else None
     return KalshiHTTPError(status=response.status, code=code, message=message)
+
+
+def _bool_param(value: bool | None) -> str | None:
+    if value is None:
+        return None
+    return "true" if value else "false"

@@ -24,7 +24,9 @@ def _client(transport: FakeTransport) -> KalshiClient:
 def test_list_markets_builds_query_string_and_returns_object() -> None:
     body = json_response(200, {"markets": [], "cursor": ""})
     transport = FakeTransport(routes=[("/markets", body)])
-    result = _client(transport).list_markets(status="open", limit=3, series_ticker="KXHIGHNY")
+    result = _client(transport).list_markets(
+        status="open", limit=3, series_ticker="KXHIGHNY", mve_filter="exclude"
+    )
 
     assert result == {"markets": [], "cursor": ""}
     url = transport.calls[0]
@@ -32,6 +34,7 @@ def test_list_markets_builds_query_string_and_returns_object() -> None:
     assert "status=open" in url
     assert "limit=3" in url
     assert "series_ticker=KXHIGHNY" in url
+    assert "mve_filter=exclude" in url
     assert "event_ticker" not in url  # None params are dropped
 
 
@@ -40,6 +43,23 @@ def test_get_market_unwraps_market_object() -> None:
         routes=[("/markets/", json_response(200, {"market": {"ticker": "T"}}))]
     )
     assert _client(transport).get_market("T") == {"ticker": "T"}
+
+
+def test_list_events_builds_public_parent_metadata_query() -> None:
+    body = json_response(200, {"events": [], "cursor": ""})
+    transport = FakeTransport(routes=[("/events", body)])
+
+    result = _client(transport).list_events(
+        status="open", with_nested_markets=False, limit=100, cursor="next"
+    )
+
+    assert result == {"events": [], "cursor": ""}
+    url = transport.calls[0]
+    assert url.startswith(f"{BASE}/events?")
+    assert "status=open" in url
+    assert "with_nested_markets=false" in url
+    assert "limit=100" in url
+    assert "cursor=next" in url
 
 
 def test_get_market_missing_market_key_is_payload_error() -> None:
