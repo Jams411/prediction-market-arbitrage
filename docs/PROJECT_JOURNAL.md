@@ -2074,6 +2074,53 @@ no `LIVE_TRADING` change.
   account data, strategy/execution, registry write, order/cancel, production
   execution, or real-money action.
 
+## 2026-09-11 — Contract-discovery metadata provenance audit
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** reviewed PR #46 remained open at
+  `85f9120ad58ac595b7f5728fbdf9d4e2264ed40f`, with green CI and no new blocker,
+  then was squash-merged as `1a7121dda5ceff50cccd287ef462930fe5b308ec`.
+- **Audit (VERIFIED + OBSERVED 2026-09-11T13:04:15Z):** official public API/SDK
+  sources and bounded unauthenticated detail calls show that both venues expose
+  richer parent-event/series/team metadata than the market-list-only discovery
+  path ingests. Kalshi also exposes an explicit MVE filter and MVE leg fields.
+- **Finding:** the bottleneck is MIXED: confirmed ingestion and normalization
+  gaps plus structured combo noise. Sparse structured rule semantics also
+  remain, while a true universe-overlap gap cannot yet be isolated from the
+  metadata discarded before matching.
+- **Evidence:** `docs/evidence/contract-discovery/metadata-provenance-audit-2026-09-11.md`.
+  No threshold, ranking, comparison, registry, strategy, risk, or execution code
+  changed.
+- **Safety:** public metadata GETs only; no credentials, authentication, books,
+  account data, registry write, strategy/paper execution, order/cancel,
+  production execution, or real-money action.
+
+## 2026-09-11 — Authoritative parent-event discovery enrichment
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Gap closed (TESTED):** discovery now builds bounded in-run parent indexes
+  from public venue event endpoints, preserves authoritative event identity/title,
+  category/league, timing, participant identifiers, market type, and resolution
+  sources, and reports cache/filter/missing/ambiguous metadata counters.
+- **Policy:** D-036. The lexical threshold remains exactly `0.20`; authoritative
+  event context improves its inputs but does not bypass it. Kalshi uses nested
+  ordinary events, which exclude MVEs; Polymarket US excludes only explicit
+  `comboEnabled=true` and records missing combo metadata as unknown.
+- **Observation (OBSERVED 2026-09-11T16:19:13Z):** 1,000 markets per venue,
+  enriched through 100 Kalshi and 100 Polymarket US event records with 900/923
+  cache reuses. The 1,000,000 comparisons yielded 26 threshold passes versus 34
+  before. The retained top 20 had 7 MATCH fields, all participant-only; none
+  matched on authoritative event or date. No useful pair was found.
+- **Evidence:** metadata provenance audit and
+  `docs/evidence/contract-discovery/enriched-observation-2026-09-11T161913Z.json`.
+- **Safety:** UNVERIFIED public metadata triage only; no credential,
+  authentication, book/account, registry write, strategy/paper execution,
+  order/cancel, production execution, or real-money action.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.

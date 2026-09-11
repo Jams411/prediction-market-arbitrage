@@ -85,6 +85,7 @@ class _PreparedProfile:
     event: str | None
     participant: str | None
     category: str | None
+    series_or_league: str | None
 
 
 def compare_contracts(kalshi: SemanticContract, polymarket_us: SemanticContract) -> CandidatePair:
@@ -366,6 +367,7 @@ def _prepare(contract: SemanticContract) -> _PreparedProfile:
         event=_optional_normalize(contract.underlying_event),
         participant=_optional_normalize(contract.participant_outcome),
         category=_optional_normalize(contract.category),
+        series_or_league=_optional_normalize(contract.series_or_league),
     )
 
 
@@ -378,6 +380,7 @@ def _coarse_match_count(left: _PreparedProfile, right: _PreparedProfile) -> int:
         (left.event, right.event),
         (left.participant, right.participant),
         (left.category, right.category),
+        (left.series_or_league, right.series_or_league),
         (left.contract.event_time_window, right.contract.event_time_window),
         (left.contract.threshold, right.contract.threshold),
     )
@@ -452,6 +455,11 @@ def _near_miss(
             ),
             _coarse_signal("category", left.contract.category, right.contract.category),
             _coarse_signal(
+                "series_or_league",
+                left.contract.series_or_league,
+                right.contract.series_or_league,
+            ),
+            _coarse_signal(
                 "event_date",
                 left.contract.event_time_window,
                 right.contract.event_time_window,
@@ -486,9 +494,12 @@ def _missing_metadata(
     left: SemanticContract, right: SemanticContract
 ) -> tuple[str, ...]:
     fields = (
+        "event_identifier",
         "category",
+        "series_or_league",
         "underlying_event",
         "participant_outcome",
+        "market_type",
         "measurement_unit",
         "event_time_window",
         "close_conditions",

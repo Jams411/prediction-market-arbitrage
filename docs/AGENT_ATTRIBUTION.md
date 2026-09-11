@@ -316,3 +316,41 @@ not shown to be the unchanged threshold.
 **Quality note:** no approval semantics, registry/ranking/threshold change,
 credential, authentication, book/account call, strategy execution, order/cancel,
 production execution, real-money action, or historical attribution rewrite.
+
+### Contract-discovery metadata provenance audit — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** merged reviewed PR #46, then audited the public Kalshi and Polymarket
+US metadata provenance available to contract discovery without changing code.
+**Validation:** compared current repository ingestion/profile logic with official
+Kalshi API references, the official Polymarket US SDK, and bounded unauthenticated
+market/event/series detail responses.
+**Outcome:** confirmed richer structured metadata is dropped at the current
+market-list-only boundary, and confirmed Kalshi MVE plus observed Polymarket US
+combo flags are unused. The bottleneck is MIXED ingestion/normalization/combo
+noise; universe overlap remains unresolved.
+**Evidence:**
+`docs/evidence/contract-discovery/metadata-provenance-audit-2026-09-11.md`.
+**Quality note:** audit/evidence only; no matching, registry, strategy, risk, or
+execution change and no authenticated/order/production/real-money action.
+
+### Authoritative parent-event discovery enrichment — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** added bounded parent-event metadata ingestion, deterministic in-run
+indexes/reuse accounting, richer semantic provenance, structured Kalshi MVE
+exclusion, and conservative Polymarket US combo handling.
+**Validation:** focused client/discovery/registry tests plus the complete local
+quality gate. The final maximum-bounds public observation inspected 1,000
+markets per venue and reconciled 1,000,000 comparisons.
+**Outcome:** authoritative enrichment is TESTED and the public result OBSERVED.
+Threshold passes fell from 34 to 26 after Kalshi MVE exclusion; no retained row
+matched on authoritative event or date, so all candidates remain UNVERIFIED.
+**Evidence:** D-036; metadata provenance audit; enriched observation artifact.
+**Quality note:** no threshold bypass, registry approval/write, credential,
+authentication, book/account call, strategy/paper execution, order/cancel,
+production execution, real-money action, or historical attribution rewrite.

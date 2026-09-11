@@ -14,6 +14,8 @@ from prediction_market_arbitrage.pair_discovery import (
     compare_contracts,
     diagnose_candidates,
     discover_candidates,
+    enrich_kalshi_markets,
+    enrich_polymarket_us_markets,
     from_kalshi_market,
     from_polymarket_us_market,
 )
@@ -377,3 +379,226 @@ def test_diagnostics_remain_unverified_and_cannot_enter_registry() -> None:
     assert all(item.status == "UNVERIFIED" for item in result.near_misses)
     assert not isinstance(result, MarketPairRecord)
     assert load_registry().eligible() == ()
+
+
+def _kalshi_market(ticker: str, event_ticker: str, title: str) -> dict[str, object]:
+    return {
+        "ticker": ticker,
+        "event_ticker": event_ticker,
+        "title": title,
+        "yes_sub_title": "Example United",
+        "no_sub_title": "Example United",
+        "market_type": "binary",
+        "occurrence_datetime": "2026-11-03T00:00:00Z",
+        "rules_primary": f"If {title}, resolves Yes.",
+    }
+
+
+def _polymarket_market(slug: str, title: str) -> dict[str, object]:
+    return {
+        "slug": slug,
+        "question": "League championship",
+        "title": title,
+        "category": "sports",
+        "marketType": "futures",
+        "comboEnabled": False,
+        "marketSides": [
+            {
+                "long": True,
+                "description": "Yes",
+                "teamId": 42,
+                "team": {"name": "Example United", "league": "EL"},
+            },
+            {"long": False, "description": "No", "teamId": 42},
+        ],
+    }
+
+
+def test_authoritative_parent_metadata_survives_enrichment() -> None:
+    kalshi = enrich_kalshi_markets(
+        [_kalshi_market("K-CHILD", "K-EVENT", "Alpha proposition")],
+        [
+            {
+                "event_ticker": "K-EVENT",
+                "title": "2026 Example League Championship",
+                "category": "Sports",
+                "series_ticker": "KXEXAMPLE",
+                "product_metadata": {"competition": "Example League"},
+                "settlement_sources": [
+                    {"name": "Example League", "url": "https://example.test/results"}
+                ],
+            }
+        ],
+    ).profiles[0]
+    polymarket = enrich_polymarket_us_markets(
+        [_polymarket_market("pm-child", "Beta proposition")],
+        [
+            {
+                "id": 7,
+                "slug": "pm-event",
+                "title": "2026 Example League Championship",
+                "category": "sports",
+                "startTime": "2026-11-03T00:00:00Z",
+                "seriesSlug": "example-2026",
+                "tags": [
+                    {
+                        "league": {
+                            "name": "Example League",
+                            "resolution": "https://example.test/results",
+                        }
+                    }
+                ],
+                "markets": [{"slug": "pm-child"}],
+            }
+        ],
+    ).profiles[0]
+
+    assert kalshi.event_identifier == "K-EVENT"
+    assert polymarket.event_identifier == "pm-event"
+    assert "kalshi:event:K-EVENT" in kalshi.rule_sources
+    assert "polymarket_us:event:pm-event" in polymarket.rule_sources
+    assert kalshi.underlying_event == polymarket.underlying_event
+    assert kalshi.series_or_league == polymarket.series_or_league == "Example League"
+    assert kalshi.category == "Sports"
+    assert polymarket.category == "sports"
+    assert polymarket.participant_outcome == "Example United"
+    assert polymarket.participant_identifiers == ("team:42",)
+    assert kalshi.resolution_sources == polymarket.resolution_sources
+    assert polymarket.market_type == "futures"
+
+
+def test_multiple_children_reuse_one_cached_parent_event() -> None:
+    result = enrich_kalshi_markets(
+        [
+            _kalshi_market("K-A", "K-PARENT", "Alpha"),
+            _kalshi_market("K-B", "K-PARENT", "Beta"),
+        ],
+        [{"event_ticker": "K-PARENT", "title": "Shared event"}],
+    )
+
+    assert result.stats.parent_event_records_fetched == 1
+    assert result.stats.parent_events_used == 1
+    assert result.stats.parent_cache_reuses == 1
+    assert [profile.underlying_event for profile in result.profiles] == [
+        "Shared event",
+        "Shared event",
+    ]
+
+
+def test_structured_combos_are_filtered_but_simple_markets_remain() -> None:
+    kalshi_combo = _kalshi_market("K-MVE", "K-MVE-EVENT", "Combo")
+    kalshi_combo["mve_collection_ticker"] = "KXMVE"
+    polymarket_combo = _polymarket_market("pm-combo", "Combo")
+    polymarket_combo["comboEnabled"] = True
+
+    kalshi = enrich_kalshi_markets(
+        [kalshi_combo, _kalshi_market("K-SIMPLE", "K-EVENT", "Simple")],
+        [{"event_ticker": "K-EVENT", "title": "Simple event"}],
+    )
+    polymarket = enrich_polymarket_us_markets(
+        [polymarket_combo, _polymarket_market("pm-simple", "Simple")],
+        [{"slug": "pm-event", "title": "Simple event", "markets": [{"slug": "pm-simple"}]}],
+    )
+
+    assert kalshi.stats.combo_markets_filtered == 1
+    assert polymarket.stats.combo_markets_filtered == 1
+    assert [profile.identifier for profile in kalshi.profiles] == ["K-SIMPLE"]
+    assert [profile.identifier for profile in polymarket.profiles] == ["pm-simple"]
+
+
+def test_authoritative_event_context_surfaces_weak_market_titles() -> None:
+    kalshi = enrich_kalshi_markets(
+        [_kalshi_market("K-WEAK", "K-EVENT", "Alpha")],
+        [{"event_ticker": "K-EVENT", "title": "2026 Example League Championship Final"}],
+    ).profiles
+    polymarket = enrich_polymarket_us_markets(
+        [_polymarket_market("pm-weak", "Zulu")],
+        [
+            {
+                "slug": "pm-event",
+                "title": "2026 Example League Championship Final",
+                "markets": [{"slug": "pm-weak"}],
+            }
+        ],
+    ).profiles
+
+    candidates = discover_candidates(kalshi, polymarket)
+
+    assert len(candidates) == 1
+    assert candidates[0].lexical_signal >= Decimal("0.20")
+    assert candidates[0].status == "UNVERIFIED"
+
+
+def test_shared_entity_different_event_does_not_clear_lexical_gate() -> None:
+    kalshi = replace(
+        _profile(
+            "kalshi",
+            "K-DIFFERENT",
+            event="European cup quarterfinal one",
+            title="Example United alpha bravo charlie",
+        ),
+        participant_outcome="Example United",
+    )
+    polymarket = replace(
+        _profile(
+            "polymarket_us",
+            "pm-different",
+            event="Domestic league relegation contest",
+            title="Example United delta echo foxtrot",
+        ),
+        participant_outcome="Example United",
+    )
+
+    diagnostics = diagnose_candidates([kalshi], [polymarket])
+
+    assert diagnostics.threshold == Decimal("0.20")
+    assert diagnostics.passed == 0
+    signals = {
+        item.field: item.classification
+        for item in diagnostics.near_misses[0].coarse_signals
+    }
+    assert signals["participant"] is ComparisonClass.MATCH
+    assert signals["underlying_event"] is ComparisonClass.MISMATCH
+
+
+def test_differing_authoritative_event_date_remains_a_blocker() -> None:
+    candidate = compare_contracts(
+        _profile("kalshi", "K-DATE"),
+        replace(_profile("polymarket_us", "pm-date"), event_time_window=T1),
+    )
+
+    assert _classes(candidate)["event_time_window"] is ComparisonClass.MISMATCH
+
+
+def test_missing_or_ambiguous_parent_metadata_stays_unknown() -> None:
+    market = _polymarket_market("pm-orphan", "Orphan")
+    result = enrich_polymarket_us_markets(
+        [market],
+        [
+            {"slug": "event-a", "title": "A", "markets": [{"slug": "pm-orphan"}]},
+            {"slug": "event-b", "title": "B", "markets": [{"slug": "pm-orphan"}]},
+        ],
+    )
+
+    assert result.stats.ambiguous_parent_metadata == 1
+    assert result.profiles[0].event_identifier is None
+    assert result.profiles[0].resolution_sources == ()
+
+
+def test_missing_polymarket_combo_flag_remains_unknown_not_filtered() -> None:
+    market = _polymarket_market("pm-combo-unknown", "Unknown combo status")
+    del market["comboEnabled"]
+    result = enrich_polymarket_us_markets(
+        [market],
+        [
+            {
+                "slug": "pm-parent",
+                "title": "Parent",
+                "markets": [{"slug": "pm-combo-unknown"}],
+            }
+        ],
+    )
+
+    assert result.stats.combo_metadata_unknown == 1
+    assert result.stats.combo_markets_filtered == 0
+    assert [profile.identifier for profile in result.profiles] == ["pm-combo-unknown"]
