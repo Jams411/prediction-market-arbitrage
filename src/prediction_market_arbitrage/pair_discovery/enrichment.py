@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
-from .models import EnrichmentResult, EnrichmentStats, SemanticContract
+from .models import ComboClassification, EnrichmentResult, EnrichmentStats, SemanticContract
 from .profiles import from_kalshi_market, from_polymarket_us_market
 
 
@@ -42,6 +42,7 @@ def enrich_kalshi_markets(
         event_items,
         profiles,
         parents_used,
+        len(profiles),
         combo_filtered,
         0,
         missing,
@@ -80,16 +81,20 @@ def enrich_polymarket_us_markets(
 
     profiles: list[SemanticContract] = []
     parents_used: set[str] = set()
+    ordinary_retained = 0
     combo_filtered = 0
     combo_unknown = 0
     missing = 0
     ambiguous_count = 0
     for market in market_items:
-        if market.get("comboEnabled") is True:
+        combo_classification = classify_polymarket_us_combo(market)
+        if combo_classification is ComboClassification.CONFIRMED_COMBO:
             combo_filtered += 1
             continue
-        if not isinstance(market.get("comboEnabled"), bool):
+        if combo_classification is ComboClassification.UNKNOWN:
             combo_unknown += 1
+        else:
+            ordinary_retained += 1
         slug = _text(market.get("slug"))
         parent = child_index.get(slug) if slug else None
         if slug in ambiguous:
@@ -107,6 +112,7 @@ def enrich_polymarket_us_markets(
         event_items,
         profiles,
         parents_used,
+        ordinary_retained,
         combo_filtered,
         combo_unknown,
         missing,
@@ -119,6 +125,7 @@ def _result(
     events: tuple[Mapping[str, object], ...],
     profiles: list[SemanticContract],
     parents_used: set[str],
+    ordinary_retained: int,
     combo_filtered: int,
     combo_unknown: int,
     missing: int,
@@ -133,6 +140,7 @@ def _result(
             parent_event_records_fetched=len(events),
             parent_events_used=len(parents_used),
             parent_cache_reuses=max(0, enriched_children - len(parents_used)),
+            ordinary_markets_retained=ordinary_retained,
             combo_markets_filtered=combo_filtered,
             combo_metadata_unknown=combo_unknown,
             missing_parent_metadata=missing,
@@ -164,6 +172,40 @@ def _kalshi_is_multivariate(market: Mapping[str, object]) -> bool:
         return True
     legs = market.get("mve_selected_legs")
     return isinstance(legs, list) and bool(legs)
+
+
+def classify_polymarket_us_combo(
+    market: Mapping[str, object],
+) -> ComboClassification:
+    """Classify whether a record is itself a Polymarket US combo instrument.
+
+    ``comboEnabled`` is a base-market capability flag, not contract identity.
+    Official combo records use a ``caoc-`` identifier and contain 2--10 legs.
+    Partial or malformed combo structure remains unknown and is not excluded.
+    """
+    identifier = _first_identifier(market, ("slug", "id"))
+    legs = market.get("legs")
+    combo_identifier = identifier is not None and identifier.casefold().startswith("caoc-")
+    valid_legs = (
+        isinstance(legs, list)
+        and 2 <= len(legs) <= 10
+        and all(_valid_combo_leg(leg) for leg in legs)
+    )
+    if combo_identifier and valid_legs:
+        return ComboClassification.CONFIRMED_COMBO
+    if combo_identifier or "legs" in market:
+        return ComboClassification.UNKNOWN
+    if isinstance(market.get("comboEnabled"), bool):
+        return ComboClassification.ORDINARY_CONTRACT
+    return ComboClassification.UNKNOWN
+
+
+def _valid_combo_leg(value: object) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    symbol = _text(value.get("symbol"))
+    side = _text(value.get("side"))
+    return symbol is not None and side in {"SIDE_BUY", "SIDE_SELL"}
 
 
 def _first_identifier(event: Mapping[str, object], keys: tuple[str, ...]) -> str | None:

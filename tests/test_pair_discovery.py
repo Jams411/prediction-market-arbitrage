@@ -8,9 +8,11 @@ from decimal import Decimal
 
 from prediction_market_arbitrage.pair_discovery import (
     CandidatePair,
+    ComboClassification,
     ComparisonClass,
     DiscoveryDiagnostics,
     SemanticContract,
+    classify_polymarket_us_combo,
     compare_contracts,
     diagnose_candidates,
     discover_candidates,
@@ -488,8 +490,13 @@ def test_multiple_children_reuse_one_cached_parent_event() -> None:
 def test_structured_combos_are_filtered_but_simple_markets_remain() -> None:
     kalshi_combo = _kalshi_market("K-MVE", "K-MVE-EVENT", "Combo")
     kalshi_combo["mve_collection_ticker"] = "KXMVE"
-    polymarket_combo = _polymarket_market("pm-combo", "Combo")
-    polymarket_combo["comboEnabled"] = True
+    polymarket_combo = {
+        "id": "caoc-synthetic-combo",
+        "legs": [
+            {"symbol": "market-a", "side": "SIDE_BUY"},
+            {"symbol": "market-b", "side": "SIDE_SELL"},
+        ],
+    }
 
     kalshi = enrich_kalshi_markets(
         [kalshi_combo, _kalshi_market("K-SIMPLE", "K-EVENT", "Simple")],
@@ -504,6 +511,99 @@ def test_structured_combos_are_filtered_but_simple_markets_remain() -> None:
     assert polymarket.stats.combo_markets_filtered == 1
     assert [profile.identifier for profile in kalshi.profiles] == ["K-SIMPLE"]
     assert [profile.identifier for profile in polymarket.profiles] == ["pm-simple"]
+
+
+def test_combo_enabled_capability_does_not_exclude_ordinary_nfl_moneyline() -> None:
+    market = _polymarket_market("aec-nfl-ari-lac", "Arizona vs Los Angeles")
+    market.update(
+        {
+            "marketType": "moneyline",
+            "sportsMarketType": "football_team_full_game_winner",
+            "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_MONEYLINE",
+            "comboEnabled": True,
+        }
+    )
+
+    result = enrich_polymarket_us_markets(
+        [market],
+        [
+            {
+                "slug": "nfl-ari-lac",
+                "title": "Arizona vs Los Angeles",
+                "combos": {"enabled": True, "numMarkets": 770},
+                "markets": [{"slug": "aec-nfl-ari-lac"}],
+            }
+        ],
+    )
+
+    assert classify_polymarket_us_combo(market) is ComboClassification.ORDINARY_CONTRACT
+    assert [profile.identifier for profile in result.profiles] == ["aec-nfl-ari-lac"]
+    assert result.profiles[0].market_type == "SPORTS_MARKET_TYPE_MONEYLINE"
+    assert result.stats.ordinary_markets_retained == 1
+    assert result.stats.combo_markets_filtered == 0
+    assert result.stats.parent_events_used == 1
+
+
+def test_combo_enabled_capability_does_not_exclude_ordinary_mlb_moneyline() -> None:
+    market = _polymarket_market("aec-mlb-col-det", "Colorado vs Detroit")
+    market.update(
+        {
+            "marketType": "moneyline",
+            "sportsMarketType": "baseball_team_full_game_winner",
+            "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_MONEYLINE",
+            "comboEnabled": True,
+        }
+    )
+
+    result = enrich_polymarket_us_markets([market], [])
+
+    assert [profile.identifier for profile in result.profiles] == ["aec-mlb-col-det"]
+    assert result.stats.ordinary_markets_retained == 1
+    assert result.stats.combo_markets_filtered == 0
+
+
+def test_combo_enabled_capability_does_not_exclude_ordinary_spread() -> None:
+    market = _polymarket_market("asc-nfl-ari-lac-pos-3pt5", "Arizona +3.5")
+    market.update(
+        {
+            "marketType": "spreads",
+            "sportsMarketType": "football_team_full_game_spread",
+            "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_SPREAD",
+            "comboEnabled": True,
+        }
+    )
+
+    result = enrich_polymarket_us_markets([market], [])
+
+    assert [profile.identifier for profile in result.profiles] == [
+        "asc-nfl-ari-lac-pos-3pt5"
+    ]
+    assert result.profiles[0].market_type == "SPORTS_MARKET_TYPE_SPREAD"
+
+
+def test_confirmed_caoc_combo_requires_structured_legs() -> None:
+    combo = {
+        "id": "caoc-synthetic-combo",
+        "legs": [
+            {"symbol": "market-a", "side": "SIDE_BUY"},
+            {"symbol": "market-b", "side": "SIDE_SELL"},
+        ],
+        "state": "INSTRUMENT_STATE_OPEN",
+    }
+
+    assert classify_polymarket_us_combo(combo) is ComboClassification.CONFIRMED_COMBO
+
+
+def test_ambiguous_combo_structure_is_unknown_and_not_silently_excluded() -> None:
+    market = _polymarket_market("caoc-ambiguous", "Ambiguous combo")
+    market["legs"] = [{"symbol": "market-a", "side": "SIDE_BUY"}]
+
+    result = enrich_polymarket_us_markets([market], [])
+
+    assert classify_polymarket_us_combo(market) is ComboClassification.UNKNOWN
+    assert [profile.identifier for profile in result.profiles] == ["caoc-ambiguous"]
+    assert result.stats.combo_metadata_unknown == 1
+    assert result.stats.combo_markets_filtered == 0
 
 
 def test_authoritative_event_context_surfaces_weak_market_titles() -> None:
@@ -600,5 +700,6 @@ def test_missing_polymarket_combo_flag_remains_unknown_not_filtered() -> None:
     )
 
     assert result.stats.combo_metadata_unknown == 1
+    assert result.stats.ordinary_markets_retained == 0
     assert result.stats.combo_markets_filtered == 0
     assert [profile.identifier for profile in result.profiles] == ["pm-combo-unknown"]

@@ -115,7 +115,10 @@ def main() -> int:
             },
             "polymarket_us": {
                 **_enrichment_json(polymarket_enrichment.stats),
-                "structured_combo_policy": "local comboEnabled=true filter",
+                "structured_combo_policy": (
+                    "exclude only structurally confirmed caoc combo instruments; "
+                    "comboEnabled is retained as base-market capability metadata"
+                ),
             },
         },
         "candidate_pairs": [_candidate_json(candidate) for candidate in candidates],
@@ -348,6 +351,7 @@ def _enrichment_json(stats: EnrichmentStats) -> dict[str, object]:
         "parent_event_records_fetched",
         "parent_events_used",
         "parent_cache_reuses",
+        "ordinary_markets_retained",
         "combo_markets_filtered",
         "combo_metadata_unknown",
         "missing_parent_metadata",
