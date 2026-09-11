@@ -2205,6 +2205,35 @@ no `LIVE_TRADING` change.
   account call, order book, registry write, strategy execution, order/cancel,
   production execution, or real-money action.
 
+## 2026-09-11 — NFL/MLB game-winner family equivalence audit
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** reviewed PR #50 remained open at
+  `200f0d4f735ed9c1920d03a92ed0a3aac14b4dc2`, with green GitHub CI run #101
+  and no new blocker, then was squash-merged into main at
+  `d36aeccd080a183ced8df654f7599bea07681e01`.
+- **Observation (OBSERVED 2026-09-11T22:08:24Z):** public series-linked Kalshi
+  contract terms, official Polymarket US sports rules, and three matching games
+  per league consistently exposed different exceptional-state windows. Kalshi
+  NFL/MLB requires play to begin within 48 hours; Polymarket MLB uses two weeks,
+  and Polymarket NFL family guidance uses contract expiration while its sampled
+  target descriptions use a distinct two-day rescheduled-date formulation.
+- **Finding (DERIVED):** both `NFL_GAME_WINNER_MONEYLINE` and
+  `MLB_GAME_WINNER_MONEYLINE` are `SYSTEMATICALLY_INCOMPATIBLE` for strict
+  riskless arbitrage. Ordinary winner, overtime/extra-innings, tie, and primary
+  governing-source semantics match, but continuation, expiration, fallback
+  source, and fair-market rules can yield unequal exceptional-state payouts.
+- **Consequence:** stop target-by-target verification of these two family
+  relationships. A separate reviewed milestone should encode a narrow discovery
+  exclusion; no registry or discovery behavior changed in this audit.
+- **Evidence:**
+  `docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json`.
+- **Safety:** bounded public metadata/rules only; no credential, authentication,
+  account call, order book, registry write, strategy/paper/live execution,
+  order/cancel, production execution, or real-money action.
+
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.
