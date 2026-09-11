@@ -31,6 +31,7 @@ key, no account, no signature headers.
 | S4 | Orderbook Responses — getting started | https://docs.kalshi.com/getting_started/orderbook_responses |
 | S5 | Quick Start: Market Data — getting started | https://docs.kalshi.com/getting_started/quick_start_market_data |
 | S6 | OpenAPI spec | https://docs.kalshi.com/openapi.yaml |
+| S7 | Get Events — API reference | https://docs.kalshi.com/api-reference/events/get-events |
 
 ### Claims
 
@@ -50,6 +51,7 @@ key, no account, no signature headers.
 | K-12 | Market objects carry monetary values as dollar strings under `*_dollars` keys (`yes_bid_dollars`, `last_price_dollars`, ...) and sizes as fixed-point strings under `*_fp` keys. Timestamps are ISO-8601 UTC (`...Z`, sometimes with microseconds). | OBSERVED | K-03/K-04 captures. | `normalize.parse_market`, `_parse_timestamp` |
 | K-13 | `GET /markets` supports `status`, `series_ticker`, `event_ticker`, `tickers`, `limit` (max 1000), `cursor` query params. | VERIFIED | S1. | `client.list_markets` |
 | K-14 | `GET /markets/{ticker}/orderbook` supports optional `depth` (0–100; 0 = all levels). | VERIFIED | S3. | `client.get_market_orderbook` |
+| K-15 | `GET /events` is public, cursor-paginated, supports `with_nested_markets=true`, and excludes multivariate events. Event records provide authoritative event/series/category/title metadata and nested child markets. | VERIFIED + OBSERVED + TESTED | S7; bounded unauthenticated 2026-09-11 observation. | `client.list_events`; contract-discovery enrichment |
 
 ### Real API calls made during verification (all unauthenticated)
 
@@ -111,6 +113,7 @@ adapter never sends or stores cookies.)
 | P-S4 | Get Market Book | https://docs.polymarket.us/api-reference/markets/get-market-book.md |
 | P-S5 | Python SDK quickstart | https://docs.polymarket.us/api-reference/sdks/python/quickstart |
 | P-S6 | Docs index | https://docs.polymarket.us/llms.txt |
+| P-S7 | Official SDK event types/resources | https://github.com/Polymarket/polymarket-us-python/tree/main/polymarket_us |
 
 ### Claims
 
@@ -130,6 +133,7 @@ adapter never sends or stores cookies.)
 | P-12 | Unknown slug → HTTP **404** with a gRPC-style body `{ "code": <int>, "message": <str>, "details": [] }` (not Kalshi's `{"error":{...}}`). | OBSERVED + TESTED | `GET /v1/market/slug/this-market-does-not-exist-xyz` → 404 `{"code":5,"message":"The server was unable to process your request.","details":[]}`; `.../book` → 404 `{"code":5,"message":"market with slug \"...\" not found",...}`. Fixture `error_not_found.json`. | `client._http_error`, `PolymarketHTTPError(code:int)` |
 | P-13 | A live market can legitimately return a **fully empty** book (`bids: []`, `offers: []`). | OBSERVED + TESTED | `GET /v1/markets/tec-mlb-champ-2026-09-27-cin/book` → 200 with both arrays empty. Fixture `orderbook_empty.json`. | `normalize.parse_order_book` (empty sides allowed) |
 | P-14 | Market/side objects also carry genuine JSON **floats** (`orderPriceMinTickSize: 0.001`, `feeCoefficient: 0.06`). | OBSERVED | Captures. | The adapter **never reads these** — only string fields (`px.value`, `qty`, `endDate`, `description`, `slug`, `question`) reach the domain. |
+| P-15 | `GET /v1/events` is a public `limit`/`offset` endpoint. Event records include authoritative ID/slug/title/timing/category plus nested market relationships; observed sports events also expose league tags/resolution URLs and team metadata. | VERIFIED + OBSERVED + TESTED | P-S1/P-S7; bounded unauthenticated 2026-09-11 observation. | `client.list_events`; contract-discovery enrichment |
 
 ### Real API calls made during verification (all unauthenticated)
 

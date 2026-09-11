@@ -29,10 +29,15 @@ class SemanticContract:
     identifier: str
     title: str
     rule_sources: tuple[str, ...] = ()
+    event_identifier: str | None = None
     category: str | None = None
+    series_or_league: str | None = None
     underlying_event: str | None = None
     binary_proposition: str | None = None
     participant_outcome: str | None = None
+    participant_identifiers: tuple[str, ...] = ()
+    market_type: str | None = None
+    resolution_sources: tuple[str, ...] = ()
     threshold: Decimal | None = None
     threshold_inclusivity: str | None = None
     measurement_unit: str | None = None
@@ -148,3 +153,26 @@ class DiscoveryDiagnostics:
             raise ValueError("passed + rejected must equal considered")
         if self.status != "UNVERIFIED":
             raise ValueError("discovery diagnostics must remain UNVERIFIED")
+
+
+@dataclass(frozen=True, slots=True)
+class EnrichmentStats:
+    """Bounded parent-enrichment and structured-combo accounting."""
+
+    markets_input: int
+    profiles_output: int
+    parent_event_records_fetched: int
+    parent_events_used: int
+    parent_cache_reuses: int
+    combo_markets_filtered: int
+    combo_metadata_unknown: int
+    missing_parent_metadata: int
+    ambiguous_parent_metadata: int
+
+
+@dataclass(frozen=True, slots=True)
+class EnrichmentResult:
+    """Unverified semantic profiles plus inspectable enrichment counters."""
+
+    profiles: tuple[SemanticContract, ...]
+    stats: EnrichmentStats

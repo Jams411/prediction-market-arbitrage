@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Bounded, public/read-only cross-venue contract discovery.
 
-This command performs only unauthenticated ``GET /markets`` calls through the
-repository's public market-data clients.  Its output is triage evidence, never
-a verified-pair registry record and never an execution instruction.
+This command performs only unauthenticated public ``GET /markets`` and
+``GET /events`` calls through the repository's market-data clients. Its output
+is triage evidence, never a verified-pair registry record or execution
+instruction.
 """
 
 from __future__ import annotations
@@ -18,12 +19,13 @@ from prediction_market_arbitrage.adapters.polymarket_us.client import Polymarket
 from prediction_market_arbitrage.pair_discovery import (
     CandidatePair,
     DiscoveryDiagnostics,
+    EnrichmentStats,
     RejectedNearMiss,
     SemanticContract,
     diagnose_candidates,
     discover_candidates,
-    from_kalshi_market,
-    from_polymarket_us_market,
+    enrich_kalshi_markets,
+    enrich_polymarket_us_markets,
 )
 
 _JsonObject = dict[str, object]
@@ -56,12 +58,30 @@ def main() -> int:
     if not 1 <= args.near_misses <= 100:
         raise SystemExit("--near-misses must be between 1 and 100")
 
-    kalshi_raw = _kalshi_markets(KalshiClient(), args.kalshi_pages, args.page_size)
-    polymarket_raw = _polymarket_markets(
-        PolymarketClient(), args.polymarket_pages, args.page_size
+    kalshi_client = KalshiClient()
+    polymarket_client = PolymarketClient()
+    market_limit = args.kalshi_pages * args.page_size
+    kalshi_events = _kalshi_events(
+        kalshi_client, args.kalshi_pages, args.page_size, market_limit
     )
-    kalshi_profiles = tuple(from_kalshi_market(item) for item in kalshi_raw)
-    polymarket_profiles = tuple(from_polymarket_us_market(item) for item in polymarket_raw)
+    kalshi_raw = _kalshi_markets_from_events(
+        kalshi_events, market_limit
+    )
+    polymarket_raw = _polymarket_markets(
+        polymarket_client, args.polymarket_pages, args.page_size
+    )
+    polymarket_events = _polymarket_events(
+        polymarket_client,
+        args.polymarket_pages,
+        args.page_size,
+        {_required_identifier(item, "slug") for item in polymarket_raw},
+    )
+    kalshi_enrichment = enrich_kalshi_markets(kalshi_raw, kalshi_events)
+    polymarket_enrichment = enrich_polymarket_us_markets(
+        polymarket_raw, polymarket_events
+    )
+    kalshi_profiles = kalshi_enrichment.profiles
+    polymarket_profiles = polymarket_enrichment.profiles
     diagnostics: DiscoveryDiagnostics | None = None
     if args.diagnose:
         diagnostics = diagnose_candidates(
@@ -85,25 +105,25 @@ def main() -> int:
             "kalshi": len(kalshi_raw),
             "polymarket_us": len(polymarket_raw),
         },
+        "metadata_enrichment": {
+            "kalshi": {
+                **_enrichment_json(kalshi_enrichment.stats),
+                "structured_combo_policy": (
+                    "GET /events excludes MVEs plus defensive local filter"
+                ),
+                "server_filtered_count": None,
+            },
+            "polymarket_us": {
+                **_enrichment_json(polymarket_enrichment.stats),
+                "structured_combo_policy": "local comboEnabled=true filter",
+            },
+        },
         "candidate_pairs": [_candidate_json(candidate) for candidate in candidates],
     }
     if diagnostics is not None:
         output["candidate_generation_diagnostics"] = _diagnostics_json(diagnostics)
     print(json.dumps(output, indent=2, sort_keys=True))
     return 0
-
-
-def _kalshi_markets(client: KalshiClient, pages: int, page_size: int) -> list[_JsonObject]:
-    markets: list[_JsonObject] = []
-    cursor: str | None = None
-    for _ in range(pages):
-        payload = client.list_markets(status="open", limit=page_size, cursor=cursor)
-        markets.extend(_objects(payload.get("markets"), ctx="Kalshi markets"))
-        raw_cursor = payload.get("cursor")
-        cursor = raw_cursor if isinstance(raw_cursor, str) and raw_cursor else None
-        if cursor is None:
-            break
-    return markets
 
 
 def _polymarket_markets(
@@ -125,6 +145,82 @@ def _polymarket_markets(
     return markets
 
 
+def _kalshi_events(
+    client: KalshiClient, pages: int, page_size: int, market_limit: int
+) -> list[_JsonObject]:
+    events: list[_JsonObject] = []
+    cursor: str | None = None
+    for _ in range(pages):
+        payload = client.list_events(
+            status="open",
+            with_nested_markets=True,
+            limit=page_size,
+            cursor=cursor,
+        )
+        batch = _objects(payload.get("events"), ctx="Kalshi events")
+        events.extend(batch)
+        active_markets = sum(
+            child.get("status") == "active"
+            for event in events
+            for child in _objects(event.get("markets"), ctx="Kalshi event markets")
+        )
+        if active_markets >= market_limit:
+            break
+        raw_cursor = payload.get("cursor")
+        cursor = raw_cursor if isinstance(raw_cursor, str) and raw_cursor else None
+        if cursor is None:
+            break
+    return events
+
+
+def _kalshi_markets_from_events(
+    events: list[_JsonObject], market_limit: int
+) -> list[_JsonObject]:
+    markets: list[_JsonObject] = []
+    for event_index, event in enumerate(events):
+        children = _objects(
+            event.get("markets"), ctx=f"Kalshi events[{event_index}].markets"
+        )
+        for market in children:
+            if market.get("status") == "active":
+                markets.append(market)
+                if len(markets) == market_limit:
+                    return markets
+    return markets
+
+
+def _polymarket_events(
+    client: PolymarketClient,
+    pages: int,
+    page_size: int,
+    target_market_slugs: set[str],
+) -> list[_JsonObject]:
+    events: list[_JsonObject] = []
+    found_slugs: set[str] = set()
+    for page in range(pages):
+        payload = client.list_events(
+            active=True,
+            closed=False,
+            archived=False,
+            limit=page_size,
+            offset=page * page_size,
+        )
+        batch = _objects(payload.get("events"), ctx="Polymarket US events")
+        events.extend(batch)
+        found_slugs.update(
+            _required_identifier(child, "slug")
+            for event in batch
+            for child in _objects(
+                event.get("markets"), ctx="Polymarket US event markets"
+            )
+        )
+        if target_market_slugs <= found_slugs:
+            break
+        if len(batch) < page_size:
+            break
+    return events
+
+
 def _objects(value: object, *, ctx: str) -> list[_JsonObject]:
     if not isinstance(value, list):
         raise ValueError(f"{ctx}: response is missing the markets list")
@@ -134,6 +230,13 @@ def _objects(value: object, *, ctx: str) -> list[_JsonObject]:
             raise ValueError(f"{ctx}[{index}]: expected an object")
         objects.append(cast("_JsonObject", dict(item)))
     return objects
+
+
+def _required_identifier(item: Mapping[str, object], key: str) -> str:
+    value = item.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"market field {key!r} must be a non-empty string")
+    return value
 
 
 def _candidate_json(candidate: CandidatePair) -> dict[str, object]:
@@ -146,11 +249,13 @@ def _candidate_json(candidate: CandidatePair) -> dict[str, object]:
             "identifier": candidate.kalshi.identifier,
             "title": candidate.kalshi.title,
             "rule_sources": candidate.kalshi.rule_sources,
+            "authoritative_context": _contract_context(candidate.kalshi),
         },
         "polymarket_us": {
             "identifier": candidate.polymarket_us.identifier,
             "title": candidate.polymarket_us.title,
             "rule_sources": candidate.polymarket_us.rule_sources,
+            "authoritative_context": _contract_context(candidate.polymarket_us),
         },
         "semantic_comparison": {
             comparison.field: {
@@ -216,7 +321,39 @@ def _diagnostic_leg(contract: SemanticContract, tokens: tuple[str, ...]) -> dict
         "identifier": contract.identifier,
         "title": contract.title,
         "normalized_matching_tokens": tokens,
+        "authoritative_context": _contract_context(contract),
     }
+
+
+def _contract_context(contract: SemanticContract) -> dict[str, object]:
+    return {
+        "event_identifier": contract.event_identifier,
+        "event_title": contract.underlying_event,
+        "category": contract.category,
+        "series_or_league": contract.series_or_league,
+        "event_time": contract.event_time_window.isoformat()
+        if contract.event_time_window
+        else None,
+        "participant": contract.participant_outcome,
+        "participant_identifiers": contract.participant_identifiers,
+        "market_type": contract.market_type,
+        "resolution_sources": contract.resolution_sources,
+    }
+
+
+def _enrichment_json(stats: EnrichmentStats) -> dict[str, object]:
+    names = (
+        "markets_input",
+        "profiles_output",
+        "parent_event_records_fetched",
+        "parent_events_used",
+        "parent_cache_reuses",
+        "combo_markets_filtered",
+        "combo_metadata_unknown",
+        "missing_parent_metadata",
+        "ambiguous_parent_metadata",
+    )
+    return {name: getattr(stats, name) for name in names}
 
 
 if __name__ == "__main__":

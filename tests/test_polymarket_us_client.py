@@ -42,6 +42,24 @@ def test_get_market_by_slug_unwraps_market() -> None:
     assert _client(transport).get_market_by_slug("abc") == {"slug": "abc"}
 
 
+def test_list_events_builds_public_parent_metadata_query() -> None:
+    body = json_response(200, {"events": []})
+    transport = FakeTransport(routes=[("/events", body)])
+
+    result = _client(transport).list_events(
+        active=True, closed=False, archived=False, limit=100, offset=200
+    )
+
+    assert result == {"events": []}
+    url = transport.calls[0]
+    assert url.startswith(f"{BASE}/events?")
+    assert "active=true" in url
+    assert "closed=false" in url
+    assert "archived=false" in url
+    assert "limit=100" in url
+    assert "offset=200" in url
+
+
 def test_get_book_unwraps_market_data() -> None:
     transport = FakeTransport(
         routes=[("/book", json_response(200, {"marketData": {"marketSlug": "abc"}}))]

@@ -1,0 +1,86 @@
+{
+  "status": "OBSERVED",
+  "discovery_status": "UNVERIFIED",
+  "observed_at": "2026-09-11T16:19:13Z",
+  "scope": "bounded unauthenticated public metadata only",
+  "baseline": {
+    "kalshi_markets": 1000,
+    "polymarket_us_markets": 1000,
+    "comparisons_considered": 1000000,
+    "passed_lexical_threshold": 34,
+    "rejected_below_threshold": 999966,
+    "retained_top_semantic_matches": 0,
+    "dominant_noise": "Kalshi structured multivariate markets colliding on participant/team names"
+  },
+  "enriched_observation": {
+    "kalshi_markets": 1000,
+    "polymarket_us_markets": 1000,
+    "kalshi_parent_event_records_fetched": 100,
+    "kalshi_parent_events_used": 100,
+    "kalshi_parent_cache_reuses": 900,
+    "polymarket_us_parent_event_records_fetched": 100,
+    "polymarket_us_parent_events_used": 77,
+    "polymarket_us_parent_cache_reuses": 923,
+    "missing_parent_metadata": 0,
+    "ambiguous_parent_metadata": 0,
+    "combo_markets_admitted": 0,
+    "combo_markets_filtered_locally": 0,
+    "combo_metadata_unknown": 0,
+    "kalshi_upstream_combo_exclusion": "GET /events excludes multivariate events; excluded count unavailable",
+    "comparisons_considered": 1000000,
+    "lexical_threshold": "0.20",
+    "passed_lexical_threshold": 26,
+    "rejected_below_threshold": 999974,
+    "retained_candidates": 20,
+    "verification_priority_distribution": {
+      "2": 18,
+      "3": 2
+    },
+    "semantic_comparison_distribution": {
+      "MATCH": 7,
+      "MISMATCH": 99,
+      "UNKNOWN": 134,
+      "NOT_APPLICABLE": 40
+    },
+    "match_field_distribution": {
+      "participant_outcome_mapping": 7
+    },
+    "event_or_date_matches": 0
+  },
+  "strongest_unverified_candidates": [
+    {
+      "kalshi": "KXPRESPARTY-2032-D",
+      "polymarket_us": "ewc-usse-ak-2026-11-03-dem",
+      "verification_priority": 3,
+      "lexical_signal": "0.3",
+      "matches": ["participant_outcome_mapping"],
+      "blockers": ["underlying_event_entity mismatch", "event_time_window mismatch"]
+    },
+    {
+      "kalshi": "KXPRESPARTY-2032-R",
+      "polymarket_us": "ewc-usse-ak-2026-11-03-rep",
+      "verification_priority": 3,
+      "lexical_signal": "0.3",
+      "matches": ["participant_outcome_mapping"],
+      "blockers": ["underlying_event_entity mismatch", "event_time_window mismatch"]
+    },
+    {
+      "kalshi": "KXNFLENDSTREAK-40NYJ-2728",
+      "polymarket_us": "tec-nfl-champ-2027-02-14-w-newjet",
+      "verification_priority": 2,
+      "lexical_signal": "0.2352941176470588235294117647",
+      "matches": [],
+      "blockers": ["underlying_event_entity mismatch", "event_time_window mismatch"]
+    },
+    {
+      "kalshi": "KXDEELRIP-40-DEEL",
+      "polymarket_us": "ipcc-2026ipos-deel",
+      "verification_priority": 2,
+      "lexical_signal": "0.2222222222222222222222222222",
+      "matches": ["participant_outcome_mapping"],
+      "blockers": ["underlying_event_entity mismatch", "event_time_window unknown"]
+    }
+  ],
+  "interpretation": "Structured Kalshi combo noise was removed, but no retained candidate matched on authoritative event or date. Remaining candidates are participant/name collisions and stay UNVERIFIED.",
+  "safety": "No credentials, authentication, account data, order books, registry writes, strategy execution, orders, cancels, or real-money execution."
+}

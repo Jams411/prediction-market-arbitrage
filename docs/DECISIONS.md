@@ -1743,6 +1743,40 @@ verified-pair registry and unresolved venue assumptions.
 **Evidence:** `prediction_market_arbitrage.paper_arbitrage`;
 `tests/test_offline_paper_arbitrage_lifecycle.py`.
 
+### D-036 — Enrich discovery from bounded parent-event metadata and exclude structured combos
+
+**Date:** 2026-09-11
+
+**Context.** Candidate diagnostics found participant-name collisions dominated
+both passing and rejected comparisons. A provenance audit then confirmed that
+the market-list-only path discarded authoritative event titles, parent identity,
+league/category, event timing, entity identifiers, and settlement sources. It
+also admitted Kalshi multivariate records despite the public event API's
+structured separation of those products.
+
+**Decision.** Keep the lexical generation threshold exactly `0.20`, but enrich
+the tokens and semantic profiles from bounded public parent-event records before
+applying it. Kalshi uses `GET /events?with_nested_markets=true` as the aligned
+parent/child source; this endpoint excludes multivariate events. Polymarket US
+retains its bounded market list and joins children to bounded event pages by
+their nested market slug. Each event record is indexed once per run, missing or
+ambiguous parents remain unknown, and only explicit `comboEnabled=true` records
+are locally excluded on Polymarket US. No participant, category, or event signal
+can bypass the existing lexical threshold.
+
+**Trade-offs / consequences.** Discovery gets authoritative context without
+per-market detail calls or persistent caching, and structured Kalshi combo noise
+cannot consume the ordinary-market coverage window. The venue does not report
+how many MVEs its event endpoint excluded. Polymarket US combo completeness and
+several settlement-rule fields remain unknown. All results remain UNVERIFIED and
+cannot enter the registry, strategy, or execution paths.
+
+**Status:** ACTIVE. Public read-only discovery only.
+
+**Evidence:** metadata provenance audit; enriched bounded observation
+`docs/evidence/contract-discovery/enriched-observation-2026-09-11T161913Z.json`;
+pair-discovery and client tests.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
