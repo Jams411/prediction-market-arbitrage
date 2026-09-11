@@ -41,6 +41,7 @@ _SEQUENCES = (
     "seq_pnl",
     "seq_health_events",
     "seq_leg_risk_events",
+    "seq_risk_decisions",
 )
 
 _TABLES: tuple[str, ...] = (
@@ -199,6 +200,33 @@ _TABLES: tuple[str, ...] = (
         as_of                  TIMESTAMP NOT NULL,
         recorded_at            TIMESTAMP NOT NULL,
         UNIQUE (session_id, order_a_id, order_b_id, as_of)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS paper_lifecycles (
+        session_id      VARCHAR NOT NULL,
+        lifecycle_id   VARCHAR NOT NULL,
+        pair_id         VARCHAR NOT NULL,
+        opportunity_id BIGINT NOT NULL,
+        order_a_id      VARCHAR NOT NULL,
+        order_b_id      VARCHAR NOT NULL,
+        created_at      TIMESTAMP NOT NULL,
+        recorded_at     TIMESTAMP NOT NULL,
+        PRIMARY KEY (session_id, lifecycle_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS risk_decisions (
+        id             BIGINT PRIMARY KEY DEFAULT nextval('seq_risk_decisions'),
+        session_id     VARCHAR NOT NULL,
+        lifecycle_id  VARCHAR NOT NULL,
+        stage          VARCHAR NOT NULL,
+        order_id       VARCHAR,
+        allowed        BOOLEAN NOT NULL,
+        checks_run     VARCHAR NOT NULL,
+        reasons        VARCHAR NOT NULL,
+        as_of          TIMESTAMP NOT NULL,
+        recorded_at    TIMESTAMP NOT NULL
     )
     """,
 )

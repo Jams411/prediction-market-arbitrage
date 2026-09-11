@@ -14,6 +14,7 @@ resulting rows are identical.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING
@@ -27,7 +28,15 @@ from prediction_market_arbitrage.livebook import FeedHealth
 from . import schema
 from ._convert import dec_text, opt_dec_text, opt_utc_naive, require_text, utc_naive
 from .errors import RecorderError
-from .models import FillRow, LegRiskEventRow, OrderEventRow, PnlRow, PositionRow
+from .models import (
+    FillRow,
+    LegRiskEventRow,
+    OrderEventRow,
+    PaperLifecycleRow,
+    PnlRow,
+    PositionRow,
+    RiskDecisionRow,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -199,6 +208,53 @@ class Recorder:
                 utc_naive(row.event_time, field="row.event_time"),
                 utc_naive(recorded_at, field="recorded_at"),
                 row.reason,
+            ],
+        )
+
+    def record_paper_lifecycle(self, row: PaperLifecycleRow, *, recorded_at: datetime) -> None:
+        """Persist the stable opportunity-to-two-order linkage once."""
+        if not isinstance(row, PaperLifecycleRow):
+            raise RecorderError("record_paper_lifecycle: expected a PaperLifecycleRow")
+        self._conn.execute(
+            """
+            INSERT INTO paper_lifecycles
+                (session_id, lifecycle_id, pair_id, opportunity_id, order_a_id,
+                 order_b_id, created_at, recorded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                self._session_id,
+                row.lifecycle_id,
+                row.pair_id,
+                row.opportunity_id,
+                row.order_a_id,
+                row.order_b_id,
+                utc_naive(row.created_at, field="row.created_at"),
+                utc_naive(recorded_at, field="recorded_at"),
+            ],
+        )
+
+    def record_risk_decision(self, row: RiskDecisionRow, *, recorded_at: datetime) -> int:
+        """Append one structured risk decision for a paper lifecycle."""
+        if not isinstance(row, RiskDecisionRow):
+            raise RecorderError("record_risk_decision: expected a RiskDecisionRow")
+        return self._insert_returning(
+            """
+            INSERT INTO risk_decisions
+                (session_id, lifecycle_id, stage, order_id, allowed, checks_run,
+                 reasons, as_of, recorded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                self._session_id,
+                row.lifecycle_id,
+                row.stage,
+                row.order_id,
+                row.allowed,
+                json.dumps(row.checks_run, separators=(",", ":")),
+                json.dumps(row.reasons, separators=(",", ":")),
+                utc_naive(row.as_of, field="row.as_of"),
+                utc_naive(recorded_at, field="recorded_at"),
             ],
         )
 

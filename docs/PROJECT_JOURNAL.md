@@ -1985,6 +1985,29 @@ no `LIVE_TRADING` change.
   credential, authenticated, account, position, balance, fill, order, cancel,
   production, `LIVE_TRADING`, risk-limit, or cross-venue action occurred.
 
+## 2026-09-10 — Deterministic synthetic paper-arbitrage lifecycle
+
+- **Agent:** Codex
+- **Model:** unknown
+- **Reviewer:** ChatGPT
+- **Gap closed:** replaced the prior manual detector-to-single-order test seam
+  with a narrow offline orchestrator that loads a synthetic VERIFIED pair through
+  the registry, evaluates the same books used for both paper fills, runs
+  opportunity/order risk gates, derives positions/exposure/P&L, persists explicit
+  lifecycle/risk linkage, and reconciles the rows through replay.
+- **Deterministic result (TESTED, synthetic only):** quantity `4`; gross cost
+  `3.60`; venue-model fees `0.13`; execution buffer `0.020`; slippage reserve
+  `0.04`; net edge `0.210`. Paper fills were Kalshi `4 @ 0.40` and Polymarket US
+  `4 @ 0.50`; positions matched both fills; exposure `3.60`; pair P&L was
+  realized `0`, unrealized gross locked value `0.40`, fees `0.13`, net `0.27`.
+- **Traceability:** additive `paper_lifecycles` and `risk_decisions` tables link
+  pair → opportunity → three allowed risk decisions → two order intents and
+  lifecycles → fills → positions → pair P&L. Replay reconciles opportunity id,
+  pair id, order ids, fill quantities, positions, and P&L.
+- **Safety/evidence boundary:** synthetic deterministic TESTED evidence only.
+  No real pair, venue data, network, authentication, Demo/production order,
+  cancellation, credential, `LIVE_TRADING`, risk-limit, or Demo-cap change.
+
 ## Journal rules
 
 - Record only material progress, evidence, blockers, and changes in direction.

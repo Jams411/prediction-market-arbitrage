@@ -22,8 +22,10 @@ from .models import (
     FillRow,
     LegRiskEventRow,
     OrderEventRow,
+    PaperLifecycleRow,
     PnlRow,
     PositionRow,
+    RiskDecisionRow,
 )
 from .recorder import Recorder
 from .schema import SCHEMA_VERSION, initialize
@@ -38,8 +40,10 @@ __all__ = [
     "FillRow",
     "LegRiskEventRow",
     "OrderEventRow",
+    "PaperLifecycleRow",
     "PnlRow",
     "PositionRow",
+    "RiskDecisionRow",
     "Recorder",
     "RecorderError",
     "initialize",

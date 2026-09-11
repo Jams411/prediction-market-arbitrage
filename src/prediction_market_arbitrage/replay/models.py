@@ -61,6 +61,30 @@ class RecordedOpportunity:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordedPaperLifecycle:
+    lifecycle_id: str
+    pair_id: str
+    opportunity_id: int
+    order_a_id: str
+    order_b_id: str
+    created_at: datetime
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedRiskDecision:
+    row_id: int
+    lifecycle_id: str
+    stage: str
+    order_id: str | None
+    allowed: bool
+    checks_run: tuple[str, ...]
+    reasons: tuple[str, ...]
+    as_of: datetime
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class RecordedOrderEvent:
     row_id: int
     order_id: str

@@ -21,8 +21,10 @@ from .models import (
     RecordedOpportunity,
     RecordedOrderBook,
     RecordedOrderEvent,
+    RecordedPaperLifecycle,
     RecordedPnl,
     RecordedPosition,
+    RecordedRiskDecision,
     ReplayEvent,
 )
 from .session import ReplaySession, no_sleep, realtime
@@ -32,10 +34,12 @@ __all__ = [
     "RecordedHealthEvent",
     "RecordedLegRiskEvent",
     "RecordedOpportunity",
+    "RecordedPaperLifecycle",
     "RecordedOrderBook",
     "RecordedOrderEvent",
     "RecordedPnl",
     "RecordedPosition",
+    "RecordedRiskDecision",
     "ReplayError",
     "ReplayEvent",
     "ReplaySession",

@@ -24,6 +24,58 @@ ORDER_STATUSES = frozenset(
 )
 LIQUIDITY_KINDS = frozenset({"maker", "taker", "unknown"})
 PNL_SCOPES = frozenset({"contract", "pair", "portfolio"})
+RISK_STAGES = frozenset({"opportunity", "order"})
+
+
+@dataclass(frozen=True, slots=True)
+class PaperLifecycleRow:
+    """Durable links from one opportunity to its two paper-order intents."""
+
+    lifecycle_id: str
+    pair_id: str
+    opportunity_id: int
+    order_a_id: str
+    order_b_id: str
+    created_at: datetime
+
+    def __post_init__(self) -> None:
+        for field, value in (
+            ("lifecycle_id", self.lifecycle_id),
+            ("pair_id", self.pair_id),
+            ("order_a_id", self.order_a_id),
+            ("order_b_id", self.order_b_id),
+        ):
+            require_text(value, field=f"PaperLifecycleRow.{field}")
+        if self.opportunity_id < 1:
+            raise RecorderError("PaperLifecycleRow.opportunity_id must be >= 1")
+        if self.order_a_id == self.order_b_id:
+            raise RecorderError("PaperLifecycleRow order ids must differ")
+        utc_naive(self.created_at, field="PaperLifecycleRow.created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class RiskDecisionRow:
+    """One opportunity- or order-level risk verdict in a paper lifecycle."""
+
+    lifecycle_id: str
+    stage: str
+    allowed: bool
+    checks_run: tuple[str, ...]
+    reasons: tuple[str, ...]
+    as_of: datetime
+    order_id: str | None = None
+
+    def __post_init__(self) -> None:
+        require_text(self.lifecycle_id, field="RiskDecisionRow.lifecycle_id")
+        require_choice(self.stage, RISK_STAGES, field="RiskDecisionRow.stage")
+        if self.stage == "order" and not self.order_id:
+            raise RecorderError("RiskDecisionRow: order stage requires order_id")
+        if self.stage == "opportunity" and self.order_id is not None:
+            raise RecorderError("RiskDecisionRow: opportunity stage cannot carry order_id")
+        for field, values in (("checks_run", self.checks_run), ("reasons", self.reasons)):
+            for value in values:
+                require_text(value, field=f"RiskDecisionRow.{field}")
+        utc_naive(self.as_of, field="RiskDecisionRow.as_of")
 
 
 @dataclass(frozen=True, slots=True)
