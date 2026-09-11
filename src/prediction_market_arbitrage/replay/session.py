@@ -20,6 +20,7 @@ and exposes:
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import datetime
@@ -52,8 +53,10 @@ from .models import (
     RecordedOpportunity,
     RecordedOrderBook,
     RecordedOrderEvent,
+    RecordedPaperLifecycle,
     RecordedPnl,
     RecordedPosition,
+    RecordedRiskDecision,
     ReplayEvent,
 )
 
@@ -250,6 +253,48 @@ class ReplaySession:
                 event_time=to_utc(r[9]),
                 recorded_at=to_utc(r[10]),
                 reason=r[11],
+            )
+
+    def paper_lifecycles(self) -> Iterator[RecordedPaperLifecycle]:
+        rows = self._conn.execute(
+            """
+            SELECT lifecycle_id, pair_id, opportunity_id, order_a_id, order_b_id,
+                   created_at, recorded_at
+            FROM paper_lifecycles WHERE session_id = ? ORDER BY lifecycle_id
+            """,
+            [self._session_id],
+        ).fetchall()
+        for r in rows:
+            yield RecordedPaperLifecycle(
+                lifecycle_id=r[0],
+                pair_id=r[1],
+                opportunity_id=int(r[2]),
+                order_a_id=r[3],
+                order_b_id=r[4],
+                created_at=to_utc(r[5]),
+                recorded_at=to_utc(r[6]),
+            )
+
+    def risk_decisions(self) -> Iterator[RecordedRiskDecision]:
+        rows = self._conn.execute(
+            """
+            SELECT id, lifecycle_id, stage, order_id, allowed, checks_run,
+                   reasons, as_of, recorded_at
+            FROM risk_decisions WHERE session_id = ? ORDER BY id
+            """,
+            [self._session_id],
+        ).fetchall()
+        for r in rows:
+            yield RecordedRiskDecision(
+                row_id=int(r[0]),
+                lifecycle_id=r[1],
+                stage=r[2],
+                order_id=r[3],
+                allowed=bool(r[4]),
+                checks_run=tuple(json.loads(r[5])),
+                reasons=tuple(json.loads(r[6])),
+                as_of=to_utc(r[7]),
+                recorded_at=to_utc(r[8]),
             )
 
     def fills(self) -> Iterator[RecordedFill]:

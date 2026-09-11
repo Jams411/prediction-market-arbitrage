@@ -1713,6 +1713,36 @@ host, position, duplicate, quantity, price, cancellation, or live-trading gate.
 **Evidence:** `demo_execution.broker._rejection_metadata`;
 `observe_kalshi_demo_execution._safe_execution_outcome`; targeted offline tests.
 
+### D-035 — Link offline paper-arbitrage evidence with additive lifecycle tables
+
+**Date:** 2026-09-10
+
+**Context.** The strongest offline pipeline test evaluated synthetic books, then
+manually submitted one unrelated paper leg and supplied P&L to the recorder. It
+did not run the verified registry entry point, risk decisions, a two-leg paper
+lifecycle, or durable opportunity-to-order linkage.
+
+**Decision.** Add a narrow, deterministic `PaperArbitrageOrchestrator` that
+composes the existing registry, engine, risk manager, `PaperBroker`, recorder,
+and replay boundaries. Add two append-only tables: `paper_lifecycles` links one
+recorded opportunity to its two deterministic order ids, and `risk_decisions`
+records structured opportunity/order verdicts. Existing table shapes and schema
+version remain unchanged. For a fully matched complementary paper pair, record
+gross locked settlement value as unrealized P&L (`matched quantity - actual
+acquisition cost`), with fill fees stored separately; execution buffer and
+slippage reserve remain decision reserves, not realized charges.
+
+**Trade-offs / consequences.** This proves only a deterministic synthetic paper
+lifecycle. It adds no network, venue execution, real pair, coordinator loop, or
+live approval. The path fails closed on a rejected risk decision or incomplete
+two-leg fill. A real/recorded-market proof remains blocked by the empty canonical
+verified-pair registry and unresolved venue assumptions.
+
+**Status:** ACTIVE.
+
+**Evidence:** `prediction_market_arbitrage.paper_arbitrage`;
+`tests/test_offline_paper_arbitrage_lifecycle.py`.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
