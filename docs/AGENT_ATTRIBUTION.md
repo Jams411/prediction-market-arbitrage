@@ -278,3 +278,21 @@ strategy code.
 **Quality note:** no credentials, account or order-book calls, authentication,
 registry approval, strategy execution, order/cancel, production execution,
 real-money action, safety-limit change, or historical attribution rewrite.
+
+### Broader bounded contract-discovery observation — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** squash-merged reviewed PR #44, then ran its unchanged public metadata
+CLI at the supported maximum of 10 pages × 100 records per venue with `--top 20`.
+**Validation:** 1,000 Kalshi and 1,000 Polymarket US records inspected; 16
+UNVERIFIED rows surfaced, all priority 2 and all with zero semantic MATCH fields.
+The sanitized evidence summary was validated as JSON.
+**Outcome:** the surfaced rows were shared-team-token false positives involving
+Kalshi cross-category combo markets. UNKNOWN fields were dominant, while the
+output format could not reveal same-event pairs below the lexical gate. This is
+OBSERVED triage evidence, not equivalence, arbitrage, or readiness evidence.
+**Quality note:** no code/config change, credential, authentication, book/account
+call, strategy execution, registry approval/write, order/cancel, production
+execution, real-money action, or historical attribution rewrite.

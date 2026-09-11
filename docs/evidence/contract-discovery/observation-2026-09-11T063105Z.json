@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "evidence_status": "OBSERVED",
+  "observed_at": "2026-09-11T06:31:05Z",
+  "agent": "Codex",
+  "model": "GPT-5",
+  "reviewer": "ChatGPT",
+  "command": ".venv/bin/python scripts/discover_contract_pairs.py --kalshi-pages 10 --polymarket-pages 10 --page-size 100 --top 20",
+  "scope": "public read-only market metadata; no authentication or execution",
+  "status": "UNVERIFIED",
+  "warning": "UNVERIFIED — human/primary-source verification required",
+  "markets_inspected": {
+    "kalshi": 1000,
+    "polymarket_us": 1000
+  },
+  "candidate_pair_count": 16,
+  "verification_priority_distribution": {
+    "2": 16
+  },
+  "semantic_classification_totals": {
+    "MATCH": 0,
+    "MISMATCH": 80,
+    "UNKNOWN": 112,
+    "NOT_APPLICABLE": 32
+  },
+  "candidate_pattern": "All surfaced rows pair Kalshi cross-category multivariate combo titles with Polymarket US NFL futures through a shared team-name token.",
+  "interpretation": "No surfaced row is a plausible equivalence-review candidate. Each has five MISMATCH, seven UNKNOWN, two NOT_APPLICABLE, and zero MATCH fields.",
+  "below_threshold_same_event_visibility": "UNKNOWN — output does not retain below-threshold comparisons, so this run cannot determine whether same-event records were inspected but failed the lexical generation gate.",
+  "missing_metadata_assessment": "Dominant among surfaced rows: UNKNOWN is 112 of 224 field comparisons (50%), affecting unit, event time, close conditions, resolution source, cancellation, multiple-winner, and void treatment.",
+  "strongest_rows": [
+    {
+      "verification_priority": 2,
+      "lexical_generation_signal": "0.25",
+      "kalshi": "KXMVECROSSCATEGORY-SHARD1-S202615A151EEA59-890476AA1E4",
+      "polymarket_us": "tec-nfl-afcchamp-2027-01-31-w-newjet"
+    },
+    {
+      "verification_priority": 2,
+      "lexical_generation_signal": "0.2307692307692307692307692308",
+      "kalshi": "KXMVECROSSCATEGORY-SHARD1-S2026D69AA18445C-F9C93472850",
+      "polymarket_us": "tec-nfl-afcchamp-2027-01-31-w-loscha"
+    },
+    {
+      "verification_priority": 2,
+      "lexical_generation_signal": "0.2142857142857142857142857143",
+      "kalshi": "KXMVECROSSCATEGORY-SHARD1-S20260D5E89764CA-0C9A56F42E4",
+      "polymarket_us": "tec-nfl-nfcchamp-2027-01-31-w-nyg"
+    }
+  ],
+  "safety": {
+    "credentials_used": false,
+    "authenticated_requests": false,
+    "order_book_requests": false,
+    "strategy_or_arbitrage_execution": false,
+    "orders_or_cancels": false,
+    "registry_writes": false,
+    "production_execution": false,
+    "real_money_action": false
+  }
+}
