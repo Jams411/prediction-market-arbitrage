@@ -242,6 +242,56 @@ ineligible under the current rule. Historical scan evidence remains unchanged.
 decision entry, venue request, safety-control change, or historical attribution
 rewrite.
 
+### Replacement candidate exact-target revalidation — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** verified and squash-merged reviewed PR #42, then revalidated exactly
+one replacement ticker using public Kalshi Demo identity/status/book data and
+the unchanged repository eligibility rule.
+**Validation:** exact identity, active status, `0.0500` / `0.0700` YES book,
+4/3 levels, `14422.83` at best ask, and `0.0700 <= 0.60` observed at
+2026-09-10T21:12:51.758789Z; evidence JSON and documentation diffs checked.
+**Outcome:** `KXUCLSPREAD-26SEP10BMUBOG-BMU5` remained `picker-eligible` in the
+fresh snapshot. No position, duplicate, risk, or execution check followed.
+**Evidence:** `docs/PROJECT_JOURNAL.md` and
+`docs/evidence/kalshi-demo/execution/candidate-revalidation-2026-09-10T211251Z.json`.
+**Quality note:** OBSERVED public data only; no credentials, authenticated call,
+order, cancel, production action, or historical attribution rewrite.
+
+### Replacement candidate execution blocked before authentication — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** performed the required final public exact-target eligibility check
+before an authorized one-contract Kalshi Demo execution attempt.
+**Validation:** at 2026-09-10T21:18:50.784404Z, exact identity matched but the
+market was `finalized`; the YES book had no bid or ask and 0/0 levels.
+**Outcome:** failed closed before the bounded execution command. No credential,
+authenticated position, duplicate, risk, create, cancel, reconciliation,
+replacement-market, production, or real-money action occurred.
+**Evidence:** `docs/PROJECT_JOURNAL.md` and
+`docs/evidence/kalshi-demo/execution/execution-blocked-target-finalized-2026-09-10T211850Z.json`.
+**Quality note:** OBSERVED public data only; the earlier eligible observation
+remains historical evidence and was not rewritten.
+
+### Fresh paginated Demo scan with no eligible replacement — 2026-09-10
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** ran the existing 10-page public Kalshi Demo diagnostic with the
+unchanged `0.60` cap and two-level-per-side rule, preserving all prior evidence.
+**Validation:** 1,000 markets inspected; zero picker-eligible; six structurally
+tradeable-shaped markets above the cap, with cheapest best ask `0.9800`.
+**Outcome:** no candidate selected and no exact-target revalidation followed.
+**Evidence:** `docs/PROJECT_JOURNAL.md` and
+`docs/evidence/kalshi-demo/execution/candidate-scan-2026-09-10T213814Z.json`.
+**Quality note:** OBSERVED public data only; no authentication, account call,
+order, cancel, production access, cap/rule change, or historical rewrite.
+
 ### Deterministic synthetic paper-arbitrage lifecycle — 2026-09-10
 
 **Implementer:** Codex
@@ -568,3 +618,12 @@ incompatibility; no code changes. ChatGPT review pending.
 base PR #56, `ae48dc86ea9df77151e4f1d493a110a13156b07f`.
 **Safety:** all historical attribution and five Demo changes preserved; no books,
 authenticated venue calls, registry/strategy/execution, orders or real money.
+### Closure audit — 2026-09-12
+
+Agent: Codex
+Model: GPT-6
+Reviewer: ChatGPT
+
+Consolidated the local research path and validated the final ten-observation CPI
+study: 100 relationship-observations, zero raw or cost-surviving signals.
+Quality gates passed; no execution or production behavior changed.
