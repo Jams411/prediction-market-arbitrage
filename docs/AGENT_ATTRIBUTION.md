@@ -548,3 +548,23 @@ base PR #55, `164032a8983b78247d124f5907cc3eb772166125`.
 **Safety:** prior attribution and five Demo changes preserved; no books, prices
 used, authenticated venue calls, accounts, registry, strategy/execution, orders,
 production execution or real money.
+
+### NFL Arizona–Chargers full-game spread audit and strategic checkpoint — 2026-09-12
+
+**Implementer:** Codex
+**Model:** unknown
+**Reviewer:** ChatGPT
+**Scope:** one active NFL full-game spread target; docs/evidence only.
+**Validation:** parsed evidence; reconciled exact game/line/sides, boundary payoff
+sums, 29 matrix classifications and source references; ordinary combo check;
+`git diff --check`. No redundant full production suite.
+**Outcome:** REJECTED, LIKELY_FAMILY_WIDE concern. Ordinary Arizona -10.5 mapping
+proven, exceptional spread-rule divergence prevents guaranteed complementarity.
+Checkpoint PAUSE_AND_REASSESS_CROSS_VENUE_STRATEGY; one comparative research
+milestone recommended, no additional audit or exclusion implemented.
+**Rework/defects:** 55-minute alignment retained UNKNOWN rather than assuming
+incompatibility; no code changes. ChatGPT review pending.
+**Evidence:** `docs/evidence/contract-discovery/nfl-spread-ari-lac-equivalence-2026-09-12T073031Z.json`;
+base PR #56, `ae48dc86ea9df77151e4f1d493a110a13156b07f`.
+**Safety:** all historical attribution and five Demo changes preserved; no books,
+authenticated venue calls, registry/strategy/execution, orders or real money.
