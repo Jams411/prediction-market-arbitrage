@@ -488,3 +488,21 @@ no production failure found by focused or full tests. ChatGPT review pending.
 **Quality note:** historical Claude/Codex attribution and five unrelated Demo
 changes preserved. Public metadata only; no books, authentication, registry,
 strategy, execution, order, or real-money action.
+
+### COL-DET MLB full-game total equivalence audit — 2026-09-12
+
+**Implementer:** Codex
+**Model:** unknown
+**Reviewer:** ChatGPT
+**Scope:** one exact 7.5-run total pair, public metadata and primary rules only.
+**Validation:** JSON/Decimal line and parent-child/side reconciliation, complete
+30-field matrix and source-reference validation, `git diff --check`.
+**Outcome:** `REJECTED`; 48-hour versus two-week continuation and LFMP differences
+prevent strict all-state complementarity. `LIKELY_FAMILY_WIDE` is a research
+assessment only; no family exclusion or registry write.
+**Rework/defects:** target end-date/subtitle inconsistencies retained as unknowns;
+no code changed. ChatGPT review pending.
+**Evidence:** `docs/evidence/contract-discovery/mlb-total-col-det-equivalence-2026-09-12T015518Z.json`;
+PROJECT_JOURNAL; prerequisite PR #53, `dfb7d3e7d1dafe91847180b64c691da2149b3728`.
+**Safety:** historical attribution and five Demo changes preserved. No books,
+authentication, account access, strategy/execution, orders or real-money action.
