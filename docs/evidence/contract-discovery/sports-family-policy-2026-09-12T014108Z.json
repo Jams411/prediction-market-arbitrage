@@ -1,0 +1,284 @@
+{
+  "agent": "Codex",
+  "base_main_sha": "159ce26f2231d50e65fe48f7921b53960e16e520",
+  "candidate_rows_retained": 20,
+  "command": ".venv/bin/python scripts/observe_sports_family_policy.py",
+  "diagnostics": {
+    "comparisons_considered": 3000,
+    "count_semantics": "considered is the full enriched-profile cross-product; family exclusions + lexical_evaluated = considered; passed + rejected = lexical_evaluated; only passed pairs receive full semantic evaluation in diagnostic mode",
+    "counts_reconcile": true,
+    "family_incompatible_excluded": 36,
+    "family_policy": {
+      "entries": [
+        {
+          "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+          "effective_evidence_date": "2026-09-11",
+          "evidence_reference": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json",
+          "evidence_version": 1,
+          "kalshi_series": "KXNFLGAME",
+          "market_type": "moneyline",
+          "policy_id": "sports-family-equivalence-v1",
+          "polymarket_league": "nfl",
+          "reason_summary": "Materially different postponement/rescheduling, expiration windows, fallback-source hierarchies, and fair-market settlement behavior.",
+          "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+          "sports_market_type": "football_team_full_game_winner",
+          "sports_market_type_v2": "SPORTS_MARKET_TYPE_MONEYLINE"
+        },
+        {
+          "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+          "effective_evidence_date": "2026-09-11",
+          "evidence_reference": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json",
+          "evidence_version": 1,
+          "kalshi_series": "KXMLBGAME",
+          "market_type": "moneyline",
+          "policy_id": "sports-family-equivalence-v1",
+          "polymarket_league": "mlb",
+          "reason_summary": "Materially different postponement/rescheduling, expiration windows, fallback-source hierarchies, and fair-market settlement behavior.",
+          "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+          "sports_market_type": "baseball_team_full_game_winner",
+          "sports_market_type_v2": "SPORTS_MARKET_TYPE_MONEYLINE"
+        }
+      ],
+      "mlb_exclusions": 18,
+      "nfl_exclusions": 18,
+      "total_exclusions": 36
+    },
+    "lexical_evaluated": 2964,
+    "passed_threshold": 1524,
+    "prefilter": "sports-family-equivalence-v1",
+    "rejected_below_threshold": 1440,
+    "semantically_evaluated": 1524,
+    "status": "UNVERIFIED",
+    "threshold": "0.20",
+    "warning": "UNVERIFIED \u2014 diagnostic only; human/primary-source verification required"
+  },
+  "enrichment": {
+    "kalshi": {
+      "ambiguous_parent_metadata": 0,
+      "combo_markets_filtered": 0,
+      "combo_metadata_unknown": 0,
+      "markets_input": 50,
+      "missing_parent_metadata": 0,
+      "ordinary_markets_retained": 50,
+      "parent_cache_reuses": 40,
+      "parent_event_records_fetched": 10,
+      "parent_events_used": 10,
+      "profiles_output": 50
+    },
+    "polymarket_us": {
+      "ambiguous_parent_metadata": 0,
+      "combo_markets_filtered": 0,
+      "combo_metadata_unknown": 0,
+      "markets_input": 60,
+      "missing_parent_metadata": 0,
+      "ordinary_markets_retained": 60,
+      "parent_cache_reuses": 54,
+      "parent_event_records_fetched": 6,
+      "parent_events_used": 6,
+      "profiles_output": 60
+    }
+  },
+  "events_inspected": {
+    "kalshi": 10,
+    "polymarket_us": 6
+  },
+  "evidence_status": "OBSERVED",
+  "kalshi_sample_statuses": {
+    "active": 28,
+    "determined": 2,
+    "finalized": 20
+  },
+  "known_moneyline_pairings_surfaced": false,
+  "limitations": [
+    "Fixed-event metadata sample includes active, determined and finalized contracts; not an active-only universe scan.",
+    "Spreads/totals controls include partial-game Polymarket markets; their retention does not establish period or threshold equivalence.",
+    "Exclusion counts are family cross-product comparisons, not distinct games or verified pairs.",
+    "No live confirmed combo fetched; combo exclusion remains covered by preserved deterministic tests."
+  ],
+  "model": "unknown",
+  "nested_markets_inspected": {
+    "kalshi": 77,
+    "polymarket_us": 3896
+  },
+  "next_research_recommendation": {
+    "audit_started": false,
+    "basis": "Same COL-DET game appears among ranked remaining candidates, including Kalshi -8 versus Polymarket 7pt5 and Kalshi -10 versus Polymarket 9pt5. These identifiers only nominate primary-source research; threshold, outcome orientation, period, and all settlement states remain unverified.",
+    "family": "Kalshi KXMLBTOTAL versus Polymarket US MLB full-game totals"
+  },
+  "observed_at": "2026-09-12T01:41:08.067684+00:00",
+  "ordinary_moneylines_retained_after_combo": {
+    "mlb": 3,
+    "nfl": 3
+  },
+  "policy_id": "sports-family-equivalence-v1",
+  "polymarket_sample_closed": {
+    "False": 41,
+    "True": 19
+  },
+  "positive_exclusion_samples": {
+    "mlb": [
+      {
+        "kalshi": "KXMLBGAME-26SEP111840COLDET-COL",
+        "polymarket_us": "aec-mlb-col-det-2026-09-11"
+      },
+      {
+        "kalshi": "KXMLBGAME-26SEP111840COLDET-COL",
+        "polymarket_us": "aec-mlb-laa-wsh-2026-09-11"
+      }
+    ],
+    "nfl": [
+      {
+        "kalshi": "KXNFLGAME-26SEP13ARILAC-ARI",
+        "polymarket_us": "aec-nfl-ari-lac-2026-09-13"
+      },
+      {
+        "kalshi": "KXNFLGAME-26SEP13ARILAC-ARI",
+        "polymarket_us": "aec-nfl-atl-pit-2026-09-13"
+      }
+    ]
+  },
+  "prior_family_evidence": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json",
+  "remaining_candidate_samples": [
+    {
+      "kalshi": "KXMLBSPREAD-26SEP111840COLDET-COL2",
+      "kalshi_series": "KXMLBSPREAD",
+      "polymarket_family": "spreads",
+      "polymarket_us": "asc-mlb-col-det-2026-09-11-neg-1pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBSPREAD-26SEP111840COLDET-DET2",
+      "kalshi_series": "KXMLBSPREAD",
+      "polymarket_family": "spreads",
+      "polymarket_us": "asc-mlb-col-det-2026-09-11-neg-1pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBTOTAL-26SEP111840COLDET-10",
+      "kalshi_series": "KXMLBTOTAL",
+      "polymarket_family": "totals",
+      "polymarket_us": "tsc-mlb-col-det-2026-09-11-9pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBTOTAL-26SEP111840COLDET-8",
+      "kalshi_series": "KXMLBTOTAL",
+      "polymarket_family": "totals",
+      "polymarket_us": "tsc-mlb-col-det-2026-09-11-7pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXNFLSPREAD-26SEP13ARILAC-ARI11",
+      "kalshi_series": "KXNFLSPREAD",
+      "polymarket_family": "spreads",
+      "polymarket_us": "asc-nfl-ari-lac-2026-09-13-1h-neg-10pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBSPREAD-26SEP111840COLDET-DET6",
+      "kalshi_series": "KXMLBSPREAD",
+      "polymarket_family": "spreads",
+      "polymarket_us": "asc-mlb-col-det-2026-09-11-neg-1pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBTOTAL-26SEP111840COLDET-6",
+      "kalshi_series": "KXMLBTOTAL",
+      "polymarket_family": "totals",
+      "polymarket_us": "tsc-mlb-col-det-2026-09-11-7pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBTOTAL-26SEP111840COLDET-6",
+      "kalshi_series": "KXMLBTOTAL",
+      "polymarket_family": "totals",
+      "polymarket_us": "tsc-mlb-col-det-2026-09-11-8pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBTOTAL-26SEP111840COLDET-6",
+      "kalshi_series": "KXMLBTOTAL",
+      "polymarket_family": "totals",
+      "polymarket_us": "tsc-mlb-col-det-2026-09-11-9pt5",
+      "status": "UNVERIFIED"
+    },
+    {
+      "kalshi": "KXMLBSPREAD-26SEP111840COLDET-COL2",
+      "kalshi_series": "KXMLBSPREAD",
+      "polymarket_family": "spreads",
+      "polymarket_us": "asc-mlb-col-det-2026-09-11-f5-neg-1pt5",
+      "status": "UNVERIFIED"
+    }
+  ],
+  "reviewer": "ChatGPT",
+  "safety": "16 public metadata GETs only; no books, authentication, credentials, registry writes, strategy, execution, orders, production execution or real money",
+  "sampling": "fixed audited games; <=10 Kalshi children/event; <=3 Polymarket children/marketType/event, <=30/event; no active-status restriction",
+  "sources": [
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLGAME-26SEP13ARILAC?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLGAME-26SEP13ATLPIT?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLGAME-26SEP13BALIND?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBGAME-26SEP111840COLDET?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBGAME-26SEP111845LAAWSH?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBGAME-26SEP111905NYMNYY?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLSPREAD-26SEP13ARILAC?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLTOTAL-26SEP13ARILAC?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBSPREAD-26SEP111840COLDET?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBTOTAL-26SEP111840COLDET?with_nested_markets=true",
+    "https://gateway.polymarket.us/v1/events/slug/nfl-ari-lac-2026-09-13",
+    "https://gateway.polymarket.us/v1/events/slug/nfl-atl-pit-2026-09-13",
+    "https://gateway.polymarket.us/v1/events/slug/nfl-bal-ind-2026-09-13",
+    "https://gateway.polymarket.us/v1/events/slug/mlb-col-det-2026-09-11",
+    "https://gateway.polymarket.us/v1/events/slug/mlb-laa-wsh-2026-09-11",
+    "https://gateway.polymarket.us/v1/events/slug/mlb-nym-nyy-2026-09-11"
+  ],
+  "unaffected_same_game_control_candidates": {
+    "mlb_spreads": [
+      {
+        "kalshi": "KXMLBSPREAD-26SEP111840COLDET-COL2",
+        "polymarket_us": "asc-mlb-col-det-2026-09-11-f5-neg-1pt5"
+      },
+      {
+        "kalshi": "KXMLBSPREAD-26SEP111840COLDET-COL2",
+        "polymarket_us": "asc-mlb-col-det-2026-09-11-f5-pos-1pt5"
+      }
+    ],
+    "mlb_totals": [
+      {
+        "kalshi": "KXMLBTOTAL-26SEP111840COLDET-10",
+        "polymarket_us": "tsc-mlb-col-det-2026-09-11-7pt5"
+      },
+      {
+        "kalshi": "KXMLBTOTAL-26SEP111840COLDET-10",
+        "polymarket_us": "tsc-mlb-col-det-2026-09-11-8pt5"
+      }
+    ],
+    "nfl_spreads": [
+      {
+        "kalshi": "KXNFLSPREAD-26SEP13ARILAC-ARI10",
+        "polymarket_us": "asc-nfl-ari-lac-2026-09-13-1h-neg-10pt5"
+      },
+      {
+        "kalshi": "KXNFLSPREAD-26SEP13ARILAC-ARI10",
+        "polymarket_us": "asc-nfl-ari-lac-2026-09-13-1h-neg-13pt5"
+      }
+    ],
+    "nfl_totals": [
+      {
+        "kalshi": "KXNFLTOTAL-26SEP13ARILAC-26",
+        "polymarket_us": "tsc-nfl-ari-lac-2026-09-13-1h-16pt5"
+      },
+      {
+        "kalshi": "KXNFLTOTAL-26SEP13ARILAC-26",
+        "polymarket_us": "tsc-nfl-ari-lac-2026-09-13-1h-18pt5"
+      }
+    ]
+  },
+  "validation": {
+    "environment_note": "Six localhost WebSocket tests required execution outside sandbox; no test changes.",
+    "focused_tests": "74 passed",
+    "mypy": "146 source files passed",
+    "pre_commit": "all hooks passed",
+    "pytest": "855 passed",
+    "ruff": "passed"
+  }
+}

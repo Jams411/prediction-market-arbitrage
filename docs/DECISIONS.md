@@ -1810,6 +1810,37 @@ execution paths are unchanged.
 `docs/evidence/contract-discovery/polymarket-us-combo-classification-2026-09-11T231501Z.json`;
 pair-discovery regression tests.
 
+### D-038 — Evidence-backed NFL/MLB family exclusions in discovery
+
+**Date:** 2026-09-12
+
+**Context.** PR #51 established systematic incompatibility for strict all-state
+cross-venue complementarity in NFL/MLB full-game winner families. PR #52 restored
+ordinary Polymarket moneylines previously lost to the combo capability flag.
+
+**Decision.** Add two immutable entries in `family_policy.py`, identified by
+`sports-family-equivalence-v1`. Apply them to enriched structured profiles in
+both ordinary discovery paths before pair comparison. Require explicit Kalshi
+parent series and agreeing Polymarket parent league plus all three market-family
+fields; incomplete/conflicting metadata remains eligible. Keep these policy
+inputs separate from the existing semantic fields. Do not change direct manual
+comparison, registry, strategy, execution, combo or parent-join behavior.
+
+**Trade-offs.** Conservative identification leaves extra review work when source
+fields are absent. A tiny explicit two-entry policy is sufficient; no generic
+rules engine. Diagnostics preserve the full cross-product counting boundary,
+add aggregate family exclusions and lexical evaluation counts, and retain the
+existing semantic-after-lexical gate. No excluded-pair matrix is stored.
+
+**Evidence:** PR #51's
+`sports-contract-family-equivalence-audit-2026-09-11T220824Z.json` and
+`docs/evidence/contract-discovery/sports-family-policy-2026-09-12T014108Z.json`.
+The latter observed 18 NFL + 18 MLB exclusions after six ordinary moneylines
+survived combo classification; spreads/totals still surfaced. Closed contracts
+and partial-game controls limit this to discovery-policy evidence.
+
+**Status:** ACTIVE for ordinary discovery only; no registry approval.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

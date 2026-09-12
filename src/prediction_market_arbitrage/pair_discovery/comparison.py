@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from .family_policy import family_exclusion
 from .models import (
     CandidatePair,
     CoarseSignal,
@@ -184,6 +185,8 @@ def discover_candidates(
     poly = tuple(polymarket_us_contracts)
     for kalshi in kalshi_contracts:
         for polymarket_us in poly:
+            if family_exclusion(kalshi, polymarket_us) is not None:
+                continue
             candidate = compare_contracts(kalshi, polymarket_us)
             if candidate.lexical_signal >= minimum_lexical_signal:
                 candidates.append(candidate)
@@ -218,11 +221,16 @@ def diagnose_candidates(
     polymarket = tuple(_prepare(item) for item in polymarket_us_contracts)
     passed = 0
     rejected = 0
+    family_counts = {"nfl": 0, "mlb": 0}
     passed_examples: list[CandidatePair] = []
     near_misses: list[RejectedNearMiss] = []
 
     for left in kalshi:
         for right in polymarket:
+            exclusion = family_exclusion(left.contract, right.contract)
+            if exclusion is not None:
+                family_counts[exclusion.polymarket_league] += 1
+                continue
             signal = _token_signal(left.tokens, right.tokens)
             if signal >= minimum_lexical_signal:
                 passed += 1
@@ -243,9 +251,11 @@ def diagnose_candidates(
                     near_miss_limit,
                 )
 
-    considered = passed + rejected
+    considered = passed + rejected + sum(family_counts.values())
     return DiscoveryDiagnostics(
         considered=considered,
+        nfl_family_excluded=family_counts["nfl"],
+        mlb_family_excluded=family_counts["mlb"],
         passed=passed,
         rejected=rejected,
         threshold=minimum_lexical_signal,

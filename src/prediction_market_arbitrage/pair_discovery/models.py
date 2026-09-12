@@ -26,6 +26,17 @@ class ComboClassification(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class FamilyMetadata:
+    """Structured policy inputs, separate from existing semantic field meanings."""
+
+    kalshi_series: str | None = None
+    polymarket_league: str | None = None
+    market_type: str | None = None
+    sports_market_type: str | None = None
+    sports_market_type_v2: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SemanticContract:
     """Small, auditable semantic profile derived from public market metadata.
 
@@ -57,6 +68,7 @@ class SemanticContract:
     void_refund_fair_market: str | None = None
     settlement_backstop: datetime | None = None
     yes_no_mapping: str | None = None
+    family_metadata: FamilyMetadata = FamilyMetadata()
 
     def __post_init__(self) -> None:
         if self.venue not in {"kalshi", "polymarket_us"}:
@@ -151,14 +163,30 @@ class DiscoveryDiagnostics:
     threshold: Decimal
     passed_candidates: tuple[CandidatePair, ...]
     near_misses: tuple[RejectedNearMiss, ...]
+    nfl_family_excluded: int = 0
+    mlb_family_excluded: int = 0
     status: str = "UNVERIFIED"
     warning: str = "UNVERIFIED — diagnostic only; human/primary-source verification required"
 
+    @property
+    def family_incompatible_excluded(self) -> int:
+        return self.nfl_family_excluded + self.mlb_family_excluded
+
+    @property
+    def lexical_evaluated(self) -> int:
+        return self.passed + self.rejected
+
+    @property
+    def semantically_evaluated(self) -> int:
+        return self.passed
+
     def __post_init__(self) -> None:
+        if self.nfl_family_excluded < 0 or self.mlb_family_excluded < 0:
+            raise ValueError("family exclusion counts must be non-negative")
         if self.considered < 0 or self.passed < 0 or self.rejected < 0:
             raise ValueError("diagnostic counts must be non-negative")
-        if self.passed + self.rejected != self.considered:
-            raise ValueError("passed + rejected must equal considered")
+        if self.lexical_evaluated + self.family_incompatible_excluded != self.considered:
+            raise ValueError("passed + rejected + family exclusions must equal considered")
         if self.status != "UNVERIFIED":
             raise ValueError("discovery diagnostics must remain UNVERIFIED")
 
