@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from pathlib import Path
+from types import FrameType
 from unittest.mock import patch
 
 import pytest
@@ -64,7 +65,7 @@ def test_ordinary_moneyline_reaches_family_policy_after_combo(league: str) -> No
     left, right = _kalshi(kevent), result.profiles[0]
     policy = family_exclusion(left, right)
     assert policy is not None
-    assert policy.policy_id == POLICY_ID == "sports-family-equivalence-v1"
+    assert policy.policy_id == POLICY_ID == "sports-family-equivalence-v2"
     assert policy.classification == "SYSTEMATICALLY_INCOMPATIBLE"
     assert policy.scope == "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE"
     assert Path(policy.evidence_reference).is_file()
@@ -195,3 +196,117 @@ def test_ambiguous_parent_join_retained() -> None:
     result = enrich_polymarket_us_markets([market], [event, other])
     assert result.stats.ambiguous_parent_metadata == 1
     assert family_exclusion(_kalshi(kevent), result.profiles[0]) is None
+
+
+def _total_inputs() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    market, event, kevent = _inputs("mlb")
+    market.update(marketType="totals", sportsMarketType="baseball_team_full_game_total",
+                  sportsMarketTypeV2="SPORTS_MARKET_TYPE_TOTAL")
+    kevent["series_ticker"] = "KXMLBTOTAL"
+    return market, event, kevent
+
+
+def test_v2_total_exclusion_provenance_and_early_filter() -> None:
+    from prediction_market_arbitrage.pair_discovery.family_policy import (
+        EVIDENCE_REFERENCE,
+        FAMILY_EXCLUSIONS,
+        MLB_TOTALS_EVIDENCE_REFERENCE,
+    )
+
+    market, event, kevent = _total_inputs()
+    enriched = enrich_polymarket_us_markets([market], [event])
+    assert enriched.stats.ordinary_markets_retained == 1
+    left, right = _kalshi(kevent), enriched.profiles[0]
+    exclusion = family_exclusion(left, right)
+    assert exclusion is not None
+    assert exclusion.policy_id == "sports-family-equivalence-v2"
+    assert exclusion.classification == "SYSTEMATICALLY_INCOMPATIBLE"
+    assert exclusion.evidence_reference == MLB_TOTALS_EVIDENCE_REFERENCE
+    assert exclusion.effective_evidence_date == "2026-09-12"
+    assert Path(exclusion.evidence_reference).is_file()
+    assert len(FAMILY_EXCLUSIONS) == 3
+    assert all(p.evidence_reference == EVIDENCE_REFERENCE for p in FAMILY_EXCLUSIONS[:2])
+    before = DEFAULT_REGISTRY_PATH.read_bytes()
+    with patch("prediction_market_arbitrage.pair_discovery.comparison.compare_contracts",
+               side_effect=AssertionError("excluded total must not reach comparison")):
+        assert discover_candidates([left], [right]) == ()
+        result = diagnose_candidates([left], [right])
+    assert result.mlb_totals_family_excluded == result.considered == 1
+    assert result.nfl_family_excluded == result.mlb_family_excluded == 0
+    assert result.lexical_evaluated == result.semantically_evaluated == 0
+    assert DEFAULT_REGISTRY_PATH.read_bytes() == before
+
+
+@pytest.mark.parametrize("family", [
+    "baseball_team_first_five_total", "baseball_team_total",
+    "baseball_team_first_inning_total", "baseball_team_full_game_spread",
+    "baseball_player_hits", "baseball_futures", "baseball_team_full_game_winner",
+    "football_team_full_game_total", "football_team_full_game_spread",
+    "football_player_pass_yards", "basketball_team_full_game_total",
+])
+def test_new_total_rule_does_not_exclude_other_families(family: str) -> None:
+    market, event, kevent = _total_inputs()
+    market["sportsMarketType"] = family
+    left, right = _kalshi(kevent), from_polymarket_us_market(market, event)
+    assert family_exclusion(left, right) is None
+    assert discover_candidates([left], [right]) == (compare_contracts(left, right),)
+
+
+@pytest.mark.parametrize("field", ["marketType", "sportsMarketType", "sportsMarketTypeV2"])
+@pytest.mark.parametrize("value", [None, "", "conflicting"])
+def test_total_requires_all_exact_fields(field: str, value: object) -> None:
+    market, event, kevent = _total_inputs()
+    market[field] = value
+    assert family_exclusion(_kalshi(kevent), from_polymarket_us_market(market, event)) is None
+
+
+@pytest.mark.parametrize("league", [None, "nfl", "nba", "politics", "companies", "ipo"])
+def test_total_requires_structured_mlb_parent(league: str | None) -> None:
+    market, event, kevent = _total_inputs()
+    market["question"] = "MLB full-game total Synthetic Alpha versus Beta"
+    event["tags"] = [] if league is None else [{"league": {"name": league, "slug": league}}]
+    assert family_exclusion(_kalshi(kevent), from_polymarket_us_market(market, event)) is None
+
+
+def test_total_requires_authoritative_kalshi_series_and_unambiguous_parent() -> None:
+    market, event, kevent = _total_inputs()
+    kevent.pop("series_ticker")
+    assert family_exclusion(_kalshi(kevent), from_polymarket_us_market(market, event)) is None
+    kevent["series_ticker"] = "KXMLBTOTAL"
+    result = enrich_polymarket_us_markets([market], [event, dict(event, slug="synthetic-other")])
+    assert family_exclusion(_kalshi(kevent), result.profiles[0]) is None
+
+
+def test_v2_all_three_counters_reconcile_and_do_not_invoke_execution() -> None:
+    import sys
+
+    left, right = [], []
+    for index, (market, event, kevent) in enumerate([_inputs("nfl"), _inputs("mlb"),
+                                                   _total_inputs()]):
+        left.append(replace(_kalshi(kevent), identifier=f"synthetic-k-{index}"))
+        right.append(replace(from_polymarket_us_market(market, event),
+                             identifier=f"synthetic-p-{index}"))
+    calls: list[str] = []
+
+    def trace(frame: FrameType, event: str, arg: object) -> None:
+        if event == "call":
+            module = str(frame.f_globals.get("__name__", ""))
+            if module.startswith("prediction_market_arbitrage"):
+                calls.append(module)
+
+    before = DEFAULT_REGISTRY_PATH.read_bytes()
+    old_trace = sys.getprofile()
+    try:
+        sys.setprofile(trace)
+        result = diagnose_candidates(left, right)
+        candidates = discover_candidates(left, right)
+    finally:
+        sys.setprofile(old_trace)
+    assert result.nfl_family_excluded == result.mlb_family_excluded == 1
+    assert result.mlb_totals_family_excluded == 1
+    assert result.considered == 9
+    assert result.family_incompatible_excluded + result.lexical_evaluated == 9
+    assert result.passed + result.rejected == result.lexical_evaluated == 6
+    assert candidates == result.passed_candidates
+    assert all(m.startswith("prediction_market_arbitrage.pair_discovery") for m in calls)
+    assert DEFAULT_REGISTRY_PATH.read_bytes() == before

@@ -1841,6 +1841,30 @@ and partial-game controls limit this to discovery-policy evidence.
 
 **Status:** ACTIVE for ordinary discovery only; no registry approval.
 
+### D-039 — Version the additional MLB full-game totals exclusion
+
+**Date:** 2026-09-12
+
+**Context.** PR #55 established systematic MLB full-game totals incompatibility
+from primary family rules and three representative events. D-038's v1 policy
+contained only NFL/MLB full-game winner relationships.
+
+**Decision.** Use `sports-family-equivalence-v2` for the three-entry policy set.
+Add exactly KXMLBTOTAL versus structured parent-MLB full-game totals. Preserve
+winner evidence references/dates/versions; give totals its separately reviewed
+family artifact and effective date. Keep historical v1 artifacts unchanged.
+A future venue-rule change requires fresh evidence and explicit policy revision.
+
+**Trade-offs.** A global version makes changed policy contents inspectable with
+minimal machinery. Separate MLB-total diagnostics preserve winner counter
+meanings. No generic rules engine or strategy/registry eligibility change.
+
+**Status:** ACTIVE. Extends D-038; no other family exclusion authorized.
+
+**Evidence:** PR #55 family audit and the v2 public observation recorded in
+PROJECT_JOURNAL. Remaining-family research priority is a bounded advisory result,
+not a new exclusion or an equivalence approval.
+
 ## Documentation rule going forward
 
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.

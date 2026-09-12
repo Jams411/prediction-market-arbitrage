@@ -289,6 +289,7 @@ def _diagnostics_json(diagnostics: DiscoveryDiagnostics) -> dict[str, object]:
             "entries": [asdict(entry) for entry in FAMILY_EXCLUSIONS],
             "nfl_exclusions": diagnostics.nfl_family_excluded,
             "mlb_exclusions": diagnostics.mlb_family_excluded,
+            "mlb_total_exclusions": diagnostics.mlb_totals_family_excluded,
             "total_exclusions": diagnostics.family_incompatible_excluded,
         },
         "family_incompatible_excluded": diagnostics.family_incompatible_excluded,

@@ -1,0 +1,1497 @@
+{
+  "agent": "Codex",
+  "all_passed_same_event_exact_research_family_pairs": 249,
+  "all_passed_same_event_pairs": 2630,
+  "base_main_sha": "164032a8983b78247d124f5907cc3eb772166125",
+  "category_caveat": "Categories describe the Polymarket side; all-passed lexical relationships include cross-event/cross-proposition mismatches. Only the research ranking counts known same-event, exact proposition-family relationships.",
+  "checkpoint_reasoning": [
+    "Three active NFL parent-event overlaps remain in each of two exact structured full-game families; not merely many children from one game.",
+    "NFL spreads have shared absolute line magnitudes across all three events; outcome orientation remains unverified.",
+    "Three proven incompatible sports families and high generic exceptional-state risk make broad unbounded family-by-family research unattractive; one bounded falsification audit is still justified.",
+    "Targeted six-game sample cannot establish whole-universe prevalence or absence of non-sports opportunities. No prices, edge, profit or execution viability were assessed."
+  ],
+  "command": ".venv/bin/python scripts/reassess_discovery_families.py",
+  "coverage_limits": "targeted NFL/MLB games only; politics, company/IPO, futures and other sports are UNASSESSED, not shown to be absent; partial-period and cross-family lexical candidates do not prove proposition overlap",
+  "diagnostics": {
+    "comparisons_considered": 18000,
+    "count_semantics": "considered is the full enriched-profile cross-product; family exclusions + lexical_evaluated = considered; passed + rejected = lexical_evaluated; only passed pairs receive full semantic evaluation in diagnostic mode",
+    "counts_reconcile": true,
+    "family_incompatible_excluded": 306,
+    "family_policy": {
+      "entries": [
+        {
+          "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+          "effective_evidence_date": "2026-09-11",
+          "evidence_reference": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json",
+          "evidence_version": 1,
+          "kalshi_series": "KXNFLGAME",
+          "market_type": "moneyline",
+          "policy_id": "sports-family-equivalence-v2",
+          "polymarket_league": "nfl",
+          "reason_summary": "Materially different postponement/rescheduling, expiration windows, fallback-source hierarchies, and fair-market settlement behavior.",
+          "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+          "sports_market_type": "football_team_full_game_winner",
+          "sports_market_type_v2": "SPORTS_MARKET_TYPE_MONEYLINE"
+        },
+        {
+          "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+          "effective_evidence_date": "2026-09-11",
+          "evidence_reference": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json",
+          "evidence_version": 1,
+          "kalshi_series": "KXMLBGAME",
+          "market_type": "moneyline",
+          "policy_id": "sports-family-equivalence-v2",
+          "polymarket_league": "mlb",
+          "reason_summary": "Materially different postponement/rescheduling, expiration windows, fallback-source hierarchies, and fair-market settlement behavior.",
+          "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+          "sports_market_type": "baseball_team_full_game_winner",
+          "sports_market_type_v2": "SPORTS_MARKET_TYPE_MONEYLINE"
+        },
+        {
+          "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+          "effective_evidence_date": "2026-09-12",
+          "evidence_reference": "docs/evidence/contract-discovery/mlb-full-game-totals-family-audit-2026-09-12T020603Z.json",
+          "evidence_version": 1,
+          "kalshi_series": "KXMLBTOTAL",
+          "market_type": "totals",
+          "policy_id": "sports-family-equivalence-v2",
+          "polymarket_league": "mlb",
+          "reason_summary": "Materially different resumption windows, fair-market reference timing, pre-first-pitch forfeit treatment, and nominal expiration horizons.",
+          "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+          "sports_market_type": "baseball_team_full_game_total",
+          "sports_market_type_v2": "SPORTS_MARKET_TYPE_TOTAL"
+        }
+      ],
+      "mlb_exclusions": 18,
+      "mlb_total_exclusions": 270,
+      "nfl_exclusions": 18,
+      "total_exclusions": 306
+    },
+    "lexical_evaluated": 17694,
+    "passed_threshold": 7130,
+    "prefilter": "sports-family-equivalence-v2",
+    "rejected_below_threshold": 10564,
+    "semantically_evaluated": 7130,
+    "status": "UNVERIFIED",
+    "threshold": "0.20",
+    "warning": "UNVERIFIED \u2014 diagnostic only; human/primary-source verification required"
+  },
+  "enrichment": {
+    "kalshi": {
+      "ambiguous_parent_metadata": 0,
+      "combo_markets_filtered": 0,
+      "combo_metadata_unknown": 0,
+      "markets_input": 125,
+      "missing_parent_metadata": 0,
+      "ordinary_markets_retained": 125,
+      "parent_cache_reuses": 107,
+      "parent_event_records_fetched": 18,
+      "parent_events_used": 18,
+      "profiles_output": 125
+    },
+    "polymarket_us": {
+      "ambiguous_parent_metadata": 0,
+      "combo_markets_filtered": 0,
+      "combo_metadata_unknown": 0,
+      "markets_input": 144,
+      "missing_parent_metadata": 0,
+      "ordinary_markets_retained": 144,
+      "parent_cache_reuses": 138,
+      "parent_event_records_fetched": 6,
+      "parent_events_used": 6,
+      "profiles_output": 144
+    }
+  },
+  "model": "unknown",
+  "no_registry_or_execution_changes": true,
+  "observed_at": "2026-09-12T03:15:24.035165+00:00",
+  "ordinary_polymarket_families_retained_after_combo": {
+    "baseball_game_extra_innings": 3,
+    "baseball_player_earned_runs_allowed": 3,
+    "baseball_player_hits": 3,
+    "baseball_player_hits_allowed": 3,
+    "baseball_player_hits_runs_rbis": 3,
+    "baseball_player_home_runs": 3,
+    "baseball_player_outs": 3,
+    "baseball_player_rbis": 3,
+    "baseball_player_strikeouts": 3,
+    "baseball_player_total_bases": 3,
+    "baseball_player_walks_allowed": 3,
+    "baseball_team_first_five_spread": 3,
+    "baseball_team_first_five_total": 3,
+    "baseball_team_first_five_winner": 3,
+    "baseball_team_first_inning_run": 3,
+    "baseball_team_full_game_spread": 9,
+    "baseball_team_full_game_total": 9,
+    "baseball_team_full_game_winner": 3,
+    "baseball_team_inning1_winner": 3,
+    "baseball_team_inning2_winner": 3,
+    "football_game_both_teams_score_touchdown": 3,
+    "football_game_double_result": 3,
+    "football_game_exact_margin": 3,
+    "football_game_first_half_both_teams_score_points": 3,
+    "football_game_first_half_both_teams_score_touchdown": 3,
+    "football_game_first_half_total": 3,
+    "football_game_first_quarter_both_teams_score_points": 3,
+    "football_game_first_quarter_both_teams_score_touchdown": 3,
+    "football_game_first_quarter_total": 3,
+    "football_game_first_score": 3,
+    "football_game_first_touchdown": 3,
+    "football_game_fourth_quarter_both_teams_score_points": 3,
+    "football_game_fourth_quarter_both_teams_score_touchdown": 3,
+    "football_game_fourth_quarter_total": 3,
+    "football_team_full_game_spread": 9,
+    "football_team_full_game_total": 9,
+    "football_team_full_game_winner": 3,
+    "football_team_points_full_game_total": 9
+  },
+  "policy_entries": [
+    {
+      "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+      "effective_evidence_date": "2026-09-11",
+      "evidence_reference": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json",
+      "evidence_version": 1,
+      "kalshi_series": "KXNFLGAME",
+      "market_type": "moneyline",
+      "policy_id": "sports-family-equivalence-v2",
+      "polymarket_league": "nfl",
+      "reason_summary": "Materially different postponement/rescheduling, expiration windows, fallback-source hierarchies, and fair-market settlement behavior.",
+      "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+      "sports_market_type": "football_team_full_game_winner",
+      "sports_market_type_v2": "SPORTS_MARKET_TYPE_MONEYLINE"
+    },
+    {
+      "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+      "effective_evidence_date": "2026-09-11",
+      "evidence_reference": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json",
+      "evidence_version": 1,
+      "kalshi_series": "KXMLBGAME",
+      "market_type": "moneyline",
+      "policy_id": "sports-family-equivalence-v2",
+      "polymarket_league": "mlb",
+      "reason_summary": "Materially different postponement/rescheduling, expiration windows, fallback-source hierarchies, and fair-market settlement behavior.",
+      "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+      "sports_market_type": "baseball_team_full_game_winner",
+      "sports_market_type_v2": "SPORTS_MARKET_TYPE_MONEYLINE"
+    },
+    {
+      "classification": "SYSTEMATICALLY_INCOMPATIBLE",
+      "effective_evidence_date": "2026-09-12",
+      "evidence_reference": "docs/evidence/contract-discovery/mlb-full-game-totals-family-audit-2026-09-12T020603Z.json",
+      "evidence_version": 1,
+      "kalshi_series": "KXMLBTOTAL",
+      "market_type": "totals",
+      "policy_id": "sports-family-equivalence-v2",
+      "polymarket_league": "mlb",
+      "reason_summary": "Materially different resumption windows, fair-market reference timing, pre-first-pitch forfeit treatment, and nominal expiration horizons.",
+      "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+      "sports_market_type": "baseball_team_full_game_total",
+      "sports_market_type_v2": "SPORTS_MARKET_TYPE_TOTAL"
+    }
+  ],
+  "policy_id": "sports-family-equivalence-v2",
+  "policy_versioning": "v2 adds only MLB full-game totals. Winner exclusions keep their original evidence reference, effective date and evidence version. Historical v1 artifacts remain unchanged.",
+  "recommended_next_milestone": "One bounded primary-source NFL full-game spread equivalence audit: KXNFLSPREAD versus structured Polymarket US NFL football_team_full_game_spread, verifying exact event, line and orientation before settlement semantics. No audit started here.",
+  "remaining_category_aggregation": {
+    "MLB full-game totals against other Kalshi families (not equivalent-family leads)": {
+      "candidate_pairs": 543,
+      "relationship_types": 4,
+      "same_event_pairs": 87
+    },
+    "other sports totals (including partial/team totals)": {
+      "candidate_pairs": 2976,
+      "relationship_types": 35,
+      "same_event_pairs": 653
+    },
+    "other structured sports propositions": {
+      "candidate_pairs": 853,
+      "relationship_types": 62,
+      "same_event_pairs": 767
+    },
+    "player props": {
+      "candidate_pairs": 471,
+      "relationship_types": 41,
+      "same_event_pairs": 433
+    },
+    "sports spreads": {
+      "candidate_pairs": 1944,
+      "relationship_types": 18,
+      "same_event_pairs": 434
+    },
+    "winner or partial-period outcome against other families": {
+      "candidate_pairs": 343,
+      "relationship_types": 25,
+      "same_event_pairs": 256
+    }
+  },
+  "remaining_relationships": [
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_game_extra_innings",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_earned_runs_allowed",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_hits",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_hits_allowed",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_hits_runs_rbis",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_home_runs",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_outs",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_rbis",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_strikeouts",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_total_bases",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_player_walks_allowed",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_first_five_spread",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_first_five_total",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_first_five_winner",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_first_inning_run",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 18,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_full_game_spread",
+      "same_event_pairs": 18
+    },
+    {
+      "candidate_pairs": 18,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_full_game_total",
+      "same_event_pairs": 18
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_inning1_winner",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBGAME <-> mlb/baseball_team_inning2_winner",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_both_teams_score_touchdown",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_double_result",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_exact_margin",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_half_both_teams_score_points",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_half_both_teams_score_touchdown",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_half_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_quarter_both_teams_score_points",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_quarter_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_score",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_first_touchdown",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_fourth_quarter_both_teams_score_points",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_fourth_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_game_fourth_quarter_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_team_full_game_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_team_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_team_full_game_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBGAME <-> nfl/football_team_points_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 23,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_game_extra_innings",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 23,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_earned_runs_allowed",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 16,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_hits",
+      "same_event_pairs": 16
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_hits_allowed",
+      "same_event_pairs": 10
+    },
+    {
+      "candidate_pairs": 23,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_hits_runs_rbis",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 23,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_home_runs",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 7,
+      "distinct_event_overlaps": 2,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_outs",
+      "same_event_pairs": 7
+    },
+    {
+      "candidate_pairs": 16,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_rbis",
+      "same_event_pairs": 16
+    },
+    {
+      "candidate_pairs": 16,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_strikeouts",
+      "same_event_pairs": 16
+    },
+    {
+      "candidate_pairs": 11,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_total_bases",
+      "same_event_pairs": 11
+    },
+    {
+      "candidate_pairs": 11,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_player_walks_allowed",
+      "same_event_pairs": 11
+    },
+    {
+      "candidate_pairs": 69,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_first_five_spread",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 69,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_first_five_total",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 23,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_first_five_winner",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 15,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_first_inning_run",
+      "same_event_pairs": 15
+    },
+    {
+      "candidate_pairs": 207,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_full_game_spread",
+      "same_event_pairs": 69
+    },
+    {
+      "candidate_pairs": 207,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_full_game_total",
+      "same_event_pairs": 69
+    },
+    {
+      "candidate_pairs": 23,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_full_game_winner",
+      "same_event_pairs": 23
+    },
+    {
+      "candidate_pairs": 15,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_inning1_winner",
+      "same_event_pairs": 15
+    },
+    {
+      "candidate_pairs": 15,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBSPREAD <-> mlb/baseball_team_inning2_winner",
+      "same_event_pairs": 15
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_game_double_result",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_game_exact_margin",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 8,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_game_first_half_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 8,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_game_first_quarter_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_game_first_score",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 8,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_game_fourth_quarter_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 207,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_team_full_game_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 111,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_team_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_team_full_game_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 66,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBSPREAD <-> nfl/football_team_points_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_game_extra_innings",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_earned_runs_allowed",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 20,
+      "distinct_event_overlaps": 2,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_hits",
+      "same_event_pairs": 20
+    },
+    {
+      "candidate_pairs": 13,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_hits_allowed",
+      "same_event_pairs": 13
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_hits_runs_rbis",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_home_runs",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 12,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_outs",
+      "same_event_pairs": 12
+    },
+    {
+      "candidate_pairs": 20,
+      "distinct_event_overlaps": 2,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_rbis",
+      "same_event_pairs": 20
+    },
+    {
+      "candidate_pairs": 21,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_strikeouts",
+      "same_event_pairs": 21
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_total_bases",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 11,
+      "distinct_event_overlaps": 2,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_player_walks_allowed",
+      "same_event_pairs": 11
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_first_five_spread",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_first_five_total",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_first_five_winner",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 21,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_first_inning_run",
+      "same_event_pairs": 21
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_full_game_spread",
+      "same_event_pairs": 90
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_full_game_winner",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 21,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_inning1_winner",
+      "same_event_pairs": 21
+    },
+    {
+      "candidate_pairs": 21,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXMLBTOTAL <-> mlb/baseball_team_inning2_winner",
+      "same_event_pairs": 21
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_both_teams_score_touchdown",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_double_result",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_exact_margin",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_first_half_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_first_quarter_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_first_score",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_first_touchdown",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_game_fourth_quarter_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 105,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_team_full_game_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_team_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_team_full_game_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXMLBTOTAL <-> nfl/football_team_points_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLGAME <-> mlb/baseball_game_extra_innings",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLGAME <-> mlb/baseball_team_first_five_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLGAME <-> mlb/baseball_team_first_inning_run",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLGAME <-> mlb/baseball_team_full_game_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLGAME <-> mlb/baseball_team_full_game_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLGAME <-> mlb/baseball_team_inning1_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 2,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLGAME <-> mlb/baseball_team_inning2_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_both_teams_score_touchdown",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_double_result",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_exact_margin",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_half_both_teams_score_points",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_half_both_teams_score_touchdown",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_half_total",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_quarter_both_teams_score_points",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_quarter_total",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_score",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_first_touchdown",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_fourth_quarter_both_teams_score_points",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_fourth_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 6,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_game_fourth_quarter_total",
+      "same_event_pairs": 6
+    },
+    {
+      "candidate_pairs": 18,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_team_full_game_spread",
+      "same_event_pairs": 18
+    },
+    {
+      "candidate_pairs": 18,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_team_full_game_total",
+      "same_event_pairs": 18
+    },
+    {
+      "candidate_pairs": 18,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLGAME <-> nfl/football_team_points_full_game_total",
+      "same_event_pairs": 18
+    },
+    {
+      "candidate_pairs": 9,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_game_extra_innings",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_earned_runs_allowed",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_hits",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_hits_allowed",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_hits_runs_rbis",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_home_runs",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_rbis",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_strikeouts",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_total_bases",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_player_walks_allowed",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_first_five_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 18,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_first_five_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 31,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_first_five_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_first_inning_run",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_full_game_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 48,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_full_game_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_inning1_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 1,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLSPREAD <-> mlb/baseball_team_inning2_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_both_teams_score_touchdown",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_double_result",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_exact_margin",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_half_both_teams_score_points",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_half_both_teams_score_touchdown",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_half_total",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_quarter_both_teams_score_points",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_quarter_total",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_score",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_first_touchdown",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_fourth_quarter_both_teams_score_points",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_fourth_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_game_fourth_quarter_total",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_team_full_game_spread",
+      "same_event_pairs": 90
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_team_full_game_total",
+      "same_event_pairs": 90
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_team_full_game_winner",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLSPREAD <-> nfl/football_team_points_full_game_total",
+      "same_event_pairs": 90
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_player_strikeouts",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_player_total_bases",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_team_first_five_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_team_first_five_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_team_first_five_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_team_full_game_spread",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_team_full_game_total",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 0,
+      "relationship": "KXNFLTOTAL <-> mlb/baseball_team_full_game_winner",
+      "same_event_pairs": 0
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_both_teams_score_touchdown",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_double_result",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_exact_margin",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_half_both_teams_score_points",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 1,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_half_both_teams_score_touchdown",
+      "same_event_pairs": 10
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_half_total",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_quarter_both_teams_score_points",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 1,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 10
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_quarter_total",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_score",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_first_touchdown",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_fourth_quarter_both_teams_score_points",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 10,
+      "distinct_event_overlaps": 1,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_fourth_quarter_both_teams_score_touchdown",
+      "same_event_pairs": 10
+    },
+    {
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_game_fourth_quarter_total",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_team_full_game_spread",
+      "same_event_pairs": 90
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_team_full_game_total",
+      "same_event_pairs": 90
+    },
+    {
+      "candidate_pairs": 30,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_team_full_game_winner",
+      "same_event_pairs": 30
+    },
+    {
+      "candidate_pairs": 270,
+      "distinct_event_overlaps": 3,
+      "relationship": "KXNFLTOTAL <-> nfl/football_team_points_full_game_total",
+      "same_event_pairs": 90
+    }
+  ],
+  "research_ranking": [
+    {
+      "active_event_overlaps": 3,
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "events": [
+        "nfl-ari-lac-2026-09-13",
+        "nfl-atl-pit-2026-09-13",
+        "nfl-bal-ind-2026-09-13"
+      ],
+      "examples": [
+        {
+          "kalshi": "KXNFLSPREAD-26SEP13ARILAC-ARI11",
+          "kalshi_floor_strike": "10.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "-10.5",
+          "polymarket_us": "asc-nfl-ari-lac-2026-09-13-neg-10pt5"
+        },
+        {
+          "kalshi": "KXNFLSPREAD-26SEP13ATLPIT-ATL11",
+          "kalshi_floor_strike": "10.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "-10.5",
+          "polymarket_us": "asc-nfl-atl-pit-2026-09-13-neg-10pt5"
+        },
+        {
+          "kalshi": "KXNFLSPREAD-26SEP13ATLPIT-ATL14",
+          "kalshi_floor_strike": "13.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "-13.5",
+          "polymarket_us": "asc-nfl-atl-pit-2026-09-13-neg-13pt5"
+        }
+      ],
+      "family": "NFL full-game spreads",
+      "known_rule_risk": "HIGH: related sports families fail exceptional states",
+      "metadata_quality": "explicit parent series, league and full-game type",
+      "research_priority_score": 21,
+      "rule_availability": "generic rules available; family terms not audited",
+      "shared_line_magnitude_events": 3
+    },
+    {
+      "active_event_overlaps": 3,
+      "candidate_pairs": 90,
+      "distinct_event_overlaps": 3,
+      "events": [
+        "nfl-ari-lac-2026-09-13",
+        "nfl-atl-pit-2026-09-13",
+        "nfl-bal-ind-2026-09-13"
+      ],
+      "examples": [
+        {
+          "kalshi": "KXNFLTOTAL-26SEP13ARILAC-29",
+          "kalshi_floor_strike": "28.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "28.5",
+          "polymarket_us": "tsc-nfl-ari-lac-2026-09-13-total-28pt5"
+        },
+        {
+          "kalshi": "KXNFLTOTAL-26SEP13ATLPIT-24",
+          "kalshi_floor_strike": "23.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "23.5",
+          "polymarket_us": "tsc-nfl-atl-pit-2026-09-13-total-23pt5"
+        }
+      ],
+      "family": "NFL full-game totals",
+      "known_rule_risk": "HIGH: related sports families fail exceptional states",
+      "metadata_quality": "explicit parent series, league and full-game type",
+      "research_priority_score": 19,
+      "rule_availability": "generic rules available; family terms not audited",
+      "shared_line_magnitude_events": 2
+    },
+    {
+      "active_event_overlaps": 0,
+      "candidate_pairs": 69,
+      "distinct_event_overlaps": 3,
+      "events": [
+        "mlb-col-det-2026-09-11",
+        "mlb-laa-wsh-2026-09-11",
+        "mlb-nym-nyy-2026-09-11"
+      ],
+      "examples": [
+        {
+          "kalshi": "KXMLBSPREAD-26SEP111840COLDET-COL2",
+          "kalshi_floor_strike": "1.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "-1.5",
+          "polymarket_us": "asc-mlb-col-det-2026-09-11-neg-1pt5"
+        },
+        {
+          "kalshi": "KXMLBSPREAD-26SEP111840COLDET-COL2",
+          "kalshi_floor_strike": "1.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "1.5",
+          "polymarket_us": "asc-mlb-col-det-2026-09-11-pos-1pt5"
+        },
+        {
+          "kalshi": "KXMLBSPREAD-26SEP111840COLDET-COL3",
+          "kalshi_floor_strike": "2.5",
+          "orientation_equivalence": "UNVERIFIED",
+          "polymarket_line": "-2.5",
+          "polymarket_us": "asc-mlb-col-det-2026-09-11-neg-2pt5"
+        }
+      ],
+      "family": "MLB full-game spreads",
+      "known_rule_risk": "HIGH: related sports families fail exceptional states",
+      "metadata_quality": "explicit parent series, league and full-game type",
+      "research_priority_score": 15,
+      "rule_availability": "generic rules available; family terms not audited",
+      "shared_line_magnitude_events": 3
+    }
+  ],
+  "reviewer": "ChatGPT",
+  "safety": "24 public metadata GETs only; no books/prices used, authentication, accounts, registry writes, strategy/arbitrage/execution, orders or real money",
+  "sampling": "six evidenced game overlaps; <=10 Kalshi children/parent; <=24 Polymarket children/event, <=3 per full-game type and <=1 per other type",
+  "score_definition": "3*min(distinct events,3) + 2*min(shared line magnitude events,3) + 2*min(active events,3); research priority only, not profit; metadata/rule availability and known-rule risk reported separately",
+  "sources": [
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLGAME-26SEP13ARILAC?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLSPREAD-26SEP13ARILAC?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLTOTAL-26SEP13ARILAC?with_nested_markets=true",
+    "https://gateway.polymarket.us/v1/events/slug/nfl-ari-lac-2026-09-13",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLGAME-26SEP13ATLPIT?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLSPREAD-26SEP13ATLPIT?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLTOTAL-26SEP13ATLPIT?with_nested_markets=true",
+    "https://gateway.polymarket.us/v1/events/slug/nfl-atl-pit-2026-09-13",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLGAME-26SEP13BALIND?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLSPREAD-26SEP13BALIND?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXNFLTOTAL-26SEP13BALIND?with_nested_markets=true",
+    "https://gateway.polymarket.us/v1/events/slug/nfl-bal-ind-2026-09-13",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBGAME-26SEP111840COLDET?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBSPREAD-26SEP111840COLDET?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBTOTAL-26SEP111840COLDET?with_nested_markets=true",
+    "https://gateway.polymarket.us/v1/events/slug/mlb-col-det-2026-09-11",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBGAME-26SEP111845LAAWSH?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBSPREAD-26SEP111845LAAWSH?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBTOTAL-26SEP111845LAAWSH?with_nested_markets=true",
+    "https://gateway.polymarket.us/v1/events/slug/mlb-laa-wsh-2026-09-11",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBGAME-26SEP111905NYMNYY?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBSPREAD-26SEP111905NYMNYY?with_nested_markets=true",
+    "https://external-api.kalshi.com/trade-api/v2/events/KXMLBTOTAL-26SEP111905NYMNYY?with_nested_markets=true",
+    "https://gateway.polymarket.us/v1/events/slug/mlb-nym-nyy-2026-09-11"
+  ],
+  "strategic_checkpoint": "CONTINUE_TARGETED_FAMILY_RESEARCH",
+  "top_candidates_retained": 20,
+  "unassessed_categories": [
+    "futures/championships",
+    "politics",
+    "company/IPO",
+    "other sports"
+  ],
+  "validation": {
+    "focused_tests": "104 passed",
+    "mypy_src_tests": "147 files passed",
+    "mypy_with_observer": "148 files passed",
+    "pre_commit": "all hooks passed",
+    "pytest": "885 passed",
+    "ruff": "passed"
+  }
+}
