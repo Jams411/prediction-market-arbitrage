@@ -2290,3 +2290,34 @@ no `LIVE_TRADING` change.
   calls, registry writes, strategy/execution, orders, production execution or
   real-money action. Five unrelated Demo changes preserved and excluded from
   this milestone's commit. PR review remains pending.
+
+## 2026-09-12 — COL-DET MLB full-game total equivalence audit
+
+- **Agent:** Codex
+- **Model:** unknown
+- **Reviewer:** ChatGPT
+- **Prerequisite:** reviewed PR #53 squash-merged as
+  `dfb7d3e7d1dafe91847180b64c691da2149b3728`; five unrelated Demo changes preserved.
+- **Target (OBSERVED):** `KXMLBTOTAL-26SEP111840COLDET-8` versus Polymarket US
+  `tsc-mlb-col-det-2026-09-11-7pt5` (market `784676`), both on the identical 7.5
+  combined-run line for Colorado-Detroit scheduled 2026-09-11 22:40 UTC.
+  Both are now closed/settled; retained as a historical semantic specimen.
+- **Result (DERIVED):** `REJECTED`. Normal-score YES/Over and NO/Under mappings
+  align, but independent totals-specific primary sources establish materially
+  different 48-hour versus two-week continuation rules and fair-market
+  reference timing. Pre-first-pitch forfeit handling also differs.
+- **Uncertainty:** exact expiration metadata is inconsistent, Kalshi subtitles
+  duplicate Over on both sides, and fallback/correction/contingency equivalence
+  is not established. These remain explicit unknowns, not matches.
+- **Family assessment:** `LIKELY_FAMILY_WIDE`, based on the separately linked
+  BASEBALLTOTALS rules and Polymarket rules explicitly covering totals. Recommend
+  a separate bounded family audit; no exclusion or registry approval added.
+- **Evidence:** `docs/evidence/contract-discovery/mlb-total-col-det-equivalence-2026-09-12T015518Z.json`.
+  Thirty-field semantic matrix, exact identifiers/line, ordinary payout mapping,
+  rule-derived counterexample, primary source URLs and PDF checksum.
+- **Validation:** JSON parsed; parent/child IDs, Decimal thresholds, side mapping,
+  source references and matrix classifications reconciled; `git diff --check`
+  passed. Documentation/evidence only; no production tests required.
+- **Safety:** public metadata/rules only; no books, authenticated venue calls,
+  accounts, registry writes, arbitrage evaluation, strategy/paper/live execution,
+  orders/cancels, production execution, real money, or control changes.
