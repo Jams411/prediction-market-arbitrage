@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections.abc import Mapping
+from dataclasses import asdict
 from typing import cast
 
 from prediction_market_arbitrage.adapters.kalshi.client import KalshiClient
@@ -27,6 +28,7 @@ from prediction_market_arbitrage.pair_discovery import (
     enrich_kalshi_markets,
     enrich_polymarket_us_markets,
 )
+from prediction_market_arbitrage.pair_discovery.family_policy import FAMILY_EXCLUSIONS, POLICY_ID
 
 _JsonObject = dict[str, object]
 _WARNING = "UNVERIFIED — human/primary-source verification required"
@@ -282,12 +284,26 @@ def _diagnostics_json(diagnostics: DiscoveryDiagnostics) -> dict[str, object]:
         "status": diagnostics.status,
         "warning": diagnostics.warning,
         "threshold": str(diagnostics.threshold),
-        "prefilter": "none; every Kalshi × Polymarket US record is considered",
+        "prefilter": POLICY_ID,
+        "family_policy": {
+            "entries": [asdict(entry) for entry in FAMILY_EXCLUSIONS],
+            "nfl_exclusions": diagnostics.nfl_family_excluded,
+            "mlb_exclusions": diagnostics.mlb_family_excluded,
+            "total_exclusions": diagnostics.family_incompatible_excluded,
+        },
+        "family_incompatible_excluded": diagnostics.family_incompatible_excluded,
+        "lexical_evaluated": diagnostics.lexical_evaluated,
+        "semantically_evaluated": diagnostics.semantically_evaluated,
+        "count_semantics": (
+            "considered is the full enriched-profile cross-product; family exclusions "
+            "+ lexical_evaluated = considered; passed + rejected = lexical_evaluated; "
+            "only passed pairs receive full semantic evaluation in diagnostic mode"
+        ),
         "comparisons_considered": diagnostics.considered,
         "passed_threshold": diagnostics.passed,
         "rejected_below_threshold": diagnostics.rejected,
-        "counts_reconcile": diagnostics.passed + diagnostics.rejected
-        == diagnostics.considered,
+        "counts_reconcile": diagnostics.lexical_evaluated
+        + diagnostics.family_incompatible_excluded == diagnostics.considered,
         "top_below_threshold_near_misses": [
             _near_miss_json(item) for item in diagnostics.near_misses
         ],
