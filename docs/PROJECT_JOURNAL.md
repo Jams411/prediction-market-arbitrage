@@ -1985,6 +1985,72 @@ no `LIVE_TRADING` change.
   credential, authenticated, account, position, balance, fill, order, cancel,
   production, `LIVE_TRADING`, risk-limit, or cross-venue action occurred.
 
+## 2026-09-10 — Replacement candidate exact-target revalidation
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Merge prerequisite:** PR #42 remained open at reviewed head
+  `d83a6eefb758c9fc1c1b3153bef53461126a5d88`, with green GitHub `quality` CI,
+  one reviewed commit, and no GitHub review/comment blocker. It was
+  squash-merged using the established strategy as main commit
+  `c16a0ceebe3d7926f2cf041a7e275c87f79d9520`.
+- **Observation (OBSERVED 2026-09-10T21:12:51.758789Z):** exact ticker identity
+  matched for `KXUCLSPREAD-26SEP10BMUBOG-BMU5` on Kalshi Demo; status `active`,
+  exchange index 0. The normalized YES book had best bid `0.0500`, best ask
+  `0.0700`, 4 bid levels / 3 ask levels, and `14422.83` available at the best
+  ask.
+- **Eligibility:** `picker-eligible`. The best ask remained within the unchanged
+  `--max-price 0.60`, and the two-sided / minimum-2-level depth rules passed.
+  This time-sensitive public observation is not account, risk, fill, or
+  execution-readiness evidence.
+- **Evidence:** fresh timestamped artifact
+  `docs/evidence/kalshi-demo/execution/candidate-revalidation-2026-09-10T211251Z.json`;
+  historical scan and finalized-target artifacts were not overwritten.
+- **Safety:** public Kalshi Demo market data only. No credential, authenticated,
+  account, position, balance, fill, order, cancel, production, `LIVE_TRADING`,
+  risk-check, duplicate-check, or cross-venue action occurred.
+
+## 2026-09-10 — Replacement candidate execution blocked before authentication
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Observation (OBSERVED 2026-09-10T21:18:50.784404Z):** the exact authorized
+  ticker `KXUCLSPREAD-26SEP10BMUBOG-BMU5` still matched its response identity,
+  but its Kalshi Demo status had changed to `finalized`. Its normalized YES book
+  was empty: no best bid or ask, 0 bid levels / 0 ask levels, and no available
+  size at best ask.
+- **Fail-closed result:** ineligible (`book not two-sided; no best ask`). The
+  bounded execution command was not run, so credentials were not loaded and no
+  authenticated position, duplicate, risk, create, cancel, or reconciliation
+  action occurred. No replacement market was selected.
+- **Evidence:** fresh timestamped artifact
+  `docs/evidence/kalshi-demo/execution/execution-blocked-target-finalized-2026-09-10T211850Z.json`.
+  The earlier eligible snapshot remains unchanged as a historical observation.
+- **Safety:** public Kalshi Demo market data only; no production access,
+  `LIVE_TRADING` change, order, fill, or real-money action.
+
+## 2026-09-10 — Fresh paginated Demo scan found no eligible replacement
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Observation (OBSERVED; recorded 2026-09-10T21:38:14.555597Z):** the existing
+  public Kalshi Demo diagnostic inspected 10 pages / 1,000 open markets with
+  unchanged `--max-price 0.60` and minimum two levels per side. Zero markets
+  satisfied the picker rule.
+- **Result:** six markets were structurally tradeable-shaped but above the
+  active cap; their cheapest best ask was `0.9800`. Other observed failures
+  included one-sided/empty books, missing best asks, and insufficient depth.
+  No candidate was selected, so no exact-target follow-up was performed.
+- **Evidence:** fresh timestamped artifact
+  `docs/evidence/kalshi-demo/execution/candidate-scan-2026-09-10T213814Z.json`.
+  Prior scan, revalidation, and finalized-target evidence remains unchanged.
+- **Safety:** public Demo market data only. No credentials, authenticated call,
+  account/position/balance/fill/order/cancel action, production access,
+  `LIVE_TRADING` change, cap increase, liquidity-rule change, or cross-venue work.
+
 ## 2026-09-10 — Deterministic synthetic paper-arbitrage lifecycle
 
 - **Agent:** Codex
@@ -2426,3 +2492,11 @@ no `LIVE_TRADING` change.
 - **Safety:** five Demo changes preserved. No books, venue authentication, account
   data, registry/discovery-policy changes, strategy/orders, production execution,
   real money, risk controls, Demo-cap or LIVE_TRADING changes.
+
+### Closure audit — 2026-09-12
+
+Codex completed the bounded CPI relative-value study: 10 observations and 100
+relationship-observations, with zero raw inconsistencies and zero cost-surviving
+signals. Final classification: WEAK_EDGE_REASSESS; strategy development stopped.
+Canonical evidence: final frequency study, replay snapshot, rule audits, and
+research source/tests. No live use is authorized; modeled costs remain assumptions.

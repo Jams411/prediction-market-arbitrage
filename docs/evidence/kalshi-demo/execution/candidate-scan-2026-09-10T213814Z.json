@@ -1,0 +1,38 @@
+{
+  "evidence_status": "OBSERVED",
+  "recorded_at_utc": "2026-09-10T21:38:14.555597+00:00",
+  "environment": "Kalshi Demo",
+  "mode": "paginated public candidate diagnostic",
+  "command_parameters": {
+    "pages": 10,
+    "market_limit_per_page": 100,
+    "max_price": "0.60",
+    "minimum_levels_per_side": 2
+  },
+  "result": {
+    "pages_inspected": 10,
+    "markets_inspected": 1000,
+    "eligible_candidates": 0,
+    "structurally_tradeable_above_cap": 6,
+    "cheapest_structurally_tradeable_ask": "0.9800",
+    "selected_candidate": null,
+    "exact_target_revalidation_performed": false
+  },
+  "failure_reasons_observed": [
+    "book not two-sided",
+    "no best ask",
+    "depth below 2 levels per side",
+    "best ask above max-price 0.60"
+  ],
+  "decision": "No candidate qualified; max-price and liquidity rules remained unchanged.",
+  "safety": {
+    "credentials_used": false,
+    "authenticated_calls": false,
+    "account_position_balance_fill_calls": false,
+    "orders_submitted": false,
+    "orders_cancelled": false,
+    "production_access": false,
+    "live_trading_enabled": false,
+    "cross_venue_work": false
+  }
+}

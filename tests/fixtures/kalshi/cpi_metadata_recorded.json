@@ -1,0 +1,46 @@
+{
+  "provenance": {
+    "source": "docs/evidence/contract-discovery/kalshi-non-sports-basket-audit-local-2026-09-12.md",
+    "metadata_endpoint": "https://external-api.kalshi.com/trade-api/v2/events?series_ticker=KXCPI&status=open&limit=1&with_nested_markets=true",
+    "rules_source": "https://assets.kalshi.com/contract_terms/CPI.pdf",
+    "evidence_status": "OBSERVED"
+  },
+  "contracts": [
+    {
+      "venue_id": "kalshi",
+      "venue_name": "Kalshi",
+      "market_id": "KXCPI-26SEP-T0.2",
+      "ticker": "KXCPI-26SEP-T0.2",
+      "event_ticker": "KXCPI-26SEP",
+      "title": "CPI in September 2026?",
+      "yes_sub_title": "Above 0.2%",
+      "rules_primary": "The Payout Criterion for this Contract encompasses the Expiration Values that are strictly greater than <percent>.",
+      "underlying": "signed one-month, one-decimal percent change in seasonally adjusted CPI-U",
+      "observation_window": "September 2026",
+      "unit": "percent",
+      "source": "Bureau of Labor Statistics",
+      "threshold": "0.2",
+      "yes_semantics": "X > threshold",
+      "evidence_refs": ["https://assets.kalshi.com/contract_terms/CPI.pdf"],
+      "evidence_status": "OBSERVED"
+    },
+    {
+      "venue_id": "kalshi",
+      "venue_name": "Kalshi",
+      "market_id": "KXCPI-26SEP-T0.3",
+      "ticker": "KXCPI-26SEP-T0.3",
+      "event_ticker": "KXCPI-26SEP",
+      "title": "CPI in September 2026?",
+      "yes_sub_title": "Above 0.3%",
+      "rules_primary": "The Payout Criterion for this Contract encompasses the Expiration Values that are strictly greater than <percent>.",
+      "underlying": "signed one-month, one-decimal percent change in seasonally adjusted CPI-U",
+      "observation_window": "September 2026",
+      "unit": "percent",
+      "source": "Bureau of Labor Statistics",
+      "threshold": "0.3",
+      "yes_semantics": "X > threshold",
+      "evidence_refs": ["https://assets.kalshi.com/contract_terms/CPI.pdf"],
+      "evidence_status": "OBSERVED"
+    }
+  ]
+}
