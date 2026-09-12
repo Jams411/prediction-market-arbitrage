@@ -506,3 +506,23 @@ no code changed. ChatGPT review pending.
 PROJECT_JOURNAL; prerequisite PR #53, `dfb7d3e7d1dafe91847180b64c691da2149b3728`.
 **Safety:** historical attribution and five Demo changes preserved. No books,
 authentication, account access, strategy/execution, orders or real-money action.
+
+### MLB full-game totals family audit — 2026-09-12
+
+**Implementer:** Codex
+**Model:** unknown
+**Reviewer:** ChatGPT
+**Scope:** bounded current primary-source family audit, three MLB games,
+35 Kalshi children, nine Polymarket full-game totals; three exact 7.5-run pairs.
+**Validation:** JSON, sample/threshold/side/identity reconciliation, 30-field
+matrix counts and source references, `git diff --check`.
+**Outcome:** `SYSTEMATICALLY_INCOMPATIBLE` under current family rules; explicit
+forfeit and continuation counterexamples. Recommend a separate narrow discovery
+policy milestone. No exclusion or registry approval implemented.
+**Rework/defects:** integer-line Polymarket equality and exact expiry issues
+remain UNKNOWN; no code changes. ChatGPT review pending.
+**Evidence:** `docs/evidence/contract-discovery/mlb-full-game-totals-family-audit-2026-09-12T020603Z.json`;
+PROJECT_JOURNAL; base PR #54, `0170cd1b66b41b66bf2d97dd2dab95894d939e98`.
+**Safety:** historical attribution and five unrelated Demo changes preserved;
+no books, authenticated venue calls, account data, registry/strategy/execution,
+orders, production execution or real-money action.
