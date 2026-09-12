@@ -1,0 +1,522 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-12T07:30:31.476636+00:00",
+  "agent": "Codex",
+  "model": "unknown",
+  "reviewer": "ChatGPT",
+  "evidence_status": "OBSERVED",
+  "scope": "STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE",
+  "base_main_sha": "ae48dc86ea9df77151e4f1d493a110a13156b07f",
+  "prerequisite": {
+    "pr": 56,
+    "reviewed_head": "8a7b0c96401a833cbfbd5ac7b7bd07408c6e887a",
+    "quality_ci": "SUCCESS",
+    "run_id": 34679693678,
+    "merge_strategy": "squash"
+  },
+  "selection": {
+    "games_audited": 1,
+    "substitution": false,
+    "basis": "First active NFL full-game spread example from PR #56 reassessment; signed orientation checked instead of trusting magnitude overlap.",
+    "prior_evidence": "docs/evidence/contract-discovery/sports-family-policy-v2-reassessment-2026-09-12T031524Z.json",
+    "metadata_requests": 4,
+    "bounds": "One Kalshi parent event, one Polymarket parent event, one series and one exact market. Other child metadata returned by parents not audited."
+  },
+  "event": {
+    "kalshi": "KXNFLSPREAD-26SEP13ARILAC",
+    "kalshi_series": "KXNFLSPREAD",
+    "polymarket_us": "nfl-ari-lac-2026-09-13",
+    "polymarket_event_id": "74909",
+    "polymarket_game_id": 19466,
+    "teams": [
+      "Arizona Cardinals",
+      "Los Angeles Chargers"
+    ],
+    "league": "NFL",
+    "scheduled_date": "2026-09-13",
+    "polymarket_kickoff": "2026-09-13T20:25:00Z",
+    "identity": "Strong team/date/league match; names also resolved by structured Polymarket team safeName Arizona / Los Angeles C. Kalshi does not supply shared provider game ID or explicit kickoff clock."
+  },
+  "contracts": {
+    "kalshi": {
+      "ticker": "KXNFLSPREAD-26SEP13ARILAC-ARI11",
+      "status": "active",
+      "market_type": "binary",
+      "strike_type": "greater",
+      "close_time": "2026-09-15T20:25:00Z",
+      "expiration_time": "2026-09-15T20:25:00Z",
+      "expected_expiration_time": "2026-09-13T23:25:00Z"
+    },
+    "polymarket_us": {
+      "id": "382560",
+      "slug": "asc-nfl-ari-lac-2026-09-13-neg-10pt5",
+      "status": "MARKET_STATUS_OPEN",
+      "marketType": "spreads",
+      "sportsMarketType": "football_team_full_game_spread",
+      "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_SPREAD",
+      "gameStartTime": "2026-09-13T20:25:00Z",
+      "endDate": "2026-09-27T20:25:00Z",
+      "comboEnabled": true,
+      "combo_classification": "ORDINARY_CONTRACT"
+    }
+  },
+  "threshold": {
+    "classification": "COMPARABLE_LINE",
+    "kalshi_floor_strike": "10.5",
+    "polymarket_line": "-10.5",
+    "favored_team": "Arizona Cardinals",
+    "opponent_handicap": "+10.5"
+  },
+  "sides": [
+    {
+      "id": "764634",
+      "long": true,
+      "team_id": 48,
+      "team_name": "Arizona Cardinals",
+      "handicap": "-10.50"
+    },
+    {
+      "id": "764635",
+      "long": false,
+      "team_id": 65,
+      "team_name": "Los Angeles Chargers",
+      "handicap": "+10.50"
+    }
+  ],
+  "payoff_mapping": {
+    "variable": "D = Arizona final points minus Chargers final points, including overtime",
+    "equivalent_positions": "Kalshi YES = Polymarket Arizona -10.5 (long true); Kalshi NO = Chargers +10.5 (long false).",
+    "complementary_positions": [
+      "Kalshi YES + Polymarket Chargers +10.5",
+      "Kalshi NO + Polymarket Arizona -10.5"
+    ],
+    "ordinary_per_unit_payouts": [
+      {
+        "condition": "D >= 11",
+        "kalshi_yes": "1",
+        "kalshi_no": "0",
+        "poly_arizona": "1",
+        "poly_chargers": "0",
+        "each_complementary_sum": "1"
+      },
+      {
+        "condition": "D <= 10",
+        "kalshi_yes": "0",
+        "kalshi_no": "1",
+        "poly_arizona": "0",
+        "poly_chargers": "1",
+        "each_complementary_sum": "1"
+      }
+    ],
+    "boundary": "D=10 fails Arizona; D=11 covers. D=10.5 impossible for integer football scores. No push. Algebra only, no strategy evaluation or prices."
+  },
+  "rule_precedence": {
+    "kalshi": "FOOTBALLSPREAD applies via KXNFLSPREAD series; full-game default, selected greater-than strike.",
+    "polymarket_us": "Exact negative-line description confirms Arizona orientation and overtime; two-day target delay rule takes precedence over generic typical two-week FAQ assumption. Other generic spread rules used only where no target override found.",
+    "metadata_caveats": [
+      "Kalshi yes/no subtitles are duplicated; rules_primary and binary semantics determine orientation.",
+      "Polymarket positive-line sibling descriptions were not used to map the selected negative-line contract.",
+      "comboEnabled=true is not evidence of a combo; selected instrument is ordinary under existing classifier."
+    ]
+  },
+  "sources": {
+    "K_EVENT": {
+      "url": "https://external-api.kalshi.com/trade-api/v2/events/KXNFLSPREAD-26SEP13ARILAC?with_nested_markets=true",
+      "locator": "event.series_ticker, settlement_sources, markets[ticker=...ARI11]"
+    },
+    "K_SERIES": {
+      "url": "https://external-api.kalshi.com/trade-api/v2/series/KXNFLSPREAD",
+      "locator": "series.contract_terms_url; settlement_sources"
+    },
+    "K_TERMS": {
+      "url": "https://assets.kalshi.com/contract_terms/FOOTBALLSPREAD.pdf",
+      "sha256": "1daaea87a853adcb485bdb80fb8bd5c5fa7c831d8e237f7446bc16ea43705f5a",
+      "locator": "pp.1-3: Underlying, Payout Criterion, Game Completion Rules, Venue Change Rules, Special Circumstances, expiration/settlement; page 2 visually checked"
+    },
+    "P_EVENT": {
+      "url": "https://gateway.polymarket.us/v1/events/slug/nfl-ari-lac-2026-09-13",
+      "locator": "event.id, gameId, startDate, tags[].league, teams, selected market"
+    },
+    "P_MARKET": {
+      "url": "https://gateway.polymarket.us/v1/market/slug/asc-nfl-ari-lac-2026-09-13-neg-10pt5",
+      "locator": "market.id, description, line, marketSides, sportsMarketType, gameStartTime, endDate"
+    },
+    "P_FAQ": {
+      "url": "https://docs.polymarket.us/faqs/sports-faqs",
+      "locator": "General Rules: settlement, ties/spreads, postponement, stoppage, cancellation, forfeit, no contest, replay, venue change; no NFL-specific section found"
+    }
+  },
+  "semantic_matrix": [
+    {
+      "field": "underlying_game",
+      "classification": "MATCH",
+      "kalshi": "ARI vs LAC, Sep 13, 2026; NFL source",
+      "polymarket_us": "Arizona Cardinals vs Los Angeles Chargers, same date; NFL league",
+      "assessment": "Team/date/league identity agrees; no cross-venue shared provider game ID.",
+      "sources": [
+        "K_EVENT",
+        "P_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "kickoff_clock_confirmation",
+      "classification": "UNKNOWN",
+      "kalshi": "Rule supplies date only; occurrence_datetime is 23:25Z",
+      "polymarket_us": "gameStartTime 20:25Z",
+      "assessment": "Do not mistake expected end time for kickoff. Strong date/team identity suffices for this one-game audit; exact cross-venue kickoff clock not independently confirmed.",
+      "sources": [
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "period",
+      "classification": "MATCH",
+      "kalshi": "Default entire game",
+      "polymarket_us": "football_team_full_game_spread",
+      "assessment": "No target period override.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "score_differential",
+      "classification": "MATCH",
+      "kalshi": "Team score minus opponent score",
+      "polymarket_us": "Arizona winning margin",
+      "assessment": "Same signed point differential.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "threshold",
+      "classification": "MATCH",
+      "kalshi": "greater than 10.5",
+      "polymarket_us": "Arizona -10.5",
+      "assessment": "Equivalent at integer margins >=11.",
+      "sources": [
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "orientation",
+      "classification": "MATCH",
+      "kalshi": "YES = Arizona covers; NO = otherwise",
+      "polymarket_us": "Long Arizona -10.50; opposing Chargers +10.50",
+      "assessment": "Selected negative-line question, description and side metadata agree.",
+      "sources": [
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "overtime",
+      "classification": "MATCH",
+      "kalshi": "Included",
+      "polymarket_us": "Included explicitly",
+      "assessment": "No regulation-only restriction.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "tie_game",
+      "classification": "MATCH",
+      "kalshi": "Positive-margin YES false at margin zero",
+      "polymarket_us": "Chargers +10.5 covers",
+      "assessment": "No winner-market 0.50 tie rule applied to spreads.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "boundary_push",
+      "classification": "MATCH",
+      "kalshi": "10-point win NO; 11-point win YES",
+      "polymarket_us": "Half-point spread has no tie",
+      "assessment": "No integer margin equals 10.5.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "integer_line_push_payout",
+      "classification": "NOT_APPLICABLE",
+      "kalshi": "Selected strike is half-point",
+      "polymarket_us": "Selected line is half-point",
+      "assessment": "No conclusion about other integer-line contracts.",
+      "sources": [
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "ordinary_outcome_completeness",
+      "classification": "MATCH",
+      "kalshi": "Binary YES/NO",
+      "polymarket_us": "Opposing half-point sides",
+      "assessment": "Both ordinary integer-score states covered exactly once by complementary cross-venue legs.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "official_shortened_game",
+      "classification": "MATCH",
+      "kalshi": "Official final declaration permits actual-score settlement",
+      "polymarket_us": "Official result governs",
+      "assessment": "Conditional match when the league declares the game final; not a claim all stoppages match.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "55_minute_nonfinal_stoppage",
+      "classification": "UNKNOWN",
+      "kalshi": "After 55 minutes, no scheduled resumption: actual score even absent league finality",
+      "polymarket_us": "Official-threshold/result requirement",
+      "assessment": "Kalshi has an independent 55-minute trigger; exact NFL official-threshold alignment with the FAQ was not established. Do not promote an unconfirmed difference to MISMATCH.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "postponement_window",
+      "classification": "UNKNOWN",
+      "kalshi": "Must begin within 48 hours",
+      "polymarket_us": "Target says rescheduled to a date within two days",
+      "assessment": "Nominal durations similar; calendar-date versus elapsed-time cutoff and FAQ reconciliation not resolved. Do not assert two-week target continuation.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "suspension_resumption",
+      "classification": "UNKNOWN",
+      "kalshi": "48-hour rules; elapsed-play/finality exceptions",
+      "polymarket_us": "Target two-day clause; FAQ official-result conditions",
+      "assessment": "Exact interaction of target window and generic completion rules not fully specified.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "cancellation_no_contest",
+      "classification": "UNKNOWN",
+      "kalshi": "Incomplete-game fair-price conditions",
+      "polymarket_us": "Announcement LFMP",
+      "assessment": "Trigger overlap exists; complete common payout procedure not established.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "pre_kickoff_forfeit",
+      "classification": "MISMATCH",
+      "kalshi": "Discretionary last fair price",
+      "polymarket_us": "Official forfeit score",
+      "assessment": "Spread-specific FAQ treatment differs from Kalshi football spread Special Circumstances. No numeric official NFL forfeit score assumed.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "post_kickoff_forfeit",
+      "classification": "MATCH",
+      "kalshi": "Official final determination",
+      "polymarket_us": "Official forfeit score",
+      "assessment": "Both use official result, subject to unresolved source/review details.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "venue_change_same_designations",
+      "classification": "MATCH",
+      "kalshi": "Valid within 48 hours",
+      "polymarket_us": "Location changes valid",
+      "assessment": "Conditional on target timing window and unchanged home/away.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "venue_change_home_away_reversal",
+      "classification": "MISMATCH",
+      "kalshi": "Last fair price",
+      "polymarket_us": "Venue changes leave contracts valid",
+      "assessment": "Generic venue clause has no NFL home/away reversal carve-out; soccer exception is not transferred. Independent counterexample below.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "corrections_protests_replays",
+      "classification": "UNKNOWN",
+      "kalshi": "Post-expiration revisions excluded",
+      "polymarket_us": "Replay timing rule",
+      "assessment": "No complete matching correction/review cutoff proven.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "primary_source",
+      "classification": "MATCH",
+      "kalshi": "Governing league NFL",
+      "polymarket_us": "Governing body NFL",
+      "assessment": "Same nominal primary authority.",
+      "sources": [
+        "K_EVENT",
+        "K_TERMS",
+        "P_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "fallback_source",
+      "classification": "UNKNOWN",
+      "kalshi": "Review/contingency discretion; no hierarchy in these terms",
+      "polymarket_us": "Published fallback hierarchy",
+      "assessment": "Identical fallback decisions not established.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "nominal_close_expiration",
+      "classification": "MISMATCH",
+      "kalshi": "Metadata Sep 15 20:25Z",
+      "polymarket_us": "Metadata Sep 27 20:25Z",
+      "assessment": "Different nominal dates; not used to override explicit two-day target rule.",
+      "sources": [
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "exact_expiration_behavior",
+      "classification": "UNKNOWN",
+      "kalshi": "Terms latest game+15d,10AM ET vs metadata game+2d,16:25ET",
+      "polymarket_us": "endDate and two-day target clause coexist",
+      "assessment": "Runtime expiration precedence not resolved.",
+      "sources": [
+        "K_TERMS",
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "field": "settlement_timing",
+      "classification": "UNKNOWN",
+      "kalshi": "By day after expiry unless review; timer metadata 60s",
+      "polymarket_us": "Review may delay",
+      "assessment": "No identical finalization/correction timeline proven.",
+      "sources": [
+        "K_TERMS",
+        "K_EVENT",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "fair_market_payout",
+      "classification": "UNKNOWN",
+      "kalshi": "Exchange sole discretion",
+      "polymarket_us": "Announcement-based prevailing fair value",
+      "assessment": "No shared valuation or cross-venue equality guarantee; exact Kalshi valuation time unspecified.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "void_refund",
+      "classification": "UNKNOWN",
+      "kalshi": "Fair-price paths, not explicit stake refund",
+      "polymarket_us": "LFMP paths",
+      "assessment": "No common stake-refund rule established; do not infer sportsbook void semantics.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_FAQ"
+      ]
+    },
+    {
+      "field": "all_material_state_complementarity",
+      "classification": "MISMATCH",
+      "kalshi": "Exceptional payout may be fractional",
+      "polymarket_us": "May settle on final score",
+      "assessment": "Ordinary mapping does not guarantee the combined payout under venue reversal or pre-kickoff forfeit.",
+      "sources": [
+        "K_TERMS",
+        "P_FAQ"
+      ]
+    }
+  ],
+  "matrix_counts": {
+    "MATCH": 13,
+    "UNKNOWN": 11,
+    "NOT_APPLICABLE": 1,
+    "MISMATCH": 4
+  },
+  "counterexample": {
+    "state": "Same game relocated with home/away designations reversed; played within 48 hours and Arizona wins by 11 points.",
+    "kalshi": "Venue Change Rules require exchange-determined last fair price q for YES.",
+    "polymarket_us": "Venue-change rule keeps market valid; Arizona -10.5 pays 1 and Chargers +10.5 pays 0.",
+    "supposed_hedge": "Kalshi YES + Polymarket Chargers +10.5 pays q + 0, not guaranteed 1. Reverse combination pays (1-q)+1, not guaranteed 1.",
+    "qualification": "q is a symbolic rule-permitted valuation, not an observed quote or assumed numerical settlement. Counterexample uses football spread terms, not moneyline findings.",
+    "sources": [
+      "K_TERMS",
+      "P_FAQ"
+    ]
+  },
+  "final_classification": "REJECTED",
+  "family_vs_target": {
+    "assessment": "LIKELY_FAMILY_WIDE",
+    "basis": "Venue reversal and pre-kickoff forfeit clauses attach to football spreads/generic spread contracts, not this 10.5 strike. One target audited; not a completed family audit or authority to encode another exclusion."
+  },
+  "strategic_checkpoint": {
+    "classification": "PAUSE_AND_REASSESS_CROSS_VENUE_STRATEGY",
+    "reason": "PR #56 showed three active NFL parent-event overlaps, but this best remaining spread target again fails exceptional-state complementarity. Three already-audited winner/MLB-total families are systematically incompatible. More mechanically sequenced sports audits have diminishing research value; event overlap alone cannot repair venue settlement divergence. No conclusion about profit edge or unexamined non-sports universe.",
+    "next_milestone": "One bounded architecture/research comparison of other venue combinations, same-venue mutually exclusive/exhaustive baskets, related-market consistency, multi-outcome structural arbitrage, and other prediction-market inefficiency approaches; compare evidence requirements and feasibility before choosing an implementation. No implementation or trading in that milestone."
+  },
+  "registry_modified": false,
+  "discovery_policy_modified": false,
+  "safety": {
+    "public_read_only": true,
+    "order_books": false,
+    "venue_authentication": false,
+    "account_data": false,
+    "strategy_or_arbitrage_evaluation": false,
+    "orders": false,
+    "production_execution": false,
+    "real_money": false,
+    "risk_demo_cap_live_trading_changed": false,
+    "incidental_metadata_prices": "Public parent metadata contains quote fields; none used for the audit or retained in this artifact."
+  }
+}

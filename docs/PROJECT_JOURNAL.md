@@ -2393,3 +2393,36 @@ no `LIVE_TRADING` change.
 - **Safety:** metadata only; no books/prices used, authentication, accounts,
   registry writes, arbitrage evaluation, paper/live execution, orders, production
   execution, real money, risk or Demo-cap changes. Five Demo changes preserved.
+
+### NFL Arizona–Chargers full-game spread audit and strategic checkpoint — 2026-09-12
+
+- **Agent:** Codex
+- **Model:** unknown
+- **Reviewer:** ChatGPT
+- **Prerequisite:** PR #56 squash-merged unchanged at reviewed head
+  `8a7b0c96401a833cbfbd5ac7b7bd07408c6e887a`, green CI; main
+  `ae48dc86ea9df77151e4f1d493a110a13156b07f`.
+- **Audit:** one active Sep 13 NFL game. Kalshi
+  `KXNFLSPREAD-26SEP13ARILAC-ARI11` and Polymarket US
+  `asc-nfl-ari-lac-2026-09-13-neg-10pt5` (382560) share Arizona >10.5.
+  YES/Arizona -10.5 agree; YES + Chargers +10.5 is complementary in ordinary
+  states. Ten-point margin fails, eleven covers; no half-point push.
+- **Outcome:** `REJECTED`, `LIKELY_FAMILY_WIDE` concern, not a family audit.
+  Spread-specific home/away-reversal and pre-kickoff-forfeit rules diverge.
+  Matrix: 13 MATCH, 4 MISMATCH, 11 UNKNOWN, 1 NOT_APPLICABLE.
+  Target two-day Polymarket rescheduling clause retained; generic two-week
+  continuation was not asserted. Exact cutoff/expiry/55-minute alignment unknown.
+- **Checkpoint:** `PAUSE_AND_REASSESS_CROSS_VENUE_STRATEGY`. Repeated exceptional
+  settlement divergence reduces the value of mechanically auditing more sports
+  families despite healthy event overlap. This is not a profitability conclusion.
+- **Next milestone:** one bounded architecture/research comparison of other venue
+  combinations, same-venue exhaustive baskets, related-market consistency,
+  multi-outcome structural arbitrage and other inefficiency approaches.
+- **Validation:** evidence JSON parsed; IDs, selected line/sides, 29 matrix rows,
+  source references and ordinary boundary payoff sums reconciled; existing combo
+  classifier returns ORDINARY_CONTRACT. `git diff --check` passed. Docs-only:
+  no redundant production suite.
+- **Evidence:** `docs/evidence/contract-discovery/nfl-spread-ari-lac-equivalence-2026-09-12T073031Z.json`.
+- **Safety:** five Demo changes preserved. No books, venue authentication, account
+  data, registry/discovery-policy changes, strategy/orders, production execution,
+  real money, risk controls, Demo-cap or LIVE_TRADING changes.
