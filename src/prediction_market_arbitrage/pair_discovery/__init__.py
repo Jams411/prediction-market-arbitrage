@@ -6,10 +6,15 @@ make one strategy-eligible.
 """
 
 from .comparison import compare_contracts, diagnose_candidates, discover_candidates
-from .enrichment import enrich_kalshi_markets, enrich_polymarket_us_markets
+from .enrichment import (
+    classify_polymarket_us_combo,
+    enrich_kalshi_markets,
+    enrich_polymarket_us_markets,
+)
 from .models import (
     CandidatePair,
     CoarseSignal,
+    ComboClassification,
     ComparisonClass,
     DiscoveryDiagnostics,
     EnrichmentResult,
@@ -23,6 +28,7 @@ from .profiles import from_kalshi_market, from_polymarket_us_market
 
 __all__ = [
     "CandidatePair",
+    "ComboClassification",
     "CoarseSignal",
     "ComparisonClass",
     "DiscoveryDiagnostics",
@@ -33,6 +39,7 @@ __all__ = [
     "RejectedNearMiss",
     "SemanticContract",
     "compare_contracts",
+    "classify_polymarket_us_combo",
     "diagnose_candidates",
     "discover_candidates",
     "enrich_kalshi_markets",

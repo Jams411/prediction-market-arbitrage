@@ -444,3 +444,25 @@ different fair-market triggers can produce divergent exceptional-state payouts.
 no credential, authentication, order book, account call, registry write,
 strategy/paper/live execution, order/cancel, production execution, real-money
 action, or historical attribution rewrite.
+
+### Polymarket US combo-classification correction — 2026-09-11
+
+**Implementer:** Codex
+**Model:** GPT-5
+**Reviewer:** ChatGPT
+**Scope:** corrected discovery's upstream interpretation of Polymarket US
+`comboEnabled` without changing candidate thresholds, semantic ranking,
+registry, strategy, or execution behavior.
+**Validation:** deterministic tests cover ordinary NFL/MLB moneylines and a
+spread, confirmed structured combos, ambiguous/missing metadata, parent
+enrichment, Kalshi MVE behavior, and registry isolation; full local quality
+gate passed.
+**Outcome:** ordinary base contracts remain discoverable even when combo-capable;
+only valid `caoc-...` 2--10-leg instruments are filtered, while ambiguity is
+retained as `UNKNOWN`.
+**Evidence:** D-037 and
+`docs/evidence/contract-discovery/polymarket-us-combo-classification-2026-09-11T231501Z.json`.
+**Quality note:** public metadata observation plus deterministic tests only; no
+credential, authentication, order book, account call, registry write,
+strategy/paper/live execution, order/cancel, production execution, real-money
+action, or historical attribution rewrite.

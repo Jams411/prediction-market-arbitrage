@@ -2237,3 +2237,25 @@ no `LIVE_TRADING` change.
 - Record only material progress, evidence, blockers, and changes in direction.
 - Do not use this file as a dump of terminal output.
 - Link detailed reasoning to `DECISIONS.md`, assumptions to `ASSUMPTIONS.md`, and validation requirements to `TEST_PLAN.md`.
+
+## 2026-09-11 — Correct Polymarket US combo classification
+
+- **Agent:** Codex
+- **Model:** GPT-5
+- **Reviewer:** ChatGPT
+- **Finding:** `comboEnabled=true` appears on ordinary NFL/MLB moneyline and
+  other base sports contracts; using it as an `is_combo` flag removed valid
+  discovery profiles upstream.
+- **Implementation:** discovery now excludes only structurally confirmed
+  official combo instruments (`caoc-...` plus 2--10 valid legs), retains
+  ordinary combo-capable contracts, and retains ambiguous records as
+  `UNKNOWN`. Diagnostic counts distinguish these cases.
+- **Observation (OBSERVED 2026-09-11T23:19:25Z):** public metadata for NFL
+  moneyline `381963`, MLB moneyline `730630`, and NFL spread `382580` retained
+  all three ordinary contracts and produced three profiles. The authenticated
+  beta Combo API was not called.
+- **Evidence:** D-037 and
+  `docs/evidence/contract-discovery/polymarket-us-combo-classification-2026-09-11T231501Z.json`.
+- **Safety:** public metadata only; no order books, credentials,
+  authentication, account data, registry write, strategy/execution, order,
+  cancel, production, or real-money action.
