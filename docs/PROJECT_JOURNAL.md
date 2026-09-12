@@ -2321,3 +2321,38 @@ no `LIVE_TRADING` change.
 - **Safety:** public metadata/rules only; no books, authenticated venue calls,
   accounts, registry writes, arbitrage evaluation, strategy/paper/live execution,
   orders/cancels, production execution, real money, or control changes.
+
+## 2026-09-12 — MLB full-game totals family equivalence audit
+
+- **Agent:** Codex
+- **Model:** unknown
+- **Reviewer:** ChatGPT
+- **Prerequisite:** reviewed PR #54 squash-merged as
+  `0170cd1b66b41b66bf2d97dd2dab95894d939e98`; local main synchronized and five
+  unrelated Demo changes preserved.
+- **Scope:** KXMLBTOTAL versus parent-MLB, structured Polymarket US full-game
+  totals. Refreshed family terms and exactly COL-DET, LAA-WSH, NYM-NYY; 35 Kalshi
+  children and nine Polymarket full-game total records inspected. Selected one
+  exact 7.5-run pair per game; 8.5/9.5 also overlap. All selected records are
+  now finalized/closed; this is rules evidence, not a liquidity observation.
+- **Result (DERIVED):** `SYSTEMATICALLY_INCOMPATIBLE`. Totals-specific Kalshi
+  family rules and Polymarket generic/MLB/total rules plus repeated target
+  clauses establish material continuation, LFMP and pre-first-pitch forfeit
+  differences. No sampled target override removes the mismatch.
+- **Matrix:** 30 fields: 12 MATCH, 8 MISMATCH, 9 UNKNOWN, 1 NOT_APPLICABLE.
+  Integer-line equality on Polymarket, exact expiration metadata and other
+  unresolved semantics remain UNKNOWN. Half-run samples cannot push.
+- **Counterexample:** official pre-first-pitch 9-0 forfeit at 7.5: Kalshi YES
+  settles to family LFMP q, Polymarket Under to zero; combined payout q is not
+  guaranteed one. Rule-derived, not an observed payout or price.
+- **Consequence:** strict riskless MLB full-game totals arbitrage is not viable
+  under audited current rules. Recommend a separate reviewed exclusion-policy
+  milestone for exactly KXMLBTOTAL versus structured MLB full-game totals.
+  No policy implementation, registry approval or reusable code decision here.
+- **Evidence:** `docs/evidence/contract-discovery/mlb-full-game-totals-family-audit-2026-09-12T020603Z.json`.
+- **Validation:** JSON parsed; sample counts, exact Decimal thresholds and sides,
+  identities, 30 unique matrix classifications/counts and source references
+  reconciled; `git diff --check` passed. Documentation/evidence only.
+- **Safety:** no order books, authenticated venue/account calls, registry writes,
+  policy/code changes, arbitrage evaluation, paper/live execution, orders,
+  production execution, real money, risk or Demo-cap changes.
