@@ -165,12 +165,14 @@ class DiscoveryDiagnostics:
     near_misses: tuple[RejectedNearMiss, ...]
     nfl_family_excluded: int = 0
     mlb_family_excluded: int = 0
+    mlb_totals_family_excluded: int = 0
     status: str = "UNVERIFIED"
     warning: str = "UNVERIFIED — diagnostic only; human/primary-source verification required"
 
     @property
     def family_incompatible_excluded(self) -> int:
-        return self.nfl_family_excluded + self.mlb_family_excluded
+        return (self.nfl_family_excluded + self.mlb_family_excluded
+                + self.mlb_totals_family_excluded)
 
     @property
     def lexical_evaluated(self) -> int:
@@ -181,7 +183,8 @@ class DiscoveryDiagnostics:
         return self.passed
 
     def __post_init__(self) -> None:
-        if self.nfl_family_excluded < 0 or self.mlb_family_excluded < 0:
+        if min(self.nfl_family_excluded, self.mlb_family_excluded,
+               self.mlb_totals_family_excluded) < 0:
             raise ValueError("family exclusion counts must be non-negative")
         if self.considered < 0 or self.passed < 0 or self.rejected < 0:
             raise ValueError("diagnostic counts must be non-negative")

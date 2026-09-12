@@ -1,13 +1,18 @@
-"""Two evidence-backed exclusions for ordinary discovery, not registry decisions."""
+"""Three evidence-backed exclusions for ordinary discovery, not registry decisions."""
 
 from dataclasses import dataclass
 
 from .models import SemanticContract
 
-POLICY_ID = "sports-family-equivalence-v1"
+POLICY_ID = "sports-family-equivalence-v2"
 EVIDENCE_REFERENCE = (
     "docs/evidence/contract-discovery/"
     "sports-contract-family-equivalence-audit-2026-09-11T220824Z.json"
+)
+
+MLB_TOTALS_EVIDENCE_REFERENCE = (
+    "docs/evidence/contract-discovery/"
+    "mlb-full-game-totals-family-audit-2026-09-12T020603Z.json"
 )
 
 
@@ -33,6 +38,17 @@ class FamilyExclusion:
 FAMILY_EXCLUSIONS = (
     FamilyExclusion("KXNFLGAME", "nfl", "football_team_full_game_winner"),
     FamilyExclusion("KXMLBGAME", "mlb", "baseball_team_full_game_winner"),
+    FamilyExclusion(
+        "KXMLBTOTAL", "mlb", "baseball_team_full_game_total",
+        market_type="totals",
+        sports_market_type_v2="SPORTS_MARKET_TYPE_TOTAL",
+        evidence_reference=MLB_TOTALS_EVIDENCE_REFERENCE,
+        effective_evidence_date="2026-09-12",
+        reason_summary=(
+            "Materially different resumption windows, fair-market reference timing, "
+            "pre-first-pitch forfeit treatment, and nominal expiration horizons."
+        ),
+    ),
 )
 
 
