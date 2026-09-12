@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from .models import SemanticContract
+from .models import FamilyMetadata, SemanticContract
 
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 _NUMBER = re.compile(r"(?<![\w.])(-?\d+(?:\.\d+)?)")
@@ -31,6 +31,7 @@ def from_kalshi_market(
 
     return SemanticContract(
         venue="kalshi",
+        family_metadata=FamilyMetadata(kalshi_series=_text(event.get("series_ticker"))),
         identifier=ticker,
         title=title,
         rule_sources=(
@@ -91,6 +92,12 @@ def from_polymarket_us_market(
 
     return SemanticContract(
         venue="polymarket_us",
+        family_metadata=FamilyMetadata(
+            polymarket_league=_policy_league(event, market),
+            market_type=_text(market.get("marketType")),
+            sports_market_type=_text(market.get("sportsMarketType")),
+            sports_market_type_v2=_text(market.get("sportsMarketTypeV2")),
+        ),
         identifier=slug,
         title=title,
         rule_sources=(
@@ -400,3 +407,35 @@ def _kalshi_event_source(event_identifier: str) -> str:
 
 def _polymarket_event_source(event_identifier: str) -> str:
     return f"polymarket_us:event:{event_identifier}"
+
+
+def _policy_league(
+    event: Mapping[str, object], market: Mapping[str, object]
+) -> str | None:
+    """Require unambiguous top-level parent league; never infer from tag text.
+
+    Nested subtags are navigation context (e.g. MLB's Baseball tag also lists
+    KBO), not event membership. Team league values, when supplied, must agree.
+    """
+    leagues: set[str] = set()
+    for tag in _mapping_items(event.get("tags")):
+        league = tag.get("league")
+        if league is None:
+            continue
+        if not isinstance(league, Mapping):
+            return None
+        name = _text(league.get("name"))
+        slug = _text(league.get("slug"))
+        if name is None or slug is None or name.casefold() != slug.casefold():
+            return None
+        leagues.add(slug.casefold())
+    if len(leagues) != 1:
+        return None
+    selected = next(iter(leagues))
+    for side in _mapping_items(market.get("marketSides")):
+        team = side.get("team")
+        if isinstance(team, Mapping) and "league" in team:
+            value = _text(team.get("league"))
+            if value is None or value.casefold() != selected:
+                return None
+    return selected

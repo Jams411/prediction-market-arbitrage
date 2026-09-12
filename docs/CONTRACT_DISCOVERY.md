@@ -41,13 +41,62 @@ To explain the existing lexical gate without changing it:
   --diagnose --near-misses 20
 ```
 
-Diagnostic mode counts the entire bounded cross-product and reconciles passed
-plus rejected rows to the considered total. It retains only the requested top
+Diagnostic mode keeps `comparisons_considered` as the entire bounded enriched
+profile cross-product. The accounting now separates family policy exclusions:
+
+- `family_incompatible_excluded + lexical_evaluated = comparisons_considered`;
+- `passed_threshold + rejected_below_threshold = lexical_evaluated`;
+- `semantically_evaluated = passed_threshold` in diagnostic mode, which already
+  deferred full semantic comparison until after the lexical gate.
+
+Thus excluded rows are neither threshold passes nor threshold rejections. Normal
+discovery also applies the policy before comparison; direct `compare_contracts`
+remains available for explicit review. Diagnostics report the policy entries,
+reason, evidence reference, and NFL/MLB aggregate counts, without excluded rows.
+It retains only the requested top
 candidate and near-miss examples, so a 1,000 × 1,000 run does not store a
 million-row matrix. Each below-threshold example includes the exact lexical
 signal and rejection reason, sorted matching tokens, shared and venue-unique
 tokens, coarse event/participant/category/date/threshold agreement, and missing
 metadata fields. Coarse agreement is diagnostic evidence only.
+
+## Narrow sports-family policy
+
+`sports-family-equivalence-v1` applies after combo filtering and parent
+enrichment, before ordinary pair comparison. It contains exactly two
+`SYSTEMATICALLY_INCOMPATIBLE` relationships under
+`STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE`, based on the PR #51 family audit
+(evidence version 1, effective 2026-09-11):
+
+| Kalshi parent `series_ticker` | Parent Polymarket league | Child `sportsMarketType` |
+| --- | --- | --- |
+| `KXNFLGAME` | `nfl` | `football_team_full_game_winner` |
+| `KXMLBGAME` | `mlb` | `baseball_team_full_game_winner` |
+
+Both require child `marketType=moneyline` and
+`sportsMarketTypeV2=SPORTS_MARKET_TYPE_MONEYLINE`. Parent top-level
+`tags[].league.name` and `.slug` must agree case-insensitively on exactly one
+league. Any supplied `marketSides[].team.league` must agree. Nested navigation
+subtags, titles, slug prefixes, and `series_or_league` heuristics do not identify
+the family. Missing/ambiguous parents or incomplete/conflicting family fields
+retain candidates. The policy inputs are separate from semantic field meanings.
+
+Spreads, totals, props, partial games, futures, championships, awards, other
+sports and non-sports retain their existing discovery behavior. These exclusions
+are internal triage decisions, never registry verification or strategy changes.
+
+Reproduce the fixed-game metadata observation with:
+
+```bash
+.venv/bin/python scripts/observe_sports_family_policy.py
+```
+
+It makes 16 public GETs for six previously audited game pairs and four spread/
+total control events. It bounds selected children and emitted samples, fails if
+either league has zero exclusions, and reports statuses. It intentionally has
+no active-only restriction; historical closed games can exercise metadata
+classification but cannot establish current trading eligibility. Control
+retention establishes discoverability only, not threshold/period equivalence.
 
 ## What the ranking means
 

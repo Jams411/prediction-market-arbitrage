@@ -466,3 +466,25 @@ retained as `UNKNOWN`.
 credential, authentication, order book, account call, registry write,
 strategy/paper/live execution, order/cancel, production execution, real-money
 action, or historical attribution rewrite.
+
+### Narrow sports-family discovery exclusions — 2026-09-12
+
+**Implementer:** Codex
+**Model:** unknown
+**Reviewer:** ChatGPT
+**Scope:** D-038, `sports-family-equivalence-v1`, two conservative structured
+NFL/MLB full-game winner family exclusions in ordinary discovery only.
+**Validation:** 74 focused tests; ruff and mypy (146 source files) passed;
+855 full tests and all pre-commit hooks passed. Localhost WebSocket tests
+required execution outside the sandbox; no test weakening.
+**Outcome:** OBSERVED six ordinary moneylines survive combo classification,
+then 18 NFL + 18 MLB comparisons are excluded. Spread/total controls remain
+candidates; no equivalence/registry approval is implied.
+**Rework/defects:** import ordering/line length corrected during development;
+no production failure found by focused or full tests. ChatGPT review pending.
+**Evidence:** D-038, PROJECT_JOURNAL, and
+`docs/evidence/contract-discovery/sports-family-policy-2026-09-12T014108Z.json`.
+**Supporting base:** PR #52, `159ce26f2231d50e65fe48f7921b53960e16e520`.
+**Quality note:** historical Claude/Codex attribution and five unrelated Demo
+changes preserved. Public metadata only; no books, authentication, registry,
+strategy, execution, order, or real-money action.

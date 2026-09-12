@@ -2259,3 +2259,34 @@ no `LIVE_TRADING` change.
 - **Safety:** public metadata only; no order books, credentials,
   authentication, account data, registry write, strategy/execution, order,
   cancel, production, or real-money action.
+
+## 2026-09-12 — Narrow sports-family discovery exclusions
+
+- **Agent:** Codex
+- **Model:** unknown
+- **Reviewer:** ChatGPT
+- **Prerequisite:** reviewed PR #52 squash-merged at
+  `159ce26f2231d50e65fe48f7921b53960e16e520`; original combo regressions preserved.
+- **Implementation:** D-038, `sports-family-equivalence-v1`, exactly two
+  evidence-backed NFL/MLB full-game moneyline exclusions after enriched profiles
+  and before ordinary comparison; conservative structured identification and
+  reconciled aggregate diagnostics. No semantic field/ranking/threshold change.
+- **Validation:** 74 focused tests; ruff passed; mypy passed (146 source files);
+  855 full tests passed; all pre-commit hooks passed. Six localhost WebSocket
+  tests initially hit sandbox binding restrictions and passed outside it.
+- **Observation (OBSERVED 2026-09-12T01:41:08Z):** 10 Kalshi / 6 Polymarket events,
+  50 / 60 selected profiles, 3 NFL + 3 MLB ordinary moneylines retained after
+  combo classification; 18 NFL + 18 MLB family comparisons excluded. Of 3,000
+  considered, 2,964 reached the lexical gate, 1,524 passed and received semantic
+  comparison, 1,440 were rejected; top 20 candidates retained. Spread/total
+  controls surfaced. Sample includes closed contracts and partial-game controls.
+- **Next research recommendation:** MLB full-game totals (`KXMLBTOTAL`) against
+  structured Polymarket full-game totals, based on real COL-DET overlap among
+  remaining candidates. Period, threshold/orientation and exceptional-state
+  equivalence require primary-source research; that audit was not started.
+- **Evidence:**
+  `docs/evidence/contract-discovery/sports-family-policy-2026-09-12T014108Z.json`.
+- **Safety:** public metadata only; no order books, credentials, authenticated
+  calls, registry writes, strategy/execution, orders, production execution or
+  real-money action. Five unrelated Demo changes preserved and excluded from
+  this milestone's commit. PR review remains pending.
