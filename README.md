@@ -29,6 +29,20 @@ observations across 10 adjacent relationships (100 relationship-observations):
 zero raw inconsistencies and zero signals after modeled costs. The final result
 is WEAK_EDGE_REASSESS, so strategy development is stopped.
 
+## Research findings / lessons learned
+
+Prediction-market arbitrage depends on payoff equivalence, not title similarity
+or a displayed midpoint. Settlement source, timing, thresholds, fallbacks,
+revisions, void rules, fees, depth, and leg risk all affect whether a price
+relationship is actionable. Executable analysis therefore uses the relevant
+bid or ask, available size, freshness, and explicit cost assumptions.
+
+The project also demonstrates a useful research discipline: normalize data at
+the API boundary, validate relationships from authoritative metadata, preserve
+provenance, replay observations deterministically, and fail closed on ambiguous
+inputs. The final CPI study found no raw or cost-surviving inconsistency, which
+was sufficient evidence to stop this strategy line without claiming a profit.
+
 ## Evidence and reproducibility
 
 Canonical rules audits and observation artifacts are under
@@ -52,5 +66,4 @@ project state. No real-money action is performed or enabled by this repository.
 See docs/ROADMAP.md, docs/ARCHITECTURE.md, docs/API_SOURCES.md,
 docs/ASSUMPTIONS.md, docs/DECISIONS.md, docs/RISK_CONTROLS.md,
 docs/TEST_PLAN.md, and docs/PROJECT_JOURNAL.md for implementation detail
-and source status. See [Portfolio and interview learning outcomes](docs/PORTFOLIO_LEARNING_OUTCOMES.md)
-for a concise project explanation, resume-safe bullets, and interview guide.
+and source status.
