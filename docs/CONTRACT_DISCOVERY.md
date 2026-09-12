@@ -16,6 +16,14 @@ Run a one-page observation with:
 Page counts are capped at 10 and page size at 100. Output is compact JSON. Raw
 API responses are not emitted or persisted.
 
+Polymarket US `comboEnabled` is a capability flag on ordinary base contracts;
+it does not mean that the contract is itself a combo. Discovery retains those
+contracts. A confirmed combo is excluded only when it has the official
+`caoc-` instrument identifier and a valid structured list of 2--10 legs.
+Partial or malformed combo structure is reported as `UNKNOWN` and retained for
+conservative review. The CLI separately reports ordinary contracts retained,
+confirmed combos filtered, and unknown combo status.
+
 Kalshi discovery uses `GET /events?with_nested_markets=true`, which supplies one
 authoritative parent record for its child markets and excludes multivariate
 events at the venue boundary. Polymarket US retains the bounded `GET /markets`

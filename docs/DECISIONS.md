@@ -1771,11 +1771,44 @@ how many MVEs its event endpoint excluded. Polymarket US combo completeness and
 several settlement-rule fields remain unknown. All results remain UNVERIFIED and
 cannot enter the registry, strategy, or execution paths.
 
-**Status:** ACTIVE. Public read-only discovery only.
+**Status:** SUPERSEDED IN PART by D-037 for Polymarket US combo
+classification. The parent-event enrichment, Kalshi MVE handling, and all
+other provisions remain active.
 
 **Evidence:** metadata provenance audit; enriched bounded observation
 `docs/evidence/contract-discovery/enriched-observation-2026-09-11T161913Z.json`;
 pair-discovery and client tests.
+
+### D-037 — Classify Polymarket US combos by instrument structure
+
+**Date:** 2026-09-11
+
+**Context.** D-036 treated `comboEnabled=true` as contract identity and removed
+ordinary Polymarket US NFL/MLB moneylines, spreads, totals, and props before
+candidate generation. Public market responses show that flag on ordinary
+single-market instruments. Official Combos API documentation instead defines a
+combo as a separate 2--10-leg instrument with a canonical `caoc-...` symbol.
+
+**Decision.** Treat `comboEnabled` only as base-contract capability metadata.
+Exclude a Polymarket US record from ordinary discovery only when both its
+authoritative identifier starts with `caoc-` and it carries 2--10 structurally
+valid buy/sell legs. A partial identifier/leg signal is `UNKNOWN` and remains in
+conservative discovery rather than being silently dropped. Report ordinary,
+confirmed-combo, and unknown counts separately.
+
+**Trade-offs / consequences.** Ordinary sports contracts again reach semantic
+discovery. False exclusion is avoided when combo metadata is absent or
+malformed. The public market catalog does not expose authenticated user-created
+combo instruments, so genuine-combo behavior is TESTED against the official
+documented response shape rather than OBSERVED through a live combo request.
+The verified registry, lexical threshold, semantic comparison, strategy, and
+execution paths are unchanged.
+
+**Status:** ACTIVE. Public read-only discovery only.
+
+**Evidence:** official Polymarket US Markets and Combos API documentation;
+`docs/evidence/contract-discovery/polymarket-us-combo-classification-2026-09-11T231501Z.json`;
+pair-discovery regression tests.
 
 ## Documentation rule going forward
 

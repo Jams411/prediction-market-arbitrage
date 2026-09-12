@@ -17,6 +17,14 @@ class ComparisonClass(StrEnum):
     NOT_APPLICABLE = "NOT_APPLICABLE"
 
 
+class ComboClassification(StrEnum):
+    """Contract-level combo status derived from authoritative structure."""
+
+    ORDINARY_CONTRACT = "ORDINARY_CONTRACT"
+    CONFIRMED_COMBO = "CONFIRMED_COMBO"
+    UNKNOWN = "UNKNOWN"
+
+
 @dataclass(frozen=True, slots=True)
 class SemanticContract:
     """Small, auditable semantic profile derived from public market metadata.
@@ -164,6 +172,7 @@ class EnrichmentStats:
     parent_event_records_fetched: int
     parent_events_used: int
     parent_cache_reuses: int
+    ordinary_markets_retained: int
     combo_markets_filtered: int
     combo_metadata_unknown: int
     missing_parent_metadata: int

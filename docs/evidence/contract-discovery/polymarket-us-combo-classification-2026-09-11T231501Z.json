@@ -1,0 +1,81 @@
+{
+  "agent": "Codex",
+  "classification": "OBSERVED_PUBLIC_METADATA_AND_TESTED_CLASSIFIER",
+  "model": "GPT-5",
+  "observed_at": "2026-09-11T23:15:01Z",
+  "reviewer": "ChatGPT",
+  "validated_at": "2026-09-11T23:19:25Z",
+  "root_cause": {
+    "before": "comboEnabled=true caused unconditional exclusion before profile construction",
+    "confirmed_behavior": "ordinary base sports contracts can have comboEnabled=true",
+    "correction": "exclude only a caoc-prefixed instrument with 2-10 valid structured legs"
+  },
+  "sources": [
+    {
+      "evidence_status": "VERIFIED_PRIMARY_SOURCE_DOCUMENTATION",
+      "url": "https://docs.polymarket.us/api-reference/combos/overview"
+    },
+    {
+      "evidence_status": "VERIFIED_PRIMARY_SOURCE_DOCUMENTATION",
+      "url": "https://docs.polymarket.us/api-reference/market/overview"
+    },
+    {
+      "evidence_status": "OBSERVED_PUBLIC_METADATA",
+      "url": "https://gateway.polymarket.us/v1/market/id/381963"
+    },
+    {
+      "evidence_status": "OBSERVED_PUBLIC_METADATA",
+      "url": "https://gateway.polymarket.us/v1/market/id/730630"
+    },
+    {
+      "evidence_status": "OBSERVED_PUBLIC_METADATA",
+      "url": "https://gateway.polymarket.us/v1/market/id/382580"
+    }
+  ],
+  "samples": [
+    {
+      "after": "ORDINARY_CONTRACT_RETAINED_PROFILE_PRODUCED",
+      "before": "EXCLUDED_BY_COMBO_ENABLED",
+      "comboEnabled": true,
+      "id": "381963",
+      "marketType": "moneyline",
+      "slug": "aec-nfl-ari-lac-2026-09-13",
+      "sportsMarketType": "football_team_full_game_winner",
+      "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_MONEYLINE"
+    },
+    {
+      "after": "ORDINARY_CONTRACT_RETAINED_PROFILE_PRODUCED",
+      "before": "EXCLUDED_BY_COMBO_ENABLED",
+      "comboEnabled": true,
+      "id": "730630",
+      "marketType": "moneyline",
+      "slug": "aec-mlb-col-det-2026-09-11",
+      "sportsMarketType": "baseball_team_full_game_winner",
+      "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_MONEYLINE"
+    },
+    {
+      "after": "ORDINARY_CONTRACT_RETAINED_PROFILE_PRODUCED",
+      "before": "EXCLUDED_BY_COMBO_ENABLED",
+      "comboEnabled": true,
+      "id": "382580",
+      "marketType": "spreads",
+      "slug": "asc-nfl-ari-lac-2026-09-13-pos-13pt5",
+      "sportsMarketType": "football_team_full_game_spread",
+      "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_SPREAD"
+    }
+  ],
+  "combo_sample": {
+    "classification": "CONFIRMED_COMBO",
+    "evidence_status": "TESTED_FROM_OFFICIAL_DOCUMENTED_RESPONSE_SHAPE",
+    "live_observation": "NOT_PERFORMED_AUTHENTICATION_REQUIRED",
+    "required_structure": "caoc-prefixed identifier and 2-10 valid symbol/side legs"
+  },
+  "observation_counts": {
+    "combo_metadata_unknown": 0,
+    "confirmed_combo_excluded": 0,
+    "markets_inspected": 3,
+    "ordinary_markets_retained": 3,
+    "profiles_produced": 3
+  },
+  "safety": "Public metadata GETs only; no order books, authentication, accounts, registry writes, strategy, or execution"
+}
