@@ -2356,3 +2356,40 @@ no `LIVE_TRADING` change.
 - **Safety:** no order books, authenticated venue/account calls, registry writes,
   policy/code changes, arbitrage evaluation, paper/live execution, orders,
   production execution, real money, risk or Demo-cap changes.
+
+## 2026-09-12 — Policy v2 MLB totals exclusion and discovery checkpoint
+
+- **Agent:** Codex
+- **Model:** unknown
+- **Reviewer:** ChatGPT
+- **Prerequisite:** PR #55 verified at reviewed head, green CI and no GitHub
+  blocker; squash-merged as `164032a8983b78247d124f5907cc3eb772166125`.
+- **Implementation:** D-039, `sports-family-equivalence-v2`; exactly one new
+  KXMLBTOTAL/structured-MLB-full-game-total exclusion using PR #55 evidence.
+  Winner provenance and diagnostic meanings retained. No matcher, combo,
+  registry, strategy/execution or control changes.
+- **Validation:** 104 focused tests; ruff passed; mypy src/tests passed (147
+  files), additional observer check passed (148); 885 full tests and all
+  pre-commit hooks passed. Tests include false exclusions, provenance,
+  reconciliation, registry/strategy isolation and event-balanced scoring.
+- **Observation (OBSERVED):** 24 public event GETs, 18 Kalshi/6 Polymarket parents,
+  125/144 profiles. Nine ordinary MLB full-game totals survived combo filtering.
+  Excluded 270 MLB-total + 18 NFL-winner + 18 MLB-winner comparisons = 306.
+  Of 18,000 considered, 17,694 reached the lexical gate; 7,130 passed and were
+  semantically evaluated, 10,564 rejected. Top 20 retained; 2,630 passed pairs
+  share an evidenced game, but only 249 match the three research proposition
+  families. Broad lexical counts are not equivalence evidence.
+- **Remaining leads:** NFL full-game spreads 90 pairs/3 active event overlaps,
+  NFL full-game totals 90/3 active, MLB full-game spreads 69/3 closed. Research
+  scores 21/19/15 respectively; no child-count or price term. Shared spread
+  magnitude does not establish side orientation. Other categories unassessed.
+- **Checkpoint:** `CONTINUE_TARGETED_FAMILY_RESEARCH`. Three active NFL overlaps
+  justify one more bounded audit despite high exceptional-state risk and three
+  already incompatible families. No whole-universe or profitability conclusion.
+- **Exactly one next milestone:** primary-source NFL full-game spread audit,
+  first establishing exact event/line/orientation, then settlement semantics.
+  That audit was not started.
+- **Evidence:** `docs/evidence/contract-discovery/sports-family-policy-v2-reassessment-2026-09-12T031524Z.json`.
+- **Safety:** metadata only; no books/prices used, authentication, accounts,
+  registry writes, arbitrage evaluation, paper/live execution, orders, production
+  execution, real money, risk or Demo-cap changes. Five Demo changes preserved.

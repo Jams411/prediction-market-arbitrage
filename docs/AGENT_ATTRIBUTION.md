@@ -526,3 +526,25 @@ PROJECT_JOURNAL; base PR #54, `0170cd1b66b41b66bf2d97dd2dab95894d939e98`.
 **Safety:** historical attribution and five unrelated Demo changes preserved;
 no books, authenticated venue calls, account data, registry/strategy/execution,
 orders, production execution or real-money action.
+
+### Policy v2 MLB totals exclusion and discovery checkpoint — 2026-09-12
+
+**Implementer:** Codex
+**Model:** unknown
+**Reviewer:** ChatGPT
+**Scope:** one reviewed exclusion added under explicit v2; bounded public
+observation and event-balanced research reassessment, no new equivalence audit.
+**Validation:** 104 focused tests; ruff/mypy passed; 885 full tests and all
+pre-commit hooks passed. Registry/strategy isolation and child-count-independent
+research scoring tested.
+**Outcome:** OBSERVED nine ordinary MLB totals retained upstream, 270 new totals
+exclusions, 18+18 existing winner exclusions. Three research families remain;
+checkpoint CONTINUE_TARGETED_FAMILY_RESEARCH, recommending only NFL full-game
+spreads for the next primary-source audit.
+**Rework/defects:** local import/type issues corrected before full gate; no
+production test failure. ChatGPT review pending.
+**Evidence:** `docs/evidence/contract-discovery/sports-family-policy-v2-reassessment-2026-09-12T031524Z.json`; D-039;
+base PR #55, `164032a8983b78247d124f5907cc3eb772166125`.
+**Safety:** prior attribution and five Demo changes preserved; no books, prices
+used, authenticated venue calls, accounts, registry, strategy/execution, orders,
+production execution or real money.

@@ -62,26 +62,28 @@ metadata fields. Coarse agreement is diagnostic evidence only.
 
 ## Narrow sports-family policy
 
-`sports-family-equivalence-v1` applies after combo filtering and parent
-enrichment, before ordinary pair comparison. It contains exactly two
+`sports-family-equivalence-v2` applies after combo filtering and parent
+enrichment, before ordinary pair comparison. It contains exactly three
 `SYSTEMATICALLY_INCOMPATIBLE` relationships under
-`STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE`, based on the PR #51 family audit
-(evidence version 1, effective 2026-09-11):
+`STRICT_RISKLESS_CROSS_VENUE_EQUIVALENCE`, based on the PR #51 winner audit and PR #55 MLB totals audit
+(each evidence version 1; effective 2026-09-11 and 2026-09-12 respectively):
 
 | Kalshi parent `series_ticker` | Parent Polymarket league | Child `sportsMarketType` |
 | --- | --- | --- |
 | `KXNFLGAME` | `nfl` | `football_team_full_game_winner` |
 | `KXMLBGAME` | `mlb` | `baseball_team_full_game_winner` |
+| `KXMLBTOTAL` | `mlb` | `baseball_team_full_game_total` |
 
-Both require child `marketType=moneyline` and
-`sportsMarketTypeV2=SPORTS_MARKET_TYPE_MONEYLINE`. Parent top-level
+Winner entries require child `marketType=moneyline` and
+`sportsMarketTypeV2=SPORTS_MARKET_TYPE_MONEYLINE`. The MLB total entry requires
+`marketType=totals` and `sportsMarketTypeV2=SPORTS_MARKET_TYPE_TOTAL`. Parent top-level
 `tags[].league.name` and `.slug` must agree case-insensitively on exactly one
 league. Any supplied `marketSides[].team.league` must agree. Nested navigation
 subtags, titles, slug prefixes, and `series_or_league` heuristics do not identify
 the family. Missing/ambiguous parents or incomplete/conflicting family fields
 retain candidates. The policy inputs are separate from semantic field meanings.
 
-Spreads, totals, props, partial games, futures, championships, awards, other
+Spreads, other totals, props, partial games, futures, championships, awards, other
 sports and non-sports retain their existing discovery behavior. These exclusions
 are internal triage decisions, never registry verification or strategy changes.
 
@@ -130,3 +132,31 @@ written to `registry/data/market_pairs.toml`. Only a human-authored registry
 record that satisfies the full checklist in `docs/MARKET_PAIRING.md` can become
 strategy-eligible. Discovery output must never be passed to arbitrage or
 execution code as a substitute for that gate.
+
+## Policy v2 observation and bounded reassessment
+
+```bash
+.venv/bin/python scripts/reassess_discovery_families.py
+```
+
+This makes 24 public metadata GETs for six evidenced NFL/MLB games and their
+winner/spread/total parents. It requires a nonzero MLB-full-game-total exclusion
+count and reports all three exclusions separately. Existing `nfl_exclusions`
+and `mlb_exclusions` remain winner-only counts; `mlb_total_exclusions` is new.
+The reconciled lexical/semantic counting boundaries remain unchanged.
+
+Version v2 adds exactly the reviewed MLB total relationship. Winner entries
+retain their original provenance, dates and evidence versions. Historical v1
+artifacts retain their meaning; rule changes require another explicit reviewed
+version rather than rewriting old evidence.
+
+Research aggregation counts all threshold-passed relationships, distinguishes
+known same-event overlaps and exact proposition families, and caps each event's
+contribution to the priority score. Spread line magnitude is only a research
+lead: side orientation and settlement equivalence remain unverified. This score
+is separate from discovery's unchanged verification-priority weights.
+
+The six-game sample is deliberately targeted. Other sports, futures, politics
+and company/IPO contracts are unassessed, not demonstrated absent. Generic
+lexical pairs between different propositions remain review noise. No price,
+book, profitability, arbitrage-engine or execution analysis is performed.

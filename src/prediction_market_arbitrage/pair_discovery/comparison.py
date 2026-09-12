@@ -221,7 +221,7 @@ def diagnose_candidates(
     polymarket = tuple(_prepare(item) for item in polymarket_us_contracts)
     passed = 0
     rejected = 0
-    family_counts = {"nfl": 0, "mlb": 0}
+    family_counts = {"KXNFLGAME": 0, "KXMLBGAME": 0, "KXMLBTOTAL": 0}
     passed_examples: list[CandidatePair] = []
     near_misses: list[RejectedNearMiss] = []
 
@@ -229,7 +229,7 @@ def diagnose_candidates(
         for right in polymarket:
             exclusion = family_exclusion(left.contract, right.contract)
             if exclusion is not None:
-                family_counts[exclusion.polymarket_league] += 1
+                family_counts[exclusion.kalshi_series] += 1
                 continue
             signal = _token_signal(left.tokens, right.tokens)
             if signal >= minimum_lexical_signal:
@@ -254,8 +254,9 @@ def diagnose_candidates(
     considered = passed + rejected + sum(family_counts.values())
     return DiscoveryDiagnostics(
         considered=considered,
-        nfl_family_excluded=family_counts["nfl"],
-        mlb_family_excluded=family_counts["mlb"],
+        nfl_family_excluded=family_counts["KXNFLGAME"],
+        mlb_family_excluded=family_counts["KXMLBGAME"],
+        mlb_totals_family_excluded=family_counts["KXMLBTOTAL"],
         passed=passed,
         rejected=rejected,
         threshold=minimum_lexical_signal,
