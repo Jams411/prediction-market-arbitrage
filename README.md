@@ -24,15 +24,15 @@ deterministic profit primitive.
 
 The relative-value path remains advisory. A CPI higher-threshold YES bid versus
 lower-threshold YES ask detector was validated on recorded Kalshi-shaped
-metadata and replayed snapshots. A final public study of \`KXCPI-26SEP\` ran 10
+metadata and replayed snapshots. A final public study of KXCPI-26SEP ran 10
 observations across 10 adjacent relationships (100 relationship-observations):
 zero raw inconsistencies and zero signals after modeled costs. The final result
-is \`WEAK_EDGE_REASSESS\`, so strategy development is stopped.
+is WEAK_EDGE_REASSESS, so strategy development is stopped.
 
 ## Evidence and reproducibility
 
 Canonical rules audits and observation artifacts are under
-\`docs/evidence/contract-discovery/\`. The CPI replay snapshot and final
+docs/evidence/contract-discovery/. The CPI replay snapshot and final
 frequency-study JSON can be replayed offline with the research package. Tests
 use synthetic or recorded fixtures only; Decimal arithmetic, freshness, skew,
 provenance, settlement limitations, modeled fees, and displayed depth remain
@@ -43,13 +43,13 @@ explicit in the data.
 The evidence does not establish profitable execution. Exceptional settlement,
 revisions, fair-value decisions, liquidity, slippage, fees, leg risk, and
 market equivalence retain limitations recorded in the evidence and assumptions.
-Research costs are labeled \`MODELED/ASSUMED\`; they are not venue fee claims.
+Research costs are labeled MODELED/ASSUMED; they are not venue fee claims.
 
 Authentication, account access, orders, cancels, execution, registry approval,
-risk-control changes, Demo-cap changes, and \`LIVE_TRADING\` are outside this
+risk-control changes, Demo-cap changes, and LIVE_TRADING are outside this
 project state. No real-money action is performed or enabled by this repository.
 
-See \`docs/ROADMAP.md\`, \`docs/ARCHITECTURE.md\`, \`docs/API_SOURCES.md\`,
-\`docs/ASSUMPTIONS.md\`, \`docs/DECISIONS.md\`, \`docs/RISK_CONTROLS.md\`,
-\`docs/TEST_PLAN.md\`, and \`docs/PROJECT_JOURNAL.md\` for implementation detail
+See docs/ROADMAP.md, docs/ARCHITECTURE.md, docs/API_SOURCES.md,
+docs/ASSUMPTIONS.md, docs/DECISIONS.md, docs/RISK_CONTROLS.md,
+docs/TEST_PLAN.md, and docs/PROJECT_JOURNAL.md for implementation detail
 and source status.
