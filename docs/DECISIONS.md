@@ -1870,3 +1870,19 @@ not a new exclusion or an equivalence approval.
 For every material architectural, trading, risk, testing, or data-model decision, record the decision here before or alongside implementation. The entry should be understandable to someone reviewing the repository months later without access to the original ChatGPT or Claude conversation.
 
 When a decision changes, do not silently rewrite history. Mark the old decision as superseded and add a new decision explaining why the project changed direction.
+
+### D-040 — Proposed advisory relative-value research path
+
+**Date:** 2026-09-12
+**Status:** First offline models/detector/test slice approved and implemented locally on
+2026-09-12. Later integration phases remain proposed; no execution authorization.
+
+Recommend a separate immutable research result and pure CPI threshold quote-ordering
+detector using existing normalized books. Preserve strict OpportunityEvaluation,
+VERIFIED registry checks, complete-set boundaries and all risk/execution behavior.
+The initial signal is an ordinary-state logical discrepancy with explicit unresolved
+settlement risk, not a guaranteed profit. Avoid a generic framework or DB migration.
+Trade-off: a small separate result prevents misleading strict-arbitrage semantics;
+shared presentation and cost estimation can follow only when needed and validated.
+First coding slice: offline models/detector/synthetic tests only, separately authorized.
+Architecture recommendation: `docs/evidence/contract-discovery/relative-value-pivot-design-local-2026-09-12.md`.

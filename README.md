@@ -1,32 +1,55 @@
-# Prediction Market Arbitrage
+# Prediction Market Arbitrage Research
 
-Evidence-driven cross-venue prediction-market arbitrage research, paper execution, and risk system.
+This repository is an evidence-driven, read-only research project for testing
+whether prediction-market contracts support deterministic arbitrage or useful
+relative-value signals. It does not authorize or perform trading.
 
-## Project status
+## Architecture
 
-**Milestone 0 — Foundation**
+Venue adapters normalize public market metadata and books into venue-neutral
+domain models. The strict-arbitrage engine evaluates only manually verified
+cross-venue pairs and remains separate from the advisory research package.
+Research uses authoritative contract metadata to derive CPI nested-threshold
+relationships, then runs a pure logical detector, snapshot record/replay,
+fee/liquidity scoring, and bounded persistence analysis.
 
-Live trading is disabled. This repository is private during development and testing.
+## Research scope and findings
 
-## Source of truth
+Kalshi and Polymarket public rules, metadata, and selected historical evidence
+were audited. Cross-venue sports families examined were rejected where
+settlement, expiration, continuation, or forfeit rules diverged. Kalshi MECNET
+and weather-basket evidence established collateral/netting behavior without
+proving normalized aggregate settlement. Same-contract YES/NO offset was not a
+deterministic profit primitive.
 
-Repository documentation and tested code are authoritative. If ChatGPT, Claude, Notion, memory, or any external note conflicts with the repository, the repository wins unless a verified change is committed.
+The relative-value path remains advisory. A CPI higher-threshold YES bid versus
+lower-threshold YES ask detector was validated on recorded Kalshi-shaped
+metadata and replayed snapshots. A final public study of \`KXCPI-26SEP\` ran 10
+observations across 10 adjacent relationships (100 relationship-observations):
+zero raw inconsistencies and zero signals after modeled costs. The final result
+is \`WEAK_EDGE_REASSESS\`, so strategy development is stopped.
 
-See:
+## Evidence and reproducibility
 
-- `docs/ROADMAP.md`
-- `docs/ARCHITECTURE.md`
-- `docs/API_SOURCES.md`
-- `docs/ASSUMPTIONS.md`
-- `docs/DECISIONS.md`
-- `docs/RISK_CONTROLS.md`
-- `docs/TEST_PLAN.md`
-- `docs/PROJECT_JOURNAL.md`
+Canonical rules audits and observation artifacts are under
+\`docs/evidence/contract-discovery/\`. The CPI replay snapshot and final
+frequency-study JSON can be replayed offline with the research package. Tests
+use synthetic or recorded fixtures only; Decimal arithmetic, freshness, skew,
+provenance, settlement limitations, modeled fees, and displayed depth remain
+explicit in the data.
 
-## Development principle
+## Limitations and safety
 
-External APIs and third-party repositories are treated as untrusted boundaries until behavior is verified against official documentation, observed responses, or deterministic tests.
+The evidence does not establish profitable execution. Exceptional settlement,
+revisions, fair-value decisions, liquidity, slippage, fees, leg risk, and
+market equivalence retain limitations recorded in the evidence and assumptions.
+Research costs are labeled \`MODELED/ASSUMED\`; they are not venue fee claims.
 
-## Safety
+Authentication, account access, orders, cancels, execution, registry approval,
+risk-control changes, Demo-cap changes, and \`LIVE_TRADING\` are outside this
+project state. No real-money action is performed or enabled by this repository.
 
-No credentials, private keys, wallet secrets, account identifiers, or production configuration should ever be committed to this repository.
+See \`docs/ROADMAP.md\`, \`docs/ARCHITECTURE.md\`, \`docs/API_SOURCES.md\`,
+\`docs/ASSUMPTIONS.md\`, \`docs/DECISIONS.md\`, \`docs/RISK_CONTROLS.md\`,
+\`docs/TEST_PLAN.md\`, and \`docs/PROJECT_JOURNAL.md\` for implementation detail
+and source status.

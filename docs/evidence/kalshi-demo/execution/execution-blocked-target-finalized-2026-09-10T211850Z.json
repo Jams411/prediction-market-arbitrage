@@ -1,0 +1,41 @@
+{
+  "evidence_status": "OBSERVED",
+  "observed_at_utc": "2026-09-10T21:18:50.784404+00:00",
+  "environment": "Kalshi Demo",
+  "mode": "exact-target public pre-submit revalidation",
+  "target": "KXUCLSPREAD-26SEP10BMUBOG-BMU5",
+  "returned_ticker": "KXUCLSPREAD-26SEP10BMUBOG-BMU5",
+  "identity_matched": true,
+  "market_status": "finalized",
+  "exchange_index": 0,
+  "yes_book": {
+    "best_bid": null,
+    "best_ask": null,
+    "bid_levels": 0,
+    "ask_levels": 0,
+    "available_size_at_best_ask": null,
+    "two_sided": false
+  },
+  "eligibility": {
+    "max_price": "0.60",
+    "eligible": false,
+    "reason": "book not two-sided; no best ask"
+  },
+  "execution": {
+    "result": "BLOCKED before authenticated execution",
+    "position_check_run": false,
+    "duplicate_check_run": false,
+    "risk_check_run": false,
+    "create_attempt_count": 0,
+    "order_created": false
+  },
+  "safety": {
+    "credentials_loaded": false,
+    "authenticated_calls": false,
+    "orders_submitted": false,
+    "orders_cancelled": false,
+    "production_access": false,
+    "live_trading_enabled": false,
+    "replacement_market_selected": false
+  }
+}
