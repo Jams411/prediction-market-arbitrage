@@ -1,0 +1,531 @@
+{
+  "agent": "Codex",
+  "base_main_sha": "dfb7d3e7d1dafe91847180b64c691da2149b3728",
+  "contracts": {
+    "kalshi": {
+      "close_time": "2026-09-12T01:29:51Z",
+      "event_ticker": "KXMLBTOTAL-26SEP111840COLDET",
+      "expiration_time": "2026-09-14T22:40:00Z",
+      "floor_strike": "7.5",
+      "market_type": "binary",
+      "no_sub_title": "Over 7.5 runs scored",
+      "settlement_ts": "2026-09-12T01:31:58.40341Z",
+      "status": "finalized",
+      "strike_type": "greater",
+      "ticker": "KXMLBTOTAL-26SEP111840COLDET-8",
+      "yes_sub_title": "Over 7.5 runs scored"
+    },
+    "polymarket_us": {
+      "closed": true,
+      "endDate": "2026-09-11T21:23:33Z",
+      "gameStartTime": "2026-09-11T22:40:00Z",
+      "id": "784676",
+      "line": "7.5",
+      "marketType": "totals",
+      "slug": "tsc-mlb-col-det-2026-09-11-7pt5",
+      "sportsMarketType": "baseball_team_full_game_total",
+      "sportsMarketTypeV2": "SPORTS_MARKET_TYPE_TOTAL"
+    }
+  },
+  "event": {
+    "identity_basis": "Explicit teams and original scheduled time agree across both target descriptions; MLB supported by Kalshi settlement source and Polymarket structured league/team fields. No shared cross-venue provider ID was supplied by Kalshi.",
+    "kalshi_event": "KXMLBTOTAL-26SEP111840COLDET",
+    "kalshi_occurrence_datetime": "2026-09-12T01:40:00Z",
+    "kalshi_series": "KXMLBTOTAL",
+    "league": "MLB",
+    "occurrence_caveat": "Kalshi occurrence_datetime is 3 hours after rule-specified start; it is not used as the scheduled-start identity key.",
+    "polymarket_event": "mlb-col-det-2026-09-11",
+    "polymarket_game_id": 10079496,
+    "polymarket_sportradar_game_id": "53f3e1fd-a597-4b94-a598-e32918221167",
+    "scheduled_time_kalshi_rule": "2026-09-11 18:40 EDT",
+    "scheduled_time_utc": "2026-09-11T22:40:00Z",
+    "selection_decision": "Retain requested COL-DET as a valid historical contract-semantics specimen, not an actionable current trading candidate. No substitution or second-game audit.",
+    "status": "Kalshi selected child finalized; Polymarket selected child closed and parent ended.",
+    "teams": [
+      "Colorado Rockies",
+      "Detroit Tigers"
+    ]
+  },
+  "evidence_status": {
+    "comparison_and_final_classification": "DERIVED",
+    "metadata": "OBSERVED",
+    "official_rule_contents": "VERIFIED_PRIMARY_SOURCE",
+    "pair_registry_status": "NOT_VERIFIED"
+  },
+  "family_vs_target": {
+    "assessment": "LIKELY_FAMILY_WIDE",
+    "basis": "KXMLBTOTAL links a separate BASEBALLTOTALS contract with its own 48-hour completion and pre-first-pitch forfeit rules; the Polymarket exact total uses two weeks, and official General/MLB guidance explicitly covers totals. No conclusion was copied from moneyline rules.",
+    "limit": "One event only; do not label all MLB totals systematically incompatible or encode an exclusion yet.",
+    "recommendation": "Separate MLB full-game totals family audit across representative targets and authoritative rule precedence, retaining the observed metadata inconsistencies.",
+    "target_overrides": "Target Polymarket description explicitly governs over 7.5, extra innings, official shortened results and two-week rescheduling. No Kalshi child exception to linked completion terms found. Timestamp/subtitle inconsistencies remain target metadata unknowns."
+  },
+  "final_classification": "REJECTED",
+  "material_mismatches": [
+    "suspended_game",
+    "resumed_game",
+    "postponement",
+    "rescheduling",
+    "nominal_expiration_horizon",
+    "fair_market_settlement",
+    "pre_first_pitch_forfeit",
+    "guaranteed_complementarity_all_material_states"
+  ],
+  "material_unknowns": [
+    "mercy_rule_applicability",
+    "cancellation_no_contest",
+    "official_stat_corrections",
+    "fallback_source_hierarchy",
+    "exact_close_expiration",
+    "settlement_timing",
+    "void_refund",
+    "replay_protest"
+  ],
+  "metadata_anomalies": [
+    "Kalshi yes_sub_title and no_sub_title both say Over 7.5; NO orientation comes from binary payout definition, not duplicated subtitle.",
+    "Polymarket endDate=2026-09-11T21:23:33Z precedes 22:40 scheduled start and cannot establish a two-week expiration timestamp.",
+    "Kalshi terms say expiration time 10 AM ET while current child expiration_time is 2026-09-14T22:40:00Z; precedence/field semantics unresolved."
+  ],
+  "model": "unknown",
+  "new_exclusion_encoded": false,
+  "payoff_mapping": {
+    "basis": "DERIVED from exact rules and official binary payout definitions, not sportsbook convention.",
+    "exceptional_state_counterexample": "Hypothetical suspension with total still below 7.5 and no official final result; resume 72 hours after original start, finish above 7.5 within two weeks. Kalshi can settle at pre-suspension fair price q under its cutoff; Polymarket can settle Over=1/Under=0. Kalshi YES + Polymarket Under therefore pays q, not guaranteed 1. This is a rule-derived counterexample, not an observed event or price.",
+    "ordinary_complementary_pairs": [
+      "Kalshi YES + Polymarket Under",
+      "Kalshi NO + Polymarket Over"
+    ],
+    "ordinary_equivalent_positions": [
+      "Kalshi YES <=> Polymarket Over (long=true)",
+      "Kalshi NO <=> Polymarket Under (long=false)"
+    ],
+    "ordinary_payout_table": [
+      {
+        "combined_integer_runs": "0 through 7",
+        "kalshi_no": "1",
+        "kalshi_yes": "0",
+        "polymarket_over": "0",
+        "polymarket_under": "1"
+      },
+      {
+        "combined_integer_runs": "8 or more",
+        "kalshi_no": "0",
+        "kalshi_yes": "1",
+        "polymarket_over": "1",
+        "polymarket_under": "0"
+      }
+    ],
+    "push": "Impossible at 7.5 integer runs; exact push payout NOT_APPLICABLE.",
+    "unit": "USD per one outcome contract, ordinary final-score determination only"
+  },
+  "polymarket_sides": [
+    {
+      "description": "Over",
+      "id": "1568840",
+      "identifier": "tsc-mlb-col-det-2026-09-11-7pt5",
+      "long": true
+    },
+    {
+      "description": "Under",
+      "id": "1568841",
+      "identifier": "tsc-mlb-col-det-2026-09-11-7pt5",
+      "long": false
+    }
+  ],
+  "prerequisite": "PR #53 exact reviewed head verified, CI passed, no GitHub blocker, squash merged.",
+  "prior_context": "docs/evidence/contract-discovery/sports-contract-family-equivalence-audit-2026-09-11T220824Z.json (context only; not a substitute for totals sources)",
+  "recorded_at": "2026-09-12T01:55:18.716309+00:00",
+  "registry_modified": false,
+  "reviewer": "ChatGPT",
+  "safety": {
+    "accounts_balances_positions_fills": false,
+    "arbitrage_evaluation": false,
+    "authenticated_venue_calls": false,
+    "order_books_fetched": false,
+    "orders_cancels": false,
+    "paper_live_execution": false,
+    "policy_or_code_changes": false,
+    "production_execution_real_money": false,
+    "public_metadata_and_rules_only": true,
+    "registry_writes": false
+  },
+  "schema_version": 1,
+  "scope": "One COL-DET full-game total target, public read-only primary-source equivalence audit.",
+  "selection": {
+    "common_full_game_lines": [
+      "7.5",
+      "8.5",
+      "9.5"
+    ],
+    "comparison_scope": "Only 7.5 audited; 8.5 and 9.5 noted as overlapping lines, not audited.",
+    "kalshi_children_inspected": 11,
+    "polymarket_children_inspected": 445,
+    "selected_line": "7.5"
+  },
+  "semantic_matrix": [
+    {
+      "classification": "MATCH",
+      "field": "underlying_MLB_game",
+      "kalshi": "Colorado vs Detroit, 2026-09-11 18:40 EDT, KXMLBTOTAL parent.",
+      "polymarket_us": "Colorado Rockies vs Detroit Tigers, 2026-09-11 22:40 UTC, MLB league and teams.",
+      "sources": [
+        "K_EVENT",
+        "P_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "full_game_period",
+      "kalshi": "Unspecified period defaults to full game in totals terms.",
+      "polymarket_us": "baseball_team_full_game_total; not baseball_team_first_five_total.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "combined_run_definition",
+      "kalshi": "Both teams combined.",
+      "polymarket_us": "Both teams combined.",
+      "sources": [
+        "K_TERMS",
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "threshold",
+      "kalshi": "floor_strike=7.5; strike_type=greater.",
+      "polymarket_us": "line=7.5; question and description specify over.",
+      "sources": [
+        "K_EVENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "outcome_orientation",
+      "kalshi": "YES for >7.5; NO is its binary complement. Duplicated no_sub_title is not used.",
+      "polymarket_us": "Over long=true; Under long=false.",
+      "sources": [
+        "K_EVENT",
+        "K_BINARY",
+        "K_COMPLEMENT",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "strict_vs_inclusive",
+      "kalshi": ">7.5 (therefore >=8 integer runs); NO <=7.5.",
+      "polymarket_us": ">7.5; Under <=7 integer runs.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "extra_innings",
+      "kalshi": "Counted, including automatic-runner scoring.",
+      "polymarket_us": "Included explicitly by target description.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "shortened_official_game_with_winner",
+      "kalshi": "Official result governs full-game totals when governing body records a winner.",
+      "polymarket_us": "Official final result governs shortened game.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "mercy_rule_applicability",
+      "kalshi": "Terms include mercy endings and minimum innings.",
+      "polymarket_us": "No target-specific MLB mercy condition established.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "suspended_game",
+      "kalshi": "48 hours from original scheduled start; exception for unequivocally determined outcome.",
+      "polymarket_us": "Target provides two-week rescheduling window.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "resumed_game",
+      "kalshi": "Resume within 48 hours or use pre-suspension fair price, subject to determined-outcome exception.",
+      "polymarket_us": "Target allows rescheduling within two weeks.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "postponement",
+      "kalshi": "48-hour completion-rule cutoff.",
+      "polymarket_us": "Two-week target window.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "rescheduling",
+      "kalshi": "Actual resumption cutoff from original scheduled start.",
+      "polymarket_us": "Date-to-which-rescheduled condition within two weeks.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "cancellation_no_contest",
+      "kalshi": "Totals document does not fully define every no-contest/cancellation case; Rule 7.1 contingencies remain.",
+      "polymarket_us": "Cancellation/no-contest can settle at announcement-time LFMP.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "official_stat_corrections",
+      "kalshi": "In-game changes count; post-expiration revisions excluded.",
+      "polymarket_us": "Review delays settlement; matching correction cutoff not established.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "governing_result_source",
+      "kalshi": "MLB, confirmed by parent/series sources.",
+      "polymarket_us": "MLB, confirmed by exact target.",
+      "sources": [
+        "K_EVENT",
+        "K_SERIES",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "fallback_source_hierarchy",
+      "kalshi": "Totals terms name governing league and Rule 7.1; no matching fallback hierarchy established.",
+      "polymarket_us": "Governing-body records precede tertiary media sources.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "nominal_expiration_horizon",
+      "kalshi": "Totals terms: latest expiration three days after original date.",
+      "polymarket_us": "Target continuation language permits two weeks.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "exact_close_expiration",
+      "kalshi": "Observed early close and later expiration metadata; terms specify 10 AM ET, metadata uses 22:40 UTC.",
+      "polymarket_us": "endDate precedes scheduled start; cannot validate exact contractual deadline from that field.",
+      "sources": [
+        "K_EVENT",
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "settlement_timing",
+      "kalshi": "By day after expiration, subject to review; exact selected settlement timestamp observed.",
+      "polymarket_us": "Equivalent deadline not established.",
+      "sources": [
+        "K_TERMS",
+        "K_EVENT",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "NOT_APPLICABLE",
+      "field": "push_possibility",
+      "kalshi": "Integer run count cannot equal 7.5.",
+      "polymarket_us": "Same half-run line avoids equality.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "NOT_APPLICABLE",
+      "field": "push_payout",
+      "kalshi": "No reachable equality/push state for selected line; no push payout asserted.",
+      "polymarket_us": "No reachable equality/push state for selected line.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "void_refund",
+      "kalshi": "No universal void/refund mapping established beyond specified LFMP and contingencies.",
+      "polymarket_us": "No matching universal refund treatment established.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "fair_market_settlement",
+      "kalshi": "Completion rule uses price before suspension, determined by Exchange.",
+      "polymarket_us": "Specified announcement-time LFMP; target also invokes LFMP after two-week condition.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "pre_first_pitch_forfeit",
+      "kalshi": "LFMP instead of official forfeit score.",
+      "polymarket_us": "General Total rule uses official forfeit score without a pre-first-pitch exception.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "post_first_pitch_full_game_forfeit",
+      "kalshi": "Officially declared forfeit score governs full-game totals.",
+      "polymarket_us": "Official forfeit score governs totals.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "UNKNOWN",
+      "field": "replay_protest",
+      "kalshi": "Target-equivalent replay treatment not established.",
+      "polymarket_us": "Replay before expiration governs.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "venue_change",
+      "kalshi": "Game remains valid after venue change.",
+      "polymarket_us": "Venue change preserves markets.",
+      "sources": [
+        "K_TERMS",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MATCH",
+      "field": "ordinary_outcome_space",
+      "kalshi": "For a common official integer total, YES/NO exhaust >=8 versus <=7.",
+      "polymarket_us": "Over/Under exhaust the same ordinary outcomes.",
+      "sources": [
+        "K_EVENT",
+        "K_BINARY",
+        "P_MARKET",
+        "P_RULES"
+      ]
+    },
+    {
+      "classification": "MISMATCH",
+      "field": "guaranteed_complementarity_all_material_states",
+      "kalshi": "48-hour/LFMP and forfeit conditions can differ from the other leg.",
+      "polymarket_us": "Ordinary-score complementarity does not remove exceptional-state divergence.",
+      "sources": [
+        "K_TERMS",
+        "P_MARKET",
+        "P_RULES"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "evidence_status": "OBSERVED",
+      "id": "K_EVENT",
+      "kind": "exact parent and child metadata",
+      "url": "https://external-api.kalshi.com/trade-api/v2/events/KXMLBTOTAL-26SEP111840COLDET?with_nested_markets=true"
+    },
+    {
+      "evidence_status": "OBSERVED",
+      "id": "K_SERIES",
+      "kind": "series metadata linking totals-specific terms",
+      "url": "https://external-api.kalshi.com/trade-api/v2/series/KXMLBTOTAL"
+    },
+    {
+      "evidence_status": "VERIFIED_PRIMARY_SOURCE",
+      "id": "K_TERMS",
+      "kind": "official totals terms, pages 1-2 visually inspected",
+      "sha256": "772c802f40ad2fbd3f9527cc915130c2315b111ff3e942c2ced9ab9604fb3fe5",
+      "url": "https://assets.kalshi.com/contract_terms/BASEBALLTOTALS.pdf"
+    },
+    {
+      "evidence_status": "VERIFIED_PRIMARY_SOURCE",
+      "id": "K_BINARY",
+      "kind": "official binary settlement definition",
+      "url": "https://docs.kalshi.com/getting_started/market_settlement"
+    },
+    {
+      "evidence_status": "VERIFIED_PRIMARY_SOURCE",
+      "id": "K_COMPLEMENT",
+      "kind": "official YES/NO complement explanation",
+      "url": "https://help.kalshi.com/en/articles/13823806-buying-yes-vs-selling-no"
+    },
+    {
+      "evidence_status": "OBSERVED",
+      "id": "P_EVENT",
+      "kind": "exact parent, league, participants and nested contracts",
+      "url": "https://gateway.polymarket.us/v1/events/slug/mlb-col-det-2026-09-11"
+    },
+    {
+      "evidence_status": "OBSERVED",
+      "id": "P_MARKET",
+      "kind": "independent exact full-game total metadata",
+      "url": "https://gateway.polymarket.us/v1/market/id/784676"
+    },
+    {
+      "evidence_status": "VERIFIED_PRIMARY_SOURCE",
+      "id": "P_RULES",
+      "kind": "official General Rules and Baseball (MLB), explicitly including Total contracts",
+      "url": "https://docs.polymarket.us/faqs/sports-faqs"
+    }
+  ]
+}
