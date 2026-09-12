@@ -52,4 +52,5 @@ project state. No real-money action is performed or enabled by this repository.
 See docs/ROADMAP.md, docs/ARCHITECTURE.md, docs/API_SOURCES.md,
 docs/ASSUMPTIONS.md, docs/DECISIONS.md, docs/RISK_CONTROLS.md,
 docs/TEST_PLAN.md, and docs/PROJECT_JOURNAL.md for implementation detail
-and source status.
+and source status. See [Portfolio and interview learning outcomes](docs/PORTFOLIO_LEARNING_OUTCOMES.md)
+for a concise project explanation, resume-safe bullets, and interview guide.
